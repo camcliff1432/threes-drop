@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Threes-Drop</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      width: 100%;
+      max-width: 400px;
+      height: 100vh;
+      max-height: 700px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    canvas {
+      display: block;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Phaser 3 from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+
+  <!-- Game scripts in dependency order -->
+  <script src="BoardLogic.js"></script>
+  <script src="Tile.js"></script>
+  <script src="GameScene.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

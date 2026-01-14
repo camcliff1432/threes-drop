@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Threes-Drop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      width: 100%;
+      max-width: 400px;
+      height: 100vh;
+      max-height: 700px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    canvas { display: block; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+
+  <script>
+    // BoardLogic - vanilla JS class
+    class BoardLogic {
+      constructor() {
+        this.COLS = 4;
+        this.ROWS = 6;
+        this.board = this.createEmptyBoard();
+        this.mergeCount = 0;
+        this.nextTileId = 1;
+        this.score = 0;
+      }
+
+      createEmptyBoard() {
+        const board = [];
+        for (let col = 0; col < this.COLS; col++) {
+          board[col] = [];
+          for (let row = 0; row < this.ROWS; row++) {
+            board[col][row] = null;
+          }
+        }
+        return board;
+      }
+
+      getLowestEmptyRow(col) {
+        for (let row = this.ROWS - 1; row >= 0; row--) {
+          if (this.board[col][row] === null) return row;
+        }
+        return -1;
+      }
+
+      canMerge(value1, value2) {
+        if (value1 === null || value2 === null) return false;
+        if ((value1 === 1 && value2 === 2) || (value1 === 2 && value2 === 1)) return true;
+        if (value1 === value2 && value1 >= 3) return true;
+        return false;
+      }
+
+      getMergedValue(value1, value2) {
+        if ((value1 === 1 && value2 === 2) || (value1 === 2 && value2 === 1)) return 3;
+        return value1 + value2;
+      }
+
+      dropTile(col, value) {
+        if (col < 0 || col >= this.COLS) {
+          return { success: false, reason: 'Invalid column' };
+        }
+
+        const targetRow = this.getLowestEmptyRow(col);
+        if (targetRow === -1) {
+          return { success: false, reason: 'Column is full' };
+        }
+
+        const belowRow = targetRow + 1;
+        let merged = false;
+        let finalValue = value;
+        let finalRow = targetRow;
+        let mergedRow = null;
+
+        if (belowRow < this.ROWS && this.board[col][belowRow] !== null) {
+          const belowValue = this.board[col][belowRow];
+          if (this.canMerge(value, belowValue)) {
+            finalValue = this.getMergedValue(value, belowValue);
+            finalRow = belowRow;
+            mergedRow = belowRow;
+            merged = true;
+            this.board[col][belowRow] = null;
+            this.mergeCount++;
+          }
+        }
+
+        this.board[col][finalRow] = finalValue;
+
+        return {
+          success: true,
+          row: targetRow,
+          finalRow: finalRow,
+          finalValue: finalValue,
+          merged: merged,
+          mergedRow: mergedRow,
+          tileId: this.nextTileId++
+        };
+      }
+
+      getRandomTileValue() {
+        // Base probabilities (always available)
+        // 1: 45%, 2: 45%, 3: 10% at start
+
+        // Score thresholds for unlocking higher tiles
+        const unlockThresholds = {
+          6: 50,      // Unlock 6 at score 50
+          12: 150,    // Unlock 12 at score 150
+          24: 400,    // Unlock 24 at score 400
+          48: 1000,   // Unlock 48 at score 1000
+          96: 2500    // Unlock 96 at score 2500
+        };
+
+        // Build available tiles based on score
+        const availableTiles = [];
+
+        // Always available: 1, 2, 3
+        availableTiles.push(
+          { value: 1, weight: 45 },
+          { value: 2, weight: 45 },
+          { value: 3, weight: 8 }
+        );
+
+        // Add higher tiles if unlocked, with increasing weight based on how far past threshold
+        let totalHigherWeight = 0;
+        for (const [value, threshold] of Object.entries(unlockThresholds)) {
+          if (this.score >= threshold) {
+            const scoreOverThreshold = this.score - threshold;
+            // Weight increases slightly with score, but caps at 2% per tile
+            const weight = Math.min(0.5 + (scoreOverThreshold / 1000), 2);
+            availableTiles.push({ value: parseInt(value), weight: weight });
+            totalHigherWeight += weight;
+          }
+        }
+
+        // Adjust base tile weights to maintain balance
+        // Reduce 1s and 2s slightly as higher tiles unlock
+        const reductionFactor = Math.max(0.7, 1 - (totalHigherWeight / 100));
+        availableTiles[0].weight *= reductionFactor; // 1
+        availableTiles[1].weight *= reductionFactor; // 2
+
+        // Calculate total weight
+        const totalWeight = availableTiles.reduce((sum, tile) => sum + tile.weight, 0);
+
+        // Select random tile based on weights
+        const rand = Math.random() * totalWeight;
+        let cumulative = 0;
+
+        for (const tile of availableTiles) {
+          cumulative += tile.weight;
+          if (rand < cumulative) {
+            return tile.value;
+          }
+        }
+
+        // Fallback (should never reach here)
+        return 1;
+      }
+
+      isBoardFull() {
+        for (let col = 0; col < this.COLS; col++) {
+          if (this.board[col][0] === null) return false;
+        }
+        return true;
+      }
+
+      getMergeCount() {
+        return this.mergeCount;
+      }
+
+      resetMergeCount() {
+        this.mergeCount = 0;
+      }
+
+      subtractMergeCount(amount) {
+        this.mergeCount = Math.max(0, this.mergeCount - amount);
+      }
+
+      addScore(value) {
+        this.score += value;
+      }
+
+      getScore() {
+        return this.score;
+      }
+
+      shiftBoard(direction) {
+        const operations = [];
+        const newBoard = this.createEmptyBoard();
+
+        console.log('=== SHIFT BOARD START ===');
+        console.log('Direction:', direction);
+        console.log('Board before shift:', JSON.parse(JSON.stringify(this.board)));
+
+        // Create a snapshot of current positions for operations tracking
+        const originalPositions = {};
+        for (let col = 0; col < this.COLS; col++) {
+          for (let row = 0; row < this.ROWS; row++) {
+            if (this.board[col][row] !== null) {
+              originalPositions[`${col},${row}`] = this.board[col][row];
+            }
+          }
+        }
+
+        if (direction === 'left') {
+          // Process each row, moving tiles left
+          for (let row = 0; row < this.ROWS; row++) {
+            const tiles = [];
+
+            // Collect all tiles in this row from left to right
+            for (let col = 0; col < this.COLS; col++) {
+              if (this.board[col][row] !== null) {
+                tiles.push({ value: this.board[col][row], originalCol: col });
+              }
+            }
+
+            // Place tiles in new positions (shifted left by one)
+            let writeCol = 0;
+            for (let i = 0; i < tiles.length; i++) {
+              const tile = tiles[i];
+              const targetCol = Math.max(0, tile.originalCol - 1);
+
+              // Check if we can merge with the tile already placed at targetCol
+              if (newBoard[targetCol][row] !== null && this.canMerge(tile.value, newBoard[targetCol][row])) {
+                const mergedValue = this.getMergedValue(tile.value, newBoard[targetCol][row]);
+                newBoard[targetCol][row] = mergedValue;
+                this.mergeCount++;
+
+                operations.push({
+                  type: 'merge',
+                  fromCol: tile.originalCol,
+                  toCol: targetCol,
+                  row: row,
+                  value: mergedValue
+                });
+              } else {
+                // Find next available spot from targetCol
+                while (writeCol < this.COLS && newBoard[writeCol][row] !== null) {
+                  writeCol++;
+                }
+
+                if (writeCol < this.COLS) {
+                  const finalCol = Math.max(writeCol, Math.min(targetCol, this.COLS - 1));
+                  newBoard[finalCol][row] = tile.value;
+
+                  if (tile.originalCol !== finalCol) {
+                    operations.push({
+                      type: 'move',
+                      fromCol: tile.originalCol,
+                      toCol: finalCol,
+                      row: row,
+                      value: tile.value
+                    });
+                  }
+                  writeCol = finalCol + 1;
+                }
+              }
+            }
+          }
+        } else if (direction === 'right') {
+          // Process each row, moving tiles right
+          for (let row = 0; row < this.ROWS; row++) {
+            const tiles = [];
+
+            // Collect all tiles in this row from right to left
+            for (let col = this.COLS - 1; col >= 0; col--) {
+              if (this.board[col][row] !== null) {
+                tiles.push({ value: this.board[col][row], originalCol: col });
+              }
+            }
+
+            // Place tiles in new positions (shifted right by one)
+            let writeCol = this.COLS - 1;
+            for (let i = 0; i < tiles.length; i++) {
+              const tile = tiles[i];
+              const targetCol = Math.min(this.COLS - 1, tile.originalCol + 1);
+
+              // Check if we can merge with the tile already placed at targetCol
+              if (newBoard[targetCol][row] !== null && this.canMerge(tile.value, newBoard[targetCol][row])) {
+                const mergedValue = this.getMergedValue(tile.value, newBoard[targetCol][row]);
+                newBoard[targetCol][row] = mergedValue;
+                this.mergeCount++;
+
+                operations.push({
+                  type: 'merge',
+                  fromCol: tile.originalCol,
+                  toCol: targetCol,
+                  row: row,
+                  value: mergedValue
+                });
+              } else {
+                // Find next available spot from targetCol
+                while (writeCol >= 0 && newBoard[writeCol][row] !== null) {
+                  writeCol--;
+                }
+
+                if (writeCol >= 0) {
+                  const finalCol = Math.min(writeCol, Math.max(targetCol, 0));
+                  newBoard[finalCol][row] = tile.value;
+
+                  if (tile.originalCol !== finalCol) {
+                    operations.push({
+                      type: 'move',
+                      fromCol: tile.originalCol,
+                      toCol: finalCol,
+                      row: row,
+                      value: tile.value
+                    });
+                  }
+                  writeCol = finalCol - 1;
+                }
+              }
+            }
+          }
+        }
+
+        // Update board with new state
+        this.board = newBoard;
+
+        console.log('=== SHIFT BOARD END ===');
+        console.log('Board after shift:', JSON.parse(JSON.stringify(this.board)));
+        console.log('Operations:', operations);
+
+        return operations;
+      }
+
+      applyGravity() {
+        const operations = [];
+
+        console.log('=== APPLY GRAVITY START ===');
+        console.log('Board state:', JSON.parse(JSON.stringify(this.board)));
+
+        // Keep applying gravity until nothing moves
+        let globalMoved = true;
+        let iteration = 0;
+        while (globalMoved) {
+          globalMoved = false;
+          iteration++;
+          console.log(`Gravity iteration ${iteration}`);
+
+          // Process each column from bottom to top
+          for (let col = 0; col < this.COLS; col++) {
+            for (let row = this.ROWS - 2; row >= 0; row--) {
+              const currentValue = this.board[col][row];
+              if (currentValue === null) continue;
+
+              console.log(`Checking tile at [${col},${row}] = ${currentValue}`);
+
+              // Find how far this tile can fall (stop at first occupied cell)
+              let targetRow = row;
+              for (let checkRow = row + 1; checkRow < this.ROWS; checkRow++) {
+                if (this.board[col][checkRow] === null) {
+                  targetRow = checkRow;
+                } else {
+                  break;
+                }
+              }
+
+              console.log(`  Can fall to row ${targetRow}`);
+
+              // Check if we can merge with the tile below the landing spot
+              if (targetRow < this.ROWS - 1) {
+                const tileBelow = this.board[col][targetRow + 1];
+                console.log(`  Tile below landing spot [${col},${targetRow + 1}] = ${tileBelow}`);
+
+                if (tileBelow !== null && this.canMerge(currentValue, tileBelow)) {
+                  const mergedValue = this.getMergedValue(currentValue, tileBelow);
+                  console.log(`  MERGE! ${currentValue} + ${tileBelow} = ${mergedValue}`);
+
+                  this.board[col][targetRow + 1] = mergedValue;
+                  this.board[col][row] = null;
+                  this.mergeCount++;
+                  globalMoved = true;
+
+                  operations.push({
+                    type: 'fall-merge',
+                    col: col,
+                    fromRow: row,
+                    toRow: targetRow + 1,
+                    value: mergedValue
+                  });
+                  continue;
+                }
+              }
+
+              // No merge possible, just fall to targetRow if it moved
+              if (targetRow !== row) {
+                console.log(`  FALL to row ${targetRow}`);
+                this.board[col][targetRow] = currentValue;
+                this.board[col][row] = null;
+                globalMoved = true;
+
+                operations.push({
+                  type: 'fall',
+                  col: col,
+                  fromRow: row,
+                  toRow: targetRow,
+                  value: currentValue
+                });
+              }
+            }
+          }
+        }
+
+        console.log('=== APPLY GRAVITY END ===');
+        console.log('Final board state:', JSON.parse(JSON.stringify(this.board)));
+        console.log('Operations:', operations);
+
+        return operations;
+      }
+    }
+  </script>
+
+  <script>
+    // Tile - Phaser Container class
+    class Tile extends Phaser.GameObjects.Container {
+      constructor(scene, gridX, gridY, value, tileId) {
+        super(scene, 0, 0);
+        this.scene = scene;
+        this.gridX = gridX;
+        this.gridY = gridY;
+        this.value = value;
+        this.tileId = tileId;
+        this.TILE_SIZE = 80;
+        this.TILE_PADDING = 10;
+
+        this.createTileGraphics();
+        this.updatePosition(gridX, gridY, false);
+        scene.add.existing(this);
+      }
+
+      createTileGraphics() {
+        this.bg = this.scene.add.graphics();
+        this.updateTileAppearance();
+        this.add(this.bg);
+
+        const textColor = this.value === 3 ? '#000000' : '#ffffff';
+        this.text = this.scene.add.text(0, 0, this.value.toString(), {
+          fontSize: '32px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: textColor,
+          align: 'center'
+        });
+        this.text.setOrigin(0.5);
+        this.add(this.text);
+      }
+
+      updateTileAppearance() {
+        this.bg.clear();
+        const color = this.getTileColor(this.value);
+        const size = this.TILE_SIZE - this.TILE_PADDING;
+        this.bg.fillStyle(color, 1);
+        this.bg.fillRoundedRect(-size / 2, -size / 2, size, size, 8);
+        this.bg.lineStyle(2, 0xffffff, 0.3);
+        this.bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 8);
+      }
+
+      getTileColor(value) {
+        const colors = {
+          1: 0x4a90e2, 2: 0xe24a4a, 3: 0xffffff, 6: 0xf5a623,
+          12: 0xf8e71c, 24: 0x7ed321, 48: 0x50e3c2, 96: 0xb8e986,
+          192: 0xbd10e0, 384: 0xff6b6b, 768: 0x4ecdc4,
+        };
+        return colors[value] || 0x999999;
+      }
+
+      updatePosition(gridX, gridY, animate = true, duration = 150) {
+        this.gridX = gridX;
+        this.gridY = gridY;
+        const worldX = this.gridToWorldX(gridX);
+        const worldY = this.gridToWorldY(gridY);
+
+        if (animate) {
+          this.scene.tweens.add({
+            targets: this,
+            x: worldX,
+            y: worldY,
+            duration: duration,
+            ease: 'Power2'
+          });
+        } else {
+          this.x = worldX;
+          this.y = worldY;
+        }
+      }
+
+      gridToWorldX(gridX) {
+        return this.scene.GRID_OFFSET_X + (gridX * this.TILE_SIZE) + (this.TILE_SIZE / 2);
+      }
+
+      gridToWorldY(gridY) {
+        return this.scene.GRID_OFFSET_Y + (gridY * this.TILE_SIZE) + (this.TILE_SIZE / 2);
+      }
+
+      updateValue(newValue, animate = true) {
+        this.value = newValue;
+        this.text.setText(newValue.toString());
+        const textColor = newValue === 3 ? '#000000' : '#ffffff';
+        this.text.setColor(textColor);
+        this.updateTileAppearance();
+
+        if (animate) {
+          this.scene.tweens.add({
+            targets: this,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 100,
+            yoyo: true,
+            ease: 'Power2'
+          });
+        }
+      }
+
+      dropFromTop(targetGridY, duration = 200) {
+        const startY = this.gridToWorldY(-1);
+        const endY = this.gridToWorldY(targetGridY);
+        this.y = startY;
+        this.alpha = 0;
+
+        this.scene.tweens.add({
+          targets: this,
+          y: endY,
+          alpha: 1,
+          duration: duration,
+          ease: 'Bounce.easeOut'
+        });
+
+        this.gridY = targetGridY;
+      }
+
+      mergeAnimation(callback) {
+        this.scene.tweens.add({
+          targets: this,
+          scaleX: 1.3,
+          scaleY: 1.3,
+          alpha: 0,
+          duration: 150,
+          ease: 'Power2',
+          onComplete: () => {
+            if (callback) callback();
+            this.destroy();
+          }
+        });
+      }
+    }
+  </script>
+
+  <script>
+    // GameScene - Main Phaser Scene
+    class GameScene extends Phaser.Scene {
+      constructor() {
+        super({ key: 'GameScene' });
+      }
+
+      create() {
+        console.log('GameScene created');
+
+        this.GRID_COLS = 4;
+        this.GRID_ROWS = 6;
+        this.TILE_SIZE = 80;
+        this.GRID_OFFSET_X = 50;
+        this.GRID_OFFSET_Y = 120;
+        this.COMBO_MAX = 5;
+        this.SWIPE_THRESHOLD = 50;
+
+        this.boardLogic = new BoardLogic();
+        this.tiles = {};
+        this.isAnimating = false;
+        this.nextTileValue = null;
+        this.swipeEnabled = false;
+        this.pointerStartX = 0;
+        this.pointerStartY = 0;
+        this.isPointerDown = false;
+
+        this.setupBackground();
+        this.setupGrid();
+        this.setupComboBar();
+        this.setupNextTilePreview();
+        this.setupInput();
+        this.generateNextTile();
+      }
+
+      setupBackground() {
+        const { width, height } = this.cameras.main;
+        const graphics = this.add.graphics();
+        graphics.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
+        graphics.fillRect(0, 0, width, height);
+
+        this.add.text(width / 2, 30, 'THREES-DROP', {
+          fontSize: '32px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.scoreText = this.add.text(width / 2, 60, 'SCORE: 0', {
+          fontSize: '18px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#f5a623'
+        }).setOrigin(0.5);
+      }
+
+      setupGrid() {
+        const gridWidth = this.GRID_COLS * this.TILE_SIZE;
+        const gridHeight = this.GRID_ROWS * this.TILE_SIZE;
+
+        const gridBg = this.add.graphics();
+        gridBg.fillStyle(0x0f3460, 0.5);
+        gridBg.fillRoundedRect(this.GRID_OFFSET_X - 10, this.GRID_OFFSET_Y - 10, gridWidth + 20, gridHeight + 20, 10);
+
+        for (let col = 0; col < this.GRID_COLS; col++) {
+          for (let row = 0; row < this.GRID_ROWS; row++) {
+            const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
+            const y = this.GRID_OFFSET_Y + row * this.TILE_SIZE;
+            const cell = this.add.graphics();
+            cell.fillStyle(0x16213e, 0.8);
+            cell.fillRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
+            cell.lineStyle(1, 0x533483, 0.5);
+            cell.strokeRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
+          }
+        }
+
+        this.columnZones = [];
+        for (let col = 0; col < this.GRID_COLS; col++) {
+          const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
+          const zone = this.add.rectangle(x, this.GRID_OFFSET_Y, this.TILE_SIZE, gridHeight, 0x000000, 0);
+          zone.setOrigin(0, 0);
+          zone.setInteractive();
+          zone.setData('column', col);
+          this.columnZones.push(zone);
+        }
+      }
+
+      setupComboBar() {
+        const barWidth = 200;
+        const barHeight = 30;
+        const barX = this.cameras.main.width / 2 - barWidth / 2;
+        const barY = this.GRID_OFFSET_Y + this.GRID_ROWS * this.TILE_SIZE + 40;
+
+        this.add.text(barX, barY - 25, 'COMBO POWER-UP', {
+          fontSize: '14px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#ffffff'
+        });
+
+        this.comboBarBg = this.add.graphics();
+        this.comboBarBg.fillStyle(0x0f3460, 1);
+        this.comboBarBg.fillRoundedRect(barX, barY, barWidth, barHeight, 5);
+
+        this.comboBarFill = this.add.graphics();
+
+        this.comboText = this.add.text(barX + barWidth / 2, barY + barHeight / 2, '0/5', {
+          fontSize: '16px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.comboBarX = barX;
+        this.comboBarY = barY;
+        this.comboBarWidth = barWidth;
+        this.comboBarHeight = barHeight;
+
+        // Add swipe buttons for desktop/web
+        this.setupSwipeButtons(barY);
+
+        this.updateComboBar();
+      }
+
+      setupSwipeButtons(barY) {
+        const buttonY = barY + 50;
+        const centerX = this.cameras.main.width / 2;
+        const buttonWidth = 80;
+        const buttonHeight = 40;
+
+        // Left button
+        this.leftButton = this.add.rectangle(
+          centerX - buttonWidth - 10,
+          buttonY,
+          buttonWidth,
+          buttonHeight,
+          0x4a90e2,
+          0.3
+        );
+        this.leftButton.setStrokeStyle(2, 0x4a90e2);
+        this.leftButton.setInteractive();
+
+        this.leftButtonText = this.add.text(
+          centerX - buttonWidth - 10,
+          buttonY,
+          '← LEFT',
+          {
+            fontSize: '16px',
+            fontFamily: 'Arial, sans-serif',
+            fontStyle: 'bold',
+            color: '#4a90e2'
+          }
+        ).setOrigin(0.5);
+
+        // Right button
+        this.rightButton = this.add.rectangle(
+          centerX + buttonWidth + 10,
+          buttonY,
+          buttonWidth,
+          buttonHeight,
+          0x4a90e2,
+          0.3
+        );
+        this.rightButton.setStrokeStyle(2, 0x4a90e2);
+        this.rightButton.setInteractive();
+
+        this.rightButtonText = this.add.text(
+          centerX + buttonWidth + 10,
+          buttonY,
+          'RIGHT →',
+          {
+            fontSize: '16px',
+            fontFamily: 'Arial, sans-serif',
+            fontStyle: 'bold',
+            color: '#4a90e2'
+          }
+        ).setOrigin(0.5);
+
+        // Button click handlers
+        this.leftButton.on('pointerdown', () => {
+          if (this.swipeEnabled && !this.isAnimating) {
+            this.handleSwipe('left');
+          }
+        });
+
+        this.rightButton.on('pointerdown', () => {
+          if (this.swipeEnabled && !this.isAnimating) {
+            this.handleSwipe('right');
+          }
+        });
+
+        // Store buttons for enabling/disabling
+        this.swipeButtons = {
+          leftButton: this.leftButton,
+          rightButton: this.rightButton,
+          leftText: this.leftButtonText,
+          rightText: this.rightButtonText
+        };
+      }
+
+      setupNextTilePreview() {
+        const previewX = this.cameras.main.width / 2;
+        const previewY = 80;
+
+        this.add.text(previewX, previewY - 20, 'NEXT', {
+          fontSize: '14px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#888888'
+        }).setOrigin(0.5);
+
+        this.nextTilePreview = this.add.container(previewX, previewY);
+      }
+
+      setupInput() {
+        this.input.on('pointerdown', (pointer) => {
+          if (this.isAnimating) return;
+          this.isPointerDown = true;
+          this.pointerStartX = pointer.x;
+          this.pointerStartY = pointer.y;
+        });
+
+        this.input.on('pointerup', (pointer) => {
+          if (this.isAnimating || !this.isPointerDown) return;
+          this.isPointerDown = false;
+
+          const deltaX = pointer.x - this.pointerStartX;
+          const deltaY = pointer.y - this.pointerStartY;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+          if (distance > this.SWIPE_THRESHOLD && this.swipeEnabled) {
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              const direction = deltaX > 0 ? 'right' : 'left';
+              this.handleSwipe(direction);
+              return;
+            }
+          }
+
+          for (let zone of this.columnZones) {
+            if (zone.getBounds().contains(pointer.x, pointer.y)) {
+              const col = zone.getData('column');
+              this.handleColumnTap(col);
+              return;
+            }
+          }
+        });
+      }
+
+      generateNextTile() {
+        this.nextTileValue = this.boardLogic.getRandomTileValue();
+        this.updateNextTilePreview();
+      }
+
+      updateNextTilePreview() {
+        this.nextTilePreview.removeAll(true);
+        const previewSize = 50;
+        const bg = this.add.graphics();
+        const color = this.getTileColorForValue(this.nextTileValue);
+
+        bg.fillStyle(color, 1);
+        bg.fillRoundedRect(-previewSize / 2, -previewSize / 2, previewSize, previewSize, 6);
+        bg.lineStyle(2, 0xffffff, 0.3);
+        bg.strokeRoundedRect(-previewSize / 2, -previewSize / 2, previewSize, previewSize, 6);
+
+        const textColor = this.nextTileValue === 3 ? '#000000' : '#ffffff';
+        const text = this.add.text(0, 0, this.nextTileValue.toString(), {
+          fontSize: '24px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: textColor
+        }).setOrigin(0.5);
+
+        this.nextTilePreview.add([bg, text]);
+      }
+
+      getTileColorForValue(value) {
+        const colors = {
+          1: 0x4a90e2, 2: 0xe24a4a, 3: 0xffffff, 6: 0xf5a623,
+          12: 0xf8e71c, 24: 0x7ed321, 48: 0x50e3c2, 96: 0xb8e986,
+          192: 0xbd10e0, 384: 0xff6b6b, 768: 0x4ecdc4,
+        };
+        return colors[value] || 0x999999;
+      }
+
+      handleColumnTap(col) {
+        if (this.isAnimating) return;
+
+        const result = this.boardLogic.dropTile(col, this.nextTileValue);
+
+        if (!result.success) {
+          console.log('Cannot drop tile:', result.reason);
+          return;
+        }
+
+        this.isAnimating = true;
+
+        const tile = new Tile(this, col, result.row, this.nextTileValue, result.tileId);
+        const tileKey = `${col},${result.row}`;
+        this.tiles[tileKey] = tile;
+
+        if (result.merged) {
+          tile.dropFromTop(result.finalRow, 200);
+          this.time.delayedCall(200, () => {
+            this.handleMerge(col, result.finalRow, result.finalValue, tile);
+          });
+        } else {
+          tile.dropFromTop(result.finalRow, 200);
+          this.time.delayedCall(220, () => {
+            // After tile lands, apply gravity to check for cascading merges
+            this.applyGravityAfterDrop();
+          });
+        }
+
+        this.generateNextTile();
+      }
+
+      handleMerge(col, row, newValue, droppingTile) {
+        const tileKey = `${col},${row}`;
+        const existingTile = this.tiles[tileKey];
+
+        if (existingTile) {
+          delete this.tiles[tileKey];
+          existingTile.mergeAnimation();
+        }
+
+        droppingTile.mergeAnimation(() => {
+          const mergedTile = new Tile(this, col, row, newValue, this.boardLogic.nextTileId++);
+          mergedTile.updatePosition(col, row, false);
+          mergedTile.setScale(0.5);
+          mergedTile.setAlpha(0.5);
+
+          // Add score for new tile value
+          this.boardLogic.addScore(newValue);
+          this.updateScore();
+
+          this.tweens.add({
+            targets: mergedTile,
+            scaleX: 1,
+            scaleY: 1,
+            alpha: 1,
+            duration: 200,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+              this.tiles[tileKey] = mergedTile;
+              this.updateComboBar();
+
+              // After merge completes, apply gravity to check for cascading merges
+              this.applyGravityAfterDrop();
+            }
+          });
+        });
+      }
+
+      applyGravityAfterDrop() {
+        console.log('Applying gravity after drop...');
+        const gravityOps = this.boardLogic.applyGravity();
+        console.log('Gravity operations:', gravityOps);
+
+        if (gravityOps.length > 0) {
+          this.animateGravity(gravityOps, () => {
+            this.updateComboBar();
+            this.isAnimating = false;
+            this.checkGameOver();
+          });
+        } else {
+          this.isAnimating = false;
+          this.checkGameOver();
+        }
+      }
+
+      handleSwipe(direction) {
+        if (this.isAnimating || !this.swipeEnabled) return;
+
+        console.log('Swipe detected:', direction);
+        this.isAnimating = true;
+
+        // Phase 1: Horizontal shift (one space only)
+        const shiftOps = this.boardLogic.shiftBoard(direction);
+
+        if (shiftOps.length === 0) {
+          this.isAnimating = false;
+          return;
+        }
+
+        this.animateOperations(shiftOps, () => {
+          // Phase 2: Apply gravity after horizontal shift
+          console.log('Applying gravity after horizontal shift...');
+          const gravityOps = this.boardLogic.applyGravity();
+          console.log('Gravity operations:', gravityOps);
+
+          if (gravityOps.length > 0) {
+            this.animateGravity(gravityOps, () => {
+              this.onSwipeComplete();
+            });
+          } else {
+            this.onSwipeComplete();
+          }
+        });
+      }
+
+      animateOperations(operations, onComplete) {
+        let completedAnimations = 0;
+        const totalAnimations = operations.length;
+
+        if (totalAnimations === 0) {
+          onComplete();
+          return;
+        }
+
+        operations.forEach(op => {
+          const fromKey = `${op.fromCol},${op.row}`;
+          const toKey = `${op.toCol},${op.row}`;
+          const tile = this.tiles[fromKey];
+
+          if (!tile) {
+            completedAnimations++;
+            if (completedAnimations === totalAnimations) {
+              onComplete();
+            }
+            return;
+          }
+
+          delete this.tiles[fromKey];
+
+          if (op.type === 'move') {
+            tile.updatePosition(op.toCol, op.row, true, 150);
+            this.tiles[toKey] = tile;
+
+            this.time.delayedCall(150, () => {
+              completedAnimations++;
+              if (completedAnimations === totalAnimations) {
+                onComplete();
+              }
+            });
+          } else if (op.type === 'merge') {
+            // Find the tile to merge with
+            const mergeWithKey = `${op.toCol},${op.row}`;
+            const mergeWithTile = this.tiles[mergeWithKey];
+
+            // Move current tile to merge position
+            tile.updatePosition(op.toCol, op.row, true, 150);
+
+            this.time.delayedCall(150, () => {
+              // Remove both tiles
+              if (mergeWithTile) {
+                delete this.tiles[mergeWithKey];
+                mergeWithTile.mergeAnimation();
+              }
+
+              tile.mergeAnimation(() => {
+                // Create merged tile
+                const mergedTile = new Tile(this, op.toCol, op.row, op.value, this.boardLogic.nextTileId++);
+                mergedTile.updatePosition(op.toCol, op.row, false);
+                mergedTile.setScale(0.5);
+                mergedTile.setAlpha(0.5);
+
+                // Add score for new tile value
+                this.boardLogic.addScore(op.value);
+                this.updateScore();
+
+                this.tweens.add({
+                  targets: mergedTile,
+                  scaleX: 1,
+                  scaleY: 1,
+                  alpha: 1,
+                  duration: 150,
+                  ease: 'Back.easeOut',
+                  onComplete: () => {
+                    this.tiles[mergeWithKey] = mergedTile;
+                    completedAnimations++;
+                    if (completedAnimations === totalAnimations) {
+                      onComplete();
+                    }
+                  }
+                });
+              });
+            });
+          }
+        });
+      }
+
+      animateGravity(operations, onComplete) {
+        if (operations.length === 0) {
+          onComplete();
+          return;
+        }
+
+        // Group operations by column - operations in different columns can run in parallel
+        const columnGroups = {};
+        operations.forEach(op => {
+          if (!columnGroups[op.col]) {
+            columnGroups[op.col] = [];
+          }
+          columnGroups[op.col].push(op);
+        });
+
+        const columns = Object.keys(columnGroups);
+        let completedColumns = 0;
+
+        const onColumnComplete = () => {
+          completedColumns++;
+          if (completedColumns === columns.length) {
+            onComplete();
+          }
+        };
+
+        // Process each column sequentially, but all columns run in parallel
+        columns.forEach(col => {
+          const columnOps = columnGroups[col];
+          let opIndex = 0;
+
+          const processNextOpInColumn = () => {
+            if (opIndex >= columnOps.length) {
+              onColumnComplete();
+              return;
+            }
+
+            const op = columnOps[opIndex];
+            opIndex++;
+
+            const fromKey = `${op.col},${op.fromRow}`;
+            const toKey = `${op.col},${op.toRow}`;
+            const tile = this.tiles[fromKey];
+
+            if (!tile) {
+              console.warn(`No tile found at ${fromKey} for gravity operation`);
+              processNextOpInColumn();
+              return;
+            }
+
+            delete this.tiles[fromKey];
+
+            if (op.type === 'fall') {
+              tile.updatePosition(op.col, op.toRow, true, 120);
+              this.tiles[toKey] = tile;
+
+              this.time.delayedCall(120, () => {
+                processNextOpInColumn();
+              });
+            } else if (op.type === 'fall-merge') {
+              const mergeWithTile = this.tiles[toKey];
+
+              tile.updatePosition(op.col, op.toRow, true, 120);
+
+              this.time.delayedCall(120, () => {
+                // Remove the tile being merged with
+                if (mergeWithTile) {
+                  delete this.tiles[toKey];
+                  mergeWithTile.mergeAnimation();
+                }
+
+                // Remove the falling tile
+                tile.mergeAnimation(() => {
+                  // Create the new merged tile
+                  const mergedTile = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++);
+                  mergedTile.updatePosition(op.col, op.toRow, false);
+                  mergedTile.setScale(0.5);
+                  mergedTile.setAlpha(0.5);
+
+                  // Add score for new tile value
+                  this.boardLogic.addScore(op.value);
+                  this.updateScore();
+
+                  this.tweens.add({
+                    targets: mergedTile,
+                    scaleX: 1,
+                    scaleY: 1,
+                    alpha: 1,
+                    duration: 120,
+                    ease: 'Back.easeOut',
+                    onComplete: () => {
+                      this.tiles[toKey] = mergedTile;
+                      processNextOpInColumn();
+                    }
+                  });
+                });
+              });
+            }
+          };
+
+          processNextOpInColumn();
+        });
+      }
+
+      onSwipeComplete() {
+        // Subtract 5 from combo bar AFTER all operations complete
+        this.boardLogic.subtractMergeCount(5);
+        this.updateComboBar();
+
+        this.isAnimating = false;
+        this.checkGameOver();
+      }
+
+      updateScore() {
+        const score = this.boardLogic.getScore();
+        this.scoreText.setText(`SCORE: ${score}`);
+      }
+
+      updateComboBar() {
+        const mergeCount = this.boardLogic.getMergeCount();
+        const fillRatio = Math.min(mergeCount / this.COMBO_MAX, 1);
+
+        this.comboBarFill.clear();
+
+        if (fillRatio > 0) {
+          const fillColor = fillRatio >= 1 ? 0x7ed321 : 0x4a90e2;
+          this.comboBarFill.fillStyle(fillColor, 1);
+          this.comboBarFill.fillRoundedRect(
+            this.comboBarX,
+            this.comboBarY,
+            this.comboBarWidth * fillRatio,
+            this.comboBarHeight,
+            5
+          );
+        }
+
+        this.comboText.setText(`${mergeCount}/${this.COMBO_MAX}`);
+        this.swipeEnabled = mergeCount >= this.COMBO_MAX;
+
+        if (this.swipeEnabled) {
+          this.comboBarFill.clear();
+          this.comboBarFill.fillStyle(0x7ed321, 1);
+          this.comboBarFill.fillRoundedRect(
+            this.comboBarX,
+            this.comboBarY,
+            this.comboBarWidth,
+            this.comboBarHeight,
+            5
+          );
+
+          this.tweens.add({
+            targets: this.comboBarFill,
+            alpha: 0.5,
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+          });
+
+          this.comboText.setColor('#7ed321');
+
+          // Enable swipe buttons - make them green and solid
+          this.swipeButtons.leftButton.setFillStyle(0x7ed321, 0.8);
+          this.swipeButtons.leftButton.setStrokeStyle(3, 0x7ed321);
+          this.swipeButtons.rightButton.setFillStyle(0x7ed321, 0.8);
+          this.swipeButtons.rightButton.setStrokeStyle(3, 0x7ed321);
+          this.swipeButtons.leftText.setColor('#ffffff');
+          this.swipeButtons.rightText.setColor('#ffffff');
+
+          // Add pulsing to buttons
+          this.tweens.add({
+            targets: [this.swipeButtons.leftButton, this.swipeButtons.rightButton],
+            alpha: 0.6,
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+          });
+        } else {
+          this.comboBarFill.setAlpha(1);
+          this.tweens.killTweensOf(this.comboBarFill);
+          this.comboText.setColor('#ffffff');
+
+          // Disable swipe buttons - make them dim
+          this.tweens.killTweensOf([this.swipeButtons.leftButton, this.swipeButtons.rightButton]);
+          this.swipeButtons.leftButton.setFillStyle(0x4a90e2, 0.3);
+          this.swipeButtons.leftButton.setStrokeStyle(2, 0x4a90e2);
+          this.swipeButtons.leftButton.setAlpha(1);
+          this.swipeButtons.rightButton.setFillStyle(0x4a90e2, 0.3);
+          this.swipeButtons.rightButton.setStrokeStyle(2, 0x4a90e2);
+          this.swipeButtons.rightButton.setAlpha(1);
+          this.swipeButtons.leftText.setColor('#4a90e2');
+          this.swipeButtons.rightText.setColor('#4a90e2');
+        }
+      }
+
+      checkGameOver() {
+        if (this.boardLogic.isBoardFull()) {
+          this.showGameOver();
+        }
+      }
+
+      showGameOver() {
+        const { width, height } = this.cameras.main;
+
+        const overlay = this.add.graphics();
+        overlay.fillStyle(0x000000, 0.7);
+        overlay.fillRect(0, 0, width, height);
+        overlay.setDepth(1000);
+
+        this.add.text(width / 2, height / 2 - 50, 'GAME OVER', {
+          fontSize: '48px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5).setDepth(1001);
+
+        const restartButton = this.add.text(width / 2, height / 2 + 30, 'TAP TO RESTART', {
+          fontSize: '24px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#4a90e2'
+        }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+        restartButton.on('pointerup', () => {
+          this.scene.restart();
+        });
+
+        this.tweens.add({
+          targets: restartButton,
+          alpha: 0.5,
+          duration: 800,
+          yoyo: true,
+          repeat: -1
+        });
+      }
+    }
+  </script>
+
+  <script>
+    // Initialize Phaser game
+    const config = {
+      type: Phaser.AUTO,
+      width: 400,
+      height: 700,
+      parent: 'game-container',
+      backgroundColor: '#1a1a2e',
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+      },
+      scene: [GameScene]
+    };
+
+    console.log('Starting Phaser game...');
+    const game = new Phaser.Game(config);
+  </script>
+</body>
+</html>
