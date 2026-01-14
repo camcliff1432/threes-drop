@@ -563,6 +563,285 @@
   </script>
 
   <script>
+    // MenuScene - Landing Page
+    class MenuScene extends Phaser.Scene {
+      constructor() {
+        super({ key: 'MenuScene' });
+      }
+
+      create() {
+        const { width, height } = this.cameras.main;
+
+        // Background
+        const graphics = this.add.graphics();
+        graphics.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
+        graphics.fillRect(0, 0, width, height);
+
+        // Title
+        this.add.text(width / 2, 120, 'THREES', {
+          fontSize: '64px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, 180, 'DROP', {
+          fontSize: '64px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#4a90e2'
+        }).setOrigin(0.5);
+
+        // Decorative tiles
+        this.createDecorativeTiles(width);
+
+        // Menu buttons
+        const buttonY = 380;
+        const buttonSpacing = 70;
+
+        // Classic Mode button
+        this.createMenuButton(width / 2, buttonY, 'CLASSIC MODE', () => {
+          this.scene.start('GameScene');
+        });
+
+        // Levels button (coming soon)
+        this.createMenuButton(width / 2, buttonY + buttonSpacing, 'LEVELS', () => {
+          this.showComingSoon();
+        }, true);
+
+        // How to Play button
+        this.createMenuButton(width / 2, buttonY + buttonSpacing * 2, 'HOW TO PLAY', () => {
+          this.showHowToPlay();
+        });
+      }
+
+      createDecorativeTiles(width) {
+        const tileData = [
+          { x: width / 2 - 90, value: '1', color: 0x4a90e2 },
+          { x: width / 2 - 30, value: '2', color: 0xe24a4a },
+          { x: width / 2 + 30, value: '3', color: 0xffffff, textColor: '#000000' },
+          { x: width / 2 + 90, value: '6', color: 0xf5a623 }
+        ];
+
+        const tileY = 280;
+        tileData.forEach(tile => {
+          const bg = this.add.graphics();
+          bg.fillStyle(tile.color, 1);
+          bg.fillRoundedRect(tile.x - 25, tileY - 25, 50, 50, 8);
+          bg.lineStyle(2, 0xffffff, 0.3);
+          bg.strokeRoundedRect(tile.x - 25, tileY - 25, 50, 50, 8);
+
+          this.add.text(tile.x, tileY, tile.value, {
+            fontSize: '28px',
+            fontFamily: 'Arial, sans-serif',
+            fontStyle: 'bold',
+            color: tile.textColor || '#ffffff'
+          }).setOrigin(0.5);
+        });
+      }
+
+      createMenuButton(x, y, text, callback, disabled = false) {
+        const buttonWidth = 220;
+        const buttonHeight = 50;
+
+        const bg = this.add.graphics();
+        if (disabled) {
+          bg.fillStyle(0x333333, 0.8);
+          bg.lineStyle(2, 0x555555, 1);
+        } else {
+          bg.fillStyle(0x4a90e2, 0.3);
+          bg.lineStyle(2, 0x4a90e2, 1);
+        }
+        bg.fillRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+        bg.strokeRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+
+        const buttonText = this.add.text(x, y, text, {
+          fontSize: '20px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: disabled ? '#666666' : '#ffffff'
+        }).setOrigin(0.5);
+
+        if (disabled) {
+          // Add "Coming Soon" subtitle
+          this.add.text(x, y + 22, 'COMING SOON', {
+            fontSize: '10px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#555555'
+          }).setOrigin(0.5);
+        }
+
+        // Make interactive zone
+        const hitArea = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0x000000, 0);
+        hitArea.setInteractive();
+
+        if (!disabled) {
+          hitArea.on('pointerover', () => {
+            bg.clear();
+            bg.fillStyle(0x4a90e2, 0.6);
+            bg.lineStyle(2, 0x5aa0f2, 1);
+            bg.fillRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+            bg.strokeRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+          });
+
+          hitArea.on('pointerout', () => {
+            bg.clear();
+            bg.fillStyle(0x4a90e2, 0.3);
+            bg.lineStyle(2, 0x4a90e2, 1);
+            bg.fillRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+            bg.strokeRoundedRect(x - buttonWidth / 2, y - buttonHeight / 2, buttonWidth, buttonHeight, 10);
+          });
+
+          hitArea.on('pointerdown', callback);
+        }
+      }
+
+      showComingSoon() {
+        // Brief flash message
+        const { width, height } = this.cameras.main;
+        const msg = this.add.text(width / 2, height - 80, 'Levels mode coming soon!', {
+          fontSize: '16px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#f5a623'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+          targets: msg,
+          alpha: 0,
+          duration: 2000,
+          ease: 'Power2',
+          onComplete: () => msg.destroy()
+        });
+      }
+
+      showHowToPlay() {
+        const { width, height } = this.cameras.main;
+
+        // Create overlay container
+        this.helpOverlay = this.add.container(0, 0).setDepth(2000);
+
+        // Dark background
+        const bg = this.add.graphics();
+        bg.fillStyle(0x000000, 0.85);
+        bg.fillRect(0, 0, width, height);
+        bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
+        this.helpOverlay.add(bg);
+
+        // Modal box
+        const modalWidth = 340;
+        const modalHeight = 420;
+        const modalX = (width - modalWidth) / 2;
+        const modalY = (height - modalHeight) / 2;
+
+        const modal = this.add.graphics();
+        modal.fillStyle(0x1a1a2e, 1);
+        modal.fillRoundedRect(modalX, modalY, modalWidth, modalHeight, 12);
+        modal.lineStyle(2, 0x4a90e2, 1);
+        modal.strokeRoundedRect(modalX, modalY, modalWidth, modalHeight, 12);
+        this.helpOverlay.add(modal);
+
+        // Title
+        const title = this.add.text(width / 2, modalY + 25, 'HOW TO PLAY', {
+          fontSize: '24px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5);
+        this.helpOverlay.add(title);
+
+        // Merge example
+        const instructions = [
+          { icon: '1', color: 0x4a90e2 },
+          { icon: '+', color: 0xffffff },
+          { icon: '2', color: 0xe24a4a },
+          { icon: '=', color: 0xffffff },
+          { icon: '3', color: 0xffffff }
+        ];
+
+        let startX = modalX + 40;
+        const exampleY = modalY + 70;
+        instructions.forEach((item, i) => {
+          if (item.icon === '+' || item.icon === '=') {
+            const text = this.add.text(startX + i * 55, exampleY, item.icon, {
+              fontSize: '24px',
+              fontFamily: 'Arial, sans-serif',
+              fontStyle: 'bold',
+              color: '#ffffff'
+            }).setOrigin(0.5);
+            this.helpOverlay.add(text);
+          } else {
+            const box = this.add.graphics();
+            box.fillStyle(item.color, 1);
+            box.fillRoundedRect(startX + i * 55 - 18, exampleY - 18, 36, 36, 6);
+            this.helpOverlay.add(box);
+            const textColor = item.icon === '3' ? '#000000' : '#ffffff';
+            const text = this.add.text(startX + i * 55, exampleY, item.icon, {
+              fontSize: '20px',
+              fontFamily: 'Arial, sans-serif',
+              fontStyle: 'bold',
+              color: textColor
+            }).setOrigin(0.5);
+            this.helpOverlay.add(text);
+          }
+        });
+
+        // Text instructions
+        const helpText = [
+          'Tap a column to drop a tile.',
+          '',
+          '1 + 2 = 3',
+          'Matching tiles (3+3, 6+6...) double.',
+          '',
+          'Fill the SWIPE bar with 5 merges',
+          'to unlock left/right shifting.',
+          '',
+          'Swipes allow horizontal merges',
+          'and trigger cascading combos!'
+        ];
+
+        let textY = modalY + 120;
+        helpText.forEach(line => {
+          const text = this.add.text(width / 2, textY, line, {
+            fontSize: '14px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#cccccc',
+            align: 'center'
+          }).setOrigin(0.5);
+          this.helpOverlay.add(text);
+          textY += 22;
+        });
+
+        // Close button
+        const closeBtn = this.add.text(width / 2, modalY + modalHeight - 35, 'TAP TO CLOSE', {
+          fontSize: '18px',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          color: '#4a90e2'
+        }).setOrigin(0.5).setInteractive();
+        this.helpOverlay.add(closeBtn);
+
+        this.tweens.add({
+          targets: closeBtn,
+          alpha: 0.5,
+          duration: 600,
+          yoyo: true,
+          repeat: -1
+        });
+
+        bg.on('pointerdown', () => this.closeHowToPlay());
+        closeBtn.on('pointerdown', () => this.closeHowToPlay());
+      }
+
+      closeHowToPlay() {
+        if (this.helpOverlay) {
+          this.helpOverlay.destroy();
+          this.helpOverlay = null;
+        }
+      }
+    }
+  </script>
+
+  <script>
     // GameScene - Main Phaser Scene
     class GameScene extends Phaser.Scene {
       constructor() {
@@ -1447,7 +1726,14 @@
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
-      scene: [GameScene]
+      render: {
+        pixelArt: false,
+        antialias: true,
+        roundPixels: false
+      },
+      // Enable high-DPI rendering for retina displays
+      resolution: window.devicePixelRatio || 1,
+      scene: [MenuScene, GameScene]
     };
 
     console.log('Starting Phaser game...');
