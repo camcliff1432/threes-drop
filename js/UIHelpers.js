@@ -239,8 +239,8 @@ const UIHelpers = {
     }).setOrigin(0.5));
     ty += 28;
 
-    // Helper to create tile examples
-    const createTileExample = (y, color, strokeColor, label, labelColor, description) => {
+    // Helper to create basic tile example
+    const createBasicTileExample = (y, color, strokeColor, label, labelColor, description) => {
       const box = scene.add.graphics();
       box.fillStyle(color, 1);
       box.lineStyle(2, strokeColor, 0.8);
@@ -255,23 +255,61 @@ const UIHelpers = {
       }).setOrigin(0, 0.5));
     };
 
-    // Steel tile
-    createTileExample(ty, GameConfig.COLORS.STEEL, 0x4a4a4a, '3', '#333333',
-      'STEEL - Blocks cell for N turns');
+    // Steel tile with crosshatch pattern
+    const steelX = 31, steelY = ty;
+    const steelBox = scene.add.graphics();
+    steelBox.fillStyle(GameConfig.COLORS.STEEL, 1);
+    steelBox.lineStyle(2, 0x4a4a4a, 0.8);
+    steelBox.fillRoundedRect(15, ty - 15, 32, 32, 5);
+    steelBox.strokeRoundedRect(15, ty - 15, 32, 32, 5);
+    // Crosshatch pattern
+    steelBox.lineStyle(1, 0x9090a0, 0.4);
+    for (let i = -32; i < 32; i += 6) {
+      steelBox.lineBetween(Math.max(15, steelX + i - 16), Math.max(ty - 15, steelY - i - 16),
+                           Math.min(47, steelX + i + 16), Math.min(ty + 17, steelY - i + 16));
+    }
+    scrollContent.add(steelBox);
+    scrollContent.add(scene.add.text(steelX, steelY, '3', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#333333'
+    }).setOrigin(0.5));
+    scrollContent.add(scene.add.text(60, ty, 'STEEL - Blocks cell for N turns', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0, 0.5));
     ty += 40;
 
-    // Lead tile
-    createTileExample(ty, GameConfig.COLORS.LEAD, 0x444444, '5', '#888888',
-      'LEAD - Countdown timer, clears at 0');
+    // Lead tile with kettlebell shape
+    const leadX = 31, leadY = ty;
+    const leadBox = scene.add.graphics();
+    leadBox.fillStyle(GameConfig.COLORS.LEAD, 1);
+    leadBox.lineStyle(2, 0x444444, 0.8);
+    leadBox.fillRoundedRect(15, ty - 15, 32, 32, 5);
+    leadBox.strokeRoundedRect(15, ty - 15, 32, 32, 5);
+    // Kettlebell body
+    leadBox.fillStyle(0x2a2a2a, 1);
+    leadBox.fillCircle(leadX, leadY + 4, 10);
+    leadBox.fillStyle(0x4a4a4a, 0.6);
+    leadBox.fillCircle(leadX - 3, leadY + 1, 4);
+    // Kettlebell handle
+    leadBox.lineStyle(3, 0x2a2a2a, 1);
+    leadBox.beginPath();
+    leadBox.arc(leadX, leadY - 4, 8, Math.PI * 0.15, Math.PI * 0.85, false);
+    leadBox.strokePath();
+    scrollContent.add(leadBox);
+    scrollContent.add(scene.add.text(leadX, leadY + 2, '5', {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#888888'
+    }).setOrigin(0.5));
+    scrollContent.add(scene.add.text(60, ty, 'LEAD - Countdown timer, clears at 0', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0, 0.5));
     ty += 40;
 
     // Glass tile
-    createTileExample(ty, GameConfig.COLORS.GLASS, 0x87ceeb, '3', '#000000',
+    createBasicTileExample(ty, GameConfig.COLORS.GLASS, 0x87ceeb, '3', '#000000',
       'GLASS - Cracks on adjacent merges');
     ty += 40;
 
     // Wildcard tile
-    createTileExample(ty, GameConfig.COLORS.WILDCARD, 0xff66ff, '?', '#ffffff',
+    createBasicTileExample(ty, GameConfig.COLORS.WILDCARD, 0xff66ff, 'W', '#ffffff',
       'WILDCARD - Matches any tile 3+');
     ty += 45;
 

@@ -61,6 +61,8 @@ class Tile extends Phaser.GameObjects.Container {
     // Add special visual effects based on type
     if (this.tileType === 'steel') {
       this.addSteelPattern();
+    } else if (this.tileType === 'lead') {
+      this.addLeadKettlebellPattern();
     } else if (this.tileType === 'glass' && this.specialData.durability === 1) {
       this.addCrackOverlay();
     }
@@ -89,7 +91,7 @@ class Tile extends Phaser.GameObjects.Container {
         fontSize = '32px';
         break;
       case 'wildcard':
-        displayText = '?';
+        displayText = 'W';
         textColor = '#ffffff';
         fontSize = '40px';
         break;
@@ -133,10 +135,88 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Add metallic pattern for steel plates
+   * Add metallic crosshatch pattern for steel plates
    */
   addSteelPattern() {
-    // Pattern disabled - just using solid color
+    const size = this.TILE_SIZE - 8;
+    const pattern = this.scene.add.graphics();
+
+    // Crosshatch lines - diagonal pattern
+    pattern.lineStyle(1, 0x9090a0, 0.4);
+
+    // Lines going one direction (top-left to bottom-right)
+    const spacing = 8;
+    for (let i = -size; i < size; i += spacing) {
+      const x1 = Math.max(-size / 2, i - size / 2);
+      const y1 = Math.max(-size / 2, -i - size / 2);
+      const x2 = Math.min(size / 2, i + size / 2);
+      const y2 = Math.min(size / 2, -i + size / 2);
+      pattern.lineBetween(x1, y1, x2, y2);
+    }
+
+    // Lines going other direction (top-right to bottom-left)
+    for (let i = -size; i < size; i += spacing) {
+      const x1 = Math.max(-size / 2, -i - size / 2);
+      const y1 = Math.max(-size / 2, -i - size / 2);
+      const x2 = Math.min(size / 2, -i + size / 2);
+      const y2 = Math.min(size / 2, -i + size / 2);
+      pattern.lineBetween(x1, y1, x2, y2);
+    }
+
+    // Add subtle metallic highlight on top edge
+    pattern.lineStyle(2, 0xc0c0d0, 0.5);
+    pattern.lineBetween(-size / 2 + 4, -size / 2 + 4, size / 2 - 4, -size / 2 + 4);
+
+    // Add subtle shadow on bottom edge
+    pattern.lineStyle(2, 0x505060, 0.5);
+    pattern.lineBetween(-size / 2 + 4, size / 2 - 4, size / 2 - 4, size / 2 - 4);
+
+    this.add(pattern);
+    this.steelPattern = pattern;
+  }
+
+  /**
+   * Add kettlebell shape for lead tiles
+   */
+  addLeadKettlebellPattern() {
+    const pattern = this.scene.add.graphics();
+
+    // Kettlebell body (main ball) - dark gray with metallic sheen
+    const bodyRadius = 16;
+    const bodyY = 6;
+
+    // Body shadow/depth
+    pattern.fillStyle(0x0a0a0a, 1);
+    pattern.fillCircle(2, bodyY + 2, bodyRadius);
+
+    // Main body
+    pattern.fillStyle(0x2a2a2a, 1);
+    pattern.fillCircle(0, bodyY, bodyRadius);
+
+    // Body highlight (top-left shine)
+    pattern.fillStyle(0x4a4a4a, 0.6);
+    pattern.fillCircle(-5, bodyY - 5, 6);
+
+    // Handle - curved arc at top
+    pattern.lineStyle(5, 0x2a2a2a, 1);
+    pattern.beginPath();
+    pattern.arc(0, -6, 12, Math.PI * 0.15, Math.PI * 0.85, false);
+    pattern.strokePath();
+
+    // Handle highlight
+    pattern.lineStyle(2, 0x4a4a4a, 0.5);
+    pattern.beginPath();
+    pattern.arc(0, -6, 12, Math.PI * 0.2, Math.PI * 0.5, false);
+    pattern.strokePath();
+
+    // Handle inner shadow
+    pattern.lineStyle(2, 0x1a1a1a, 0.8);
+    pattern.beginPath();
+    pattern.arc(0, -6, 9, Math.PI * 0.2, Math.PI * 0.8, false);
+    pattern.strokePath();
+
+    this.add(pattern);
+    this.leadPattern = pattern;
   }
 
   /**

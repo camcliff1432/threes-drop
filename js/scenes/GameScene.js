@@ -47,13 +47,14 @@ class GameScene extends Phaser.Scene {
       this.boardLogic.setBoard(this.levelConfig.startingBoard);
     }
 
-    // Initialize starting special tiles from level config
-    if (this.specialTileManager && this.levelConfig?.startingSpecialTiles) {
-      this.initializeStartingSpecialTiles(this.levelConfig.startingSpecialTiles);
-    }
-
-    // Game state
+    // Game state - initialize tiles before special tiles
     this.tiles = {};
+
+    // Initialize starting special tiles from level config
+    // Note: we create the tiles here, but they get synced visually later in create()
+    if (this.specialTileManager && this.levelConfig?.startingSpecialTiles) {
+      this.initializeStartingSpecialTilesData(this.levelConfig.startingSpecialTiles);
+    }
     this.isAnimating = false;
     this.nextTileValue = null;
     this.nextTileType = 'normal';
@@ -91,9 +92,16 @@ class GameScene extends Phaser.Scene {
     this.setupNextTilePreview();
     this.setupInput();
 
-    // Render starting tiles if any
+    // Render starting tiles if any (apply gravity first so tiles fall to bottom)
     if (this.levelConfig?.startingBoard) {
+      this.applyStartingBoardGravity();
       this.renderBoardState();
+    }
+
+    // Apply gravity to starting special tiles and render them
+    if (this.specialTileManager && this.levelConfig?.startingSpecialTiles) {
+      this.applyStartingSpecialTilesGravity();
+      this.renderSpecialTiles();
     }
 
     this.generateNextTile();
@@ -237,12 +245,45 @@ class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Initialize starting special tiles from level config
+   * Apply gravity to starting board tiles (instant, no animation)
+   * This ensures tiles fall to the bottom before the game starts
    */
-  initializeStartingSpecialTiles(specialTiles) {
+  applyStartingBoardGravity() {
+    // For each column, move tiles down to their final positions
+    for (let col = 0; col < this.GRID_COLS; col++) {
+      // Process from bottom to top
+      for (let row = this.GRID_ROWS - 2; row >= 0; row--) {
+        const cell = this.boardLogic.board[col][row];
+        if (cell === null) continue;
+
+        // Only process numeric values (normal tiles), not special tile objects
+        if (typeof cell === 'number') {
+          // Find lowest empty row
+          let targetRow = row;
+          for (let r = row + 1; r < this.GRID_ROWS; r++) {
+            if (this.boardLogic.board[col][r] === null) {
+              targetRow = r;
+            } else {
+              break;
+            }
+          }
+
+          if (targetRow !== row) {
+            // Move the board state
+            this.boardLogic.board[col][targetRow] = cell;
+            this.boardLogic.board[col][row] = null;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Initialize starting special tiles data (board logic only, no visuals yet)
+   */
+  initializeStartingSpecialTilesData(specialTiles) {
     specialTiles.forEach(spec => {
       const { type, col, row } = spec;
-      let specialData = {};
 
       switch (type) {
         case 'steel':
@@ -252,7 +293,6 @@ class GameScene extends Phaser.Scene {
             type: 'steel'
           });
           this.boardLogic.board[col][row] = { type: 'steel', blocked: true };
-          specialData = { turnsRemaining: spec.duration || spec.turnsRemaining || 5 };
           break;
         case 'lead':
           this.specialTileManager.leadTiles.push({
@@ -261,7 +301,6 @@ class GameScene extends Phaser.Scene {
             type: 'lead'
           });
           this.boardLogic.board[col][row] = { type: 'lead', countdown: spec.countdown || 5 };
-          specialData = { countdown: spec.countdown || 5 };
           break;
         case 'glass':
           this.specialTileManager.glassTiles.push({
@@ -275,14 +314,93 @@ class GameScene extends Phaser.Scene {
             value: spec.value || 3,
             durability: spec.durability || 2
           };
-          specialData = { durability: spec.durability || 2 };
           break;
       }
-
-      // Create the visual tile
-      const tile = new Tile(this, col, row, spec.value || null, this.boardLogic.nextTileId++, type, specialData);
-      this.tiles[`${col},${row}`] = tile;
     });
+  }
+
+  /**
+   * Render special tiles from board state (called after gravity is applied)
+   */
+  renderSpecialTiles() {
+    // Render steel plates
+    this.specialTileManager.steelPlates.forEach(plate => {
+      const key = `${plate.col},${plate.row}`;
+      if (!this.tiles[key]) {
+        const tile = new Tile(this, plate.col, plate.row, null, this.boardLogic.nextTileId++, 'steel', {
+          turnsRemaining: plate.turnsRemaining
+        });
+        this.tiles[key] = tile;
+      }
+    });
+
+    // Render lead tiles
+    this.specialTileManager.leadTiles.forEach(lead => {
+      const key = `${lead.col},${lead.row}`;
+      if (!this.tiles[key]) {
+        const tile = new Tile(this, lead.col, lead.row, null, this.boardLogic.nextTileId++, 'lead', {
+          countdown: lead.countdown
+        });
+        this.tiles[key] = tile;
+      }
+    });
+
+    // Render glass tiles
+    this.specialTileManager.glassTiles.forEach(glass => {
+      const key = `${glass.col},${glass.row}`;
+      if (!this.tiles[key]) {
+        const tile = new Tile(this, glass.col, glass.row, glass.value, this.boardLogic.nextTileId++, 'glass', {
+          durability: glass.durability
+        });
+        this.tiles[key] = tile;
+      }
+    });
+  }
+
+  /**
+   * Apply gravity to starting special tiles (instant, no animation)
+   */
+  applyStartingSpecialTilesGravity() {
+    // For each column, move special tiles down to their final positions
+    for (let col = 0; col < this.GRID_COLS; col++) {
+      // Process from bottom to top
+      for (let row = this.GRID_ROWS - 2; row >= 0; row--) {
+        const cell = this.boardLogic.board[col][row];
+        if (cell === null) continue;
+
+        // Check if this is a special tile that can fall (not steel - steel is fixed)
+        if (typeof cell === 'object' && cell.type !== 'steel') {
+          // Find lowest empty row
+          let targetRow = row;
+          for (let r = row + 1; r < this.GRID_ROWS; r++) {
+            if (this.boardLogic.board[col][r] === null) {
+              targetRow = r;
+            } else {
+              break;
+            }
+          }
+
+          if (targetRow !== row) {
+            // Move the board state
+            this.boardLogic.board[col][targetRow] = cell;
+            this.boardLogic.board[col][row] = null;
+
+            // Update the special tile manager tracking
+            if (cell.type === 'lead') {
+              const lead = this.specialTileManager.leadTiles.find(t => t.col === col && t.row === row);
+              if (lead) {
+                lead.row = targetRow;
+              }
+            } else if (cell.type === 'glass') {
+              const glass = this.specialTileManager.glassTiles.find(t => t.col === col && t.row === row);
+              if (glass) {
+                glass.row = targetRow;
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -1667,7 +1785,7 @@ class GameScene extends Phaser.Scene {
     });
 
     // Update frenzy bar
-    if (this.frenzyBarFill) {
+    if (this.frenzyBarFill && this.frenzyBarText) {
       const ratio = state.frenzyMeter / state.frenzyThreshold;
       this.frenzyBarFill.clear();
       if (ratio > 0) {
