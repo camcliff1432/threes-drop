@@ -435,47 +435,43 @@ class BoardLogic {
 
   applyGravity() {
     const operations = [];
-    let moved = true;
 
-    while (moved) {
-      moved = false;
-      for (let col = 0; col < this.COLS; col++) {
-        for (let row = this.ROWS - 2; row >= 0; row--) {
-          const value = this.board[col][row];
-          if (value === null) continue;
+    // Single pass - finds falls and merges for current state
+    // Chain reactions are handled by calling this repeatedly from animation
+    for (let col = 0; col < this.COLS; col++) {
+      for (let row = this.ROWS - 2; row >= 0; row--) {
+        const value = this.board[col][row];
+        if (value === null) continue;
 
-          // Steel tiles don't fall - they're fixed in place
-          if (this.isCellBlocked(col, row)) continue;
+        // Steel tiles don't fall - they're fixed in place
+        if (this.isCellBlocked(col, row)) continue;
 
-          let targetRow = row;
-          for (let r = row + 1; r < this.ROWS; r++) {
-            // Can't fall through blocked cells (steel)
-            if (this.isCellBlocked(col, r)) break;
-            if (this.board[col][r] === null) targetRow = r;
-            else break;
-          }
+        let targetRow = row;
+        for (let r = row + 1; r < this.ROWS; r++) {
+          // Can't fall through blocked cells (steel)
+          if (this.isCellBlocked(col, r)) break;
+          if (this.board[col][r] === null) targetRow = r;
+          else break;
+        }
 
-          if (targetRow < this.ROWS - 1) {
-            const below = this.board[col][targetRow + 1];
-            // Can't merge with blocked tiles
-            if (below !== null && !this.isCellBlocked(col, targetRow + 1) && this.canMerge(value, below)) {
-              const mergedValue = this.getMergedValue(value, below);
-              this.board[col][targetRow + 1] = mergedValue;
-              this.board[col][row] = null;
-              this.mergeCount++;
-              this.trackTileCreated(mergedValue);
-              moved = true;
-              operations.push({ type: 'fall-merge', col, fromRow: row, toRow: targetRow + 1, value: mergedValue });
-              continue;
-            }
-          }
-
-          if (targetRow !== row) {
-            this.board[col][targetRow] = value;
+        if (targetRow < this.ROWS - 1) {
+          const below = this.board[col][targetRow + 1];
+          // Can't merge with blocked tiles
+          if (below !== null && !this.isCellBlocked(col, targetRow + 1) && this.canMerge(value, below)) {
+            const mergedValue = this.getMergedValue(value, below);
+            this.board[col][targetRow + 1] = mergedValue;
             this.board[col][row] = null;
-            moved = true;
-            operations.push({ type: 'fall', col, fromRow: row, toRow: targetRow, value });
+            this.mergeCount++;
+            this.trackTileCreated(mergedValue);
+            operations.push({ type: 'fall-merge', col, fromRow: row, toRow: targetRow + 1, value: mergedValue });
+            continue;
           }
+        }
+
+        if (targetRow !== row) {
+          this.board[col][targetRow] = value;
+          this.board[col][row] = null;
+          operations.push({ type: 'fall', col, fromRow: row, toRow: targetRow, value });
         }
       }
     }

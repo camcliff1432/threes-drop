@@ -70,6 +70,9 @@ class GameScene extends Phaser.Scene {
     this.isFrenzyMode = false;
     this.frenzyTimerEvent = null;
 
+    // Modal state - blocks game input when help menu is open
+    this.modalOpen = false;
+
     // Objective tracking for special tile clears
     this.glassCleared = 0;
     this.leadCleared = 0;
@@ -166,7 +169,12 @@ class GameScene extends Phaser.Scene {
       fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
       color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 12, y: 6 }
     }).setOrigin(1, 0).setInteractive();
-    helpBtn.on('pointerdown', () => UIHelpers.showHowToPlay(this));
+    helpBtn.on('pointerdown', () => {
+      this.modalOpen = true;
+      UIHelpers.showHowToPlay(this, () => {
+        this.modalOpen = false;
+      });
+    });
 
     // Back button
     if (this.gameMode === 'level') {
@@ -356,7 +364,7 @@ class GameScene extends Phaser.Scene {
       { type: 'swipe', icon: '↔', cost: GameConfig.POWERUPS.SWIPE_COST },
       { type: 'swapper', icon: 'S', cost: GameConfig.POWERUPS.SWAPPER_COST },
       { type: 'merger', icon: 'M', cost: GameConfig.POWERUPS.MERGER_COST },
-      { type: 'wildcard', icon: '?', cost: GameConfig.POWERUPS.WILDCARD_COST }
+      { type: 'wildcard', icon: 'W', cost: GameConfig.POWERUPS.WILDCARD_COST }
     ];
 
     const buttonWidth = 60;
@@ -500,14 +508,14 @@ class GameScene extends Phaser.Scene {
 
   setupInput() {
     this.input.on('pointerdown', (pointer) => {
-      if (this.isAnimating) return;
+      if (this.isAnimating || this.modalOpen) return;
       this.isPointerDown = true;
       this.pointerStartX = pointer.x;
       this.pointerStartY = pointer.y;
     });
 
     this.input.on('pointerup', (pointer) => {
-      if (this.isAnimating || !this.isPointerDown) return;
+      if (this.isAnimating || !this.isPointerDown || this.modalOpen) return;
       this.isPointerDown = false;
 
       // Skip if a power-up button was clicked
@@ -553,7 +561,7 @@ class GameScene extends Phaser.Scene {
 
     // Keyboard input for arrow keys
     this.input.keyboard.on('keydown-LEFT', () => {
-      if (this.isAnimating || this.selectionMode) return;
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
       if (this.isFrenzyMode) {
         this.handleFrenzySwipe('left');
       } else if (this.swipeEnabled) {
@@ -562,7 +570,7 @@ class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-RIGHT', () => {
-      if (this.isAnimating || this.selectionMode) return;
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
       if (this.isFrenzyMode) {
         this.handleFrenzySwipe('right');
       } else if (this.swipeEnabled) {
@@ -571,16 +579,58 @@ class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-UP', () => {
-      if (this.isAnimating || this.selectionMode) return;
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
       if (this.isFrenzyMode) {
         this.handleFrenzySwipe('up');
       }
     });
 
     this.input.keyboard.on('keydown-DOWN', () => {
-      if (this.isAnimating || this.selectionMode) return;
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
       if (this.isFrenzyMode) {
         this.handleFrenzySwipe('down');
+      }
+    });
+
+    // Number keys 1-4 to drop tiles in columns
+    this.input.keyboard.on('keydown-ONE', () => {
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
+      this.handleColumnTap(0);
+    });
+    this.input.keyboard.on('keydown-TWO', () => {
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
+      this.handleColumnTap(1);
+    });
+    this.input.keyboard.on('keydown-THREE', () => {
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
+      this.handleColumnTap(2);
+    });
+    this.input.keyboard.on('keydown-FOUR', () => {
+      if (this.isAnimating || this.selectionMode || this.modalOpen) return;
+      this.handleColumnTap(3);
+    });
+
+    // Q, W, E, R for power-ups, T for frenzy
+    this.input.keyboard.on('keydown-Q', () => {
+      if (this.isAnimating || this.modalOpen) return;
+      this.activatePowerUp('swipe');
+    });
+    this.input.keyboard.on('keydown-W', () => {
+      if (this.isAnimating || this.modalOpen) return;
+      this.activatePowerUp('swapper');
+    });
+    this.input.keyboard.on('keydown-E', () => {
+      if (this.isAnimating || this.modalOpen) return;
+      this.activatePowerUp('merger');
+    });
+    this.input.keyboard.on('keydown-R', () => {
+      if (this.isAnimating || this.modalOpen) return;
+      this.activatePowerUp('wildcard');
+    });
+    this.input.keyboard.on('keydown-T', () => {
+      if (this.isAnimating || this.modalOpen) return;
+      if (this.powerUpManager && this.powerUpManager.isFrenzyReady()) {
+        this.activateFrenzy();
       }
     });
   }
@@ -636,9 +686,11 @@ class GameScene extends Phaser.Scene {
 
       if (result.success) {
         this.powerUpManager.spend('swapper');
-        // Clear selection BEFORE animating so killTweensOf doesn't cancel the move tween
+        // Clear selection and null out selectedTile1 BEFORE animating
+        // so exitSelectionMode doesn't call setSelected(false) again and kill the tween
         const tile1Data = this.selectedTile1;
         this.selectedTile1.tile.setSelected(false);
+        this.selectedTile1 = null;  // Prevent exitSelectionMode from killing tween
         this.animateSwap(tile1Data, { col, row, tile });
       }
       this.exitSelectionMode();
@@ -666,9 +718,11 @@ class GameScene extends Phaser.Scene {
 
       if (result.success) {
         this.powerUpManager.spend('merger');
-        // Clear selection BEFORE animating so killTweensOf doesn't cancel the move tween
+        // Clear selection and null out selectedTile1 BEFORE animating
+        // so exitSelectionMode doesn't call setSelected(false) again and kill the tween
         const tile1Data = this.selectedTile1;
         this.selectedTile1.tile.setSelected(false);
+        this.selectedTile1 = null;  // Prevent exitSelectionMode from killing tween
         this.animateForceMerge(result, tile1Data, { col, row, tile });
       } else if (result.reason === 'incompatible') {
         // Shake both tiles
@@ -974,6 +1028,32 @@ class GameScene extends Phaser.Scene {
         });
       } else if (op.type === 'frenzy-merge') {
         const mergeWith = this.tiles[toKey];
+
+        // Check if the destination tile still exists and can merge
+        // (it may have been broken by a previous merge in this frenzy pass)
+        const destBoardValue = this.boardLogic.board[op.toCol][op.toRow];
+        const destStillMergeable = destBoardValue !== null && mergeWith;
+
+        if (!destStillMergeable) {
+          // Glass was broken or tile no longer exists - convert to simple move
+          const movingValue = this.boardLogic.board[op.fromCol][op.fromRow];
+          this.boardLogic.board[op.fromCol][op.fromRow] = null;
+          this.boardLogic.board[op.toCol][op.toRow] = movingValue;
+
+          tile.updatePosition(op.toCol, op.toRow, true, GameConfig.ANIM.SHIFT);
+          this.tiles[toKey] = tile;
+
+          if (this.specialTileManager) {
+            this.specialTileManager.updateTilePosition(op.fromCol, op.fromRow, op.toCol, op.toRow);
+          }
+
+          this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
+            completed++;
+            if (completed === total) onComplete();
+          });
+          return;
+        }
+
         tile.updatePosition(op.toCol, op.toRow, true, GameConfig.ANIM.SHIFT);
 
         // Remove any special tiles (like glass) at both positions - merged tile becomes normal
@@ -1031,7 +1111,7 @@ class GameScene extends Phaser.Scene {
 
     if (this.nextTileType === 'wildcard') {
       color = GameConfig.COLORS.WILDCARD;
-      displayText = '?';
+      displayText = 'W';
       textColor = '#ffffff';
     } else {
       color = getTileColor(this.nextTileValue);
@@ -1311,6 +1391,32 @@ class GameScene extends Phaser.Scene {
         this.time.delayedCall(GameConfig.ANIM.SHIFT, () => { completed++; if (completed === total) onComplete(); });
       } else if (op.type === 'merge') {
         const mergeWith = this.tiles[toKey];
+
+        // Check if the destination tile still exists and can merge
+        // (it may have been broken by a previous merge in this shift pass)
+        const destBoardValue = this.boardLogic.board[op.toCol][op.row];
+        const destStillMergeable = destBoardValue !== null && mergeWith;
+
+        if (!destStillMergeable) {
+          // Glass was broken or tile no longer exists - convert to simple move
+          const movingValue = this.boardLogic.board[op.fromCol][op.row];
+          this.boardLogic.board[op.fromCol][op.row] = null;
+          this.boardLogic.board[op.toCol][op.row] = movingValue;
+
+          tile.updatePosition(op.toCol, op.row, true, GameConfig.ANIM.SHIFT);
+          this.tiles[toKey] = tile;
+
+          if (this.specialTileManager) {
+            this.specialTileManager.updateTilePosition(op.fromCol, op.row, op.toCol, op.row);
+          }
+
+          this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
+            completed++;
+            if (completed === total) onComplete();
+          });
+          return;
+        }
+
         tile.updatePosition(op.toCol, op.row, true, GameConfig.ANIM.SHIFT);
 
         // Remove any special tiles (like glass) at both positions - merged tile becomes normal
@@ -1359,12 +1465,23 @@ class GameScene extends Phaser.Scene {
     const cols = Object.keys(groups);
     let completedCols = 0;
 
+    // When all columns complete, check for chain reactions
+    const onAllColumnsComplete = () => {
+      // Check if there are more gravity operations (chain reactions from merges)
+      const moreOps = this.boardLogic.applyGravity();
+      if (moreOps.length > 0) {
+        this.animateGravity(moreOps, onComplete);
+      } else {
+        onComplete();
+      }
+    };
+
     cols.forEach(col => {
       const colOps = groups[col];
       let idx = 0;
 
       const processNext = () => {
-        if (idx >= colOps.length) { completedCols++; if (completedCols === cols.length) onComplete(); return; }
+        if (idx >= colOps.length) { completedCols++; if (completedCols === cols.length) onAllColumnsComplete(); return; }
 
         const op = colOps[idx++];
         const fromKey = `${op.col},${op.fromRow}`;
@@ -1386,6 +1503,31 @@ class GameScene extends Phaser.Scene {
           this.time.delayedCall(GameConfig.ANIM.FALL, processNext);
         } else if (op.type === 'fall-merge') {
           const mergeWith = this.tiles[toKey];
+
+          // Check if the destination tile still exists and can merge
+          // (it may have been broken by a previous merge in this gravity pass)
+          const destBoardValue = this.boardLogic.board[op.col][op.toRow];
+          const destStillMergeable = destBoardValue !== null && mergeWith;
+
+          if (!destStillMergeable) {
+            // Glass was broken or tile no longer exists - convert to simple fall
+            // Update the board state: the falling tile just lands at toRow
+            const fallingValue = this.boardLogic.board[op.col][op.fromRow];
+            this.boardLogic.board[op.col][op.fromRow] = null;
+            this.boardLogic.board[op.col][op.toRow] = fallingValue;
+
+            tile.updatePosition(op.col, op.toRow, true, GameConfig.ANIM.FALL);
+            this.tiles[toKey] = tile;
+
+            // Update special tile position tracking if it's a special tile
+            if (this.specialTileManager) {
+              this.specialTileManager.updateTilePosition(op.col, op.fromRow, op.col, op.toRow);
+            }
+
+            this.time.delayedCall(GameConfig.ANIM.FALL, processNext);
+            return;
+          }
+
           tile.updatePosition(op.col, op.toRow, true, GameConfig.ANIM.FALL);
 
           // Remove any special tiles (like glass) at both positions - merged tile becomes normal
