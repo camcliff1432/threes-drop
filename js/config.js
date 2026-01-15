@@ -28,6 +28,26 @@ const GameConfig = {
     IMBALANCE_THRESHOLD: 6
   },
 
+  // Power-up costs and settings
+  POWERUPS: {
+    SWIPE_COST: 5,
+    SWAPPER_COST: 10,
+    MERGER_COST: 10,
+    WILDCARD_COST: 20,
+    FRENZY_THRESHOLD: 50,
+    FRENZY_DURATION: 10000  // 10 seconds in ms
+  },
+
+  // Special tile settings
+  SPECIAL_TILES: {
+    STEEL_SPAWN_CHANCE: 0.05,  // 5% per drop
+    STEEL_MIN_DURATION: 3,
+    STEEL_MAX_DURATION: 6,
+    LEAD_MIN_COUNTDOWN: 3,
+    LEAD_MAX_COUNTDOWN: 7,
+    GLASS_INITIAL_DURABILITY: 2
+  },
+
   // Tile colors by value
   COLORS: {
     1: 0x4a90e2,
@@ -41,7 +61,12 @@ const GameConfig = {
     192: 0xbd10e0,
     384: 0xff6b6b,
     768: 0x4ecdc4,
-    DEFAULT: 0x999999
+    DEFAULT: 0x999999,
+    // Special tile colors
+    STEEL: 0x708090,
+    LEAD: 0x1a1a1a,
+    GLASS: 0xadd8e6,
+    WILDCARD: 0xff00ff
   },
 
   // Score thresholds for unlocking higher tiles (classic mode)
@@ -58,6 +83,9 @@ const GameConfig = {
     PRIMARY: 0x4a90e2,
     PRIMARY_LIGHT: 0x5aa0f2,
     SUCCESS: 0x7ed321,
+    DANGER: 0xe24a4a,
+    WARNING: 0xf5a623,
+    FRENZY: 0xff6b6b,
     BACKGROUND_DARK: 0x1a1a2e,
     BACKGROUND_LIGHT: 0x16213e,
     GRID_BG: 0x0f3460,

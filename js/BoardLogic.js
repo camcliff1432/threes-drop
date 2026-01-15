@@ -42,22 +42,142 @@ class BoardLogic {
   }
 
   getLowestEmptyRow(col) {
-    for (let row = this.ROWS - 1; row >= 0; row--) {
-      if (this.board[col][row] === null) return row;
+    // Find the lowest empty row that a falling tile can reach from the top
+    // Tiles cannot pass through blocked cells (steel) or other tiles
+    // Search from top to bottom, simulating the fall
+
+    let lowestReachable = -1;
+
+    for (let row = 0; row < this.ROWS; row++) {
+      if (this.isCellBlocked(col, row)) {
+        // Hit steel - can't go further, return last empty found
+        break;
+      }
+      if (this.board[col][row] === null) {
+        // Empty space - tile can reach here and continue falling
+        lowestReachable = row;
+      } else {
+        // Hit another tile - can't go further, return last empty found
+        break;
+      }
     }
-    return -1;
+
+    return lowestReachable;
   }
 
-  canMerge(value1, value2) {
-    if (value1 === null || value2 === null) return false;
-    if ((value1 === 1 && value2 === 2) || (value1 === 2 && value2 === 1)) return true;
-    if (value1 === value2 && value1 >= 3) return true;
+  /**
+   * Check if a column is completely blocked (steel at row 0)
+   */
+  isColumnBlocked(col) {
+    // If there's a steel plate at row 0, or all rows above steel are full
+    for (let row = 0; row < this.ROWS; row++) {
+      if (this.isCellBlocked(col, row)) {
+        // Check if there's any empty space above this steel
+        for (let r = 0; r < row; r++) {
+          if (this.board[col][r] === null && !this.isCellBlocked(col, r)) {
+            return false; // There's space above the steel
+          }
+        }
+        return true; // No space above steel
+      }
+      if (this.board[col][row] === null) {
+        return false; // Found empty space before hitting steel
+      }
+    }
+    return true; // Column is full
+  }
+
+  canMerge(value1, value2, debug = false) {
+    if (value1 === null || value2 === null) {
+      if (debug) console.log('canMerge: null value', { value1, value2 });
+      return false;
+    }
+
+    // Handle special tile types (objects)
+    const v1 = typeof value1 === 'object' ? value1.value : value1;
+    const v2 = typeof value2 === 'object' ? value2.value : value2;
+
+    if (debug) console.log('canMerge: extracted values', { value1, value2, v1, v2 });
+
+    // Blocked tiles (steel) cannot merge
+    if (typeof value1 === 'object' && value1.blocked) {
+      if (debug) console.log('canMerge: value1 is blocked');
+      return false;
+    }
+    if (typeof value2 === 'object' && value2.blocked) {
+      if (debug) console.log('canMerge: value2 is blocked');
+      return false;
+    }
+
+    // Lead tiles cannot merge (they have no value, just countdown)
+    if (typeof value1 === 'object' && value1.type === 'lead') {
+      if (debug) console.log('canMerge: value1 is lead');
+      return false;
+    }
+    if (typeof value2 === 'object' && value2.type === 'lead') {
+      if (debug) console.log('canMerge: value2 is lead');
+      return false;
+    }
+
+    // If either value is undefined/null after extraction, can't merge
+    if (v1 === undefined || v1 === null || v2 === undefined || v2 === null) {
+      if (debug) console.log('canMerge: undefined/null after extraction');
+      return false;
+    }
+
+    // Wildcard merges with any tile value >= 3
+    if (v1 === 'wildcard' && typeof v2 === 'number' && v2 >= 3) return true;
+    if (v2 === 'wildcard' && typeof v1 === 'number' && v1 >= 3) return true;
+
+    // Standard merge rules - ensure numeric comparison
+    const num1 = typeof v1 === 'number' ? v1 : parseInt(v1);
+    const num2 = typeof v2 === 'number' ? v2 : parseInt(v2);
+
+    if (debug) console.log('canMerge: numeric values', { num1, num2 });
+
+    // 1 + 2 = 3
+    if ((num1 === 1 && num2 === 2) || (num1 === 2 && num2 === 1)) return true;
+    // Equal values >= 3 can merge (3+3, 6+6, 12+12, etc.)
+    if (num1 === num2 && num1 >= 3 && !isNaN(num1)) return true;
+
+    if (debug) console.log('canMerge: no match found, returning false');
     return false;
   }
 
   getMergedValue(value1, value2) {
-    if ((value1 === 1 && value2 === 2) || (value1 === 2 && value2 === 1)) return 3;
-    return value1 + value2;
+    // Handle special tile types (objects)
+    const v1 = typeof value1 === 'object' ? value1.value : value1;
+    const v2 = typeof value2 === 'object' ? value2.value : value2;
+
+    // Wildcard takes on the other tile's value and doubles it
+    if (v1 === 'wildcard') return v2 * 2;
+    if (v2 === 'wildcard') return v1 * 2;
+
+    if ((v1 === 1 && v2 === 2) || (v1 === 2 && v2 === 1)) return 3;
+    return v1 + v2;
+  }
+
+  /**
+   * Get the numeric value of a cell (handles special tile objects)
+   */
+  getCellValue(col, row) {
+    const cell = this.board[col][row];
+    if (cell === null) return null;
+    if (typeof cell === 'object') return cell.value;
+    return cell;
+  }
+
+  /**
+   * Check if a cell is blocked (steel plate)
+   */
+  isCellBlocked(col, row) {
+    // Bounds check
+    if (col < 0 || col >= this.COLS || row < 0 || row >= this.ROWS) {
+      return false;
+    }
+    const cell = this.board[col][row];
+    // Note: typeof null === 'object' in JS, so we must check cell !== null first
+    return cell !== null && typeof cell === 'object' && cell.blocked === true;
   }
 
   /**
@@ -83,7 +203,8 @@ class BoardLogic {
     let finalRow = targetRow;
     let mergedRow = null;
 
-    if (belowRow < this.ROWS && this.board[col][belowRow] !== null) {
+    // Only try to merge if below is not blocked (steel) and is a valid row
+    if (belowRow < this.ROWS && this.board[col][belowRow] !== null && !this.isCellBlocked(col, belowRow)) {
       const belowValue = this.board[col][belowRow];
       if (this.canMerge(value, belowValue)) {
         finalValue = this.getMergedValue(value, belowValue);
@@ -237,68 +358,73 @@ class BoardLogic {
     const operations = [];
     const newBoard = this.createEmptyBoard();
 
-    if (direction === 'left') {
+    // Copy current board to newBoard first
+    for (let col = 0; col < this.COLS; col++) {
       for (let row = 0; row < this.ROWS; row++) {
-        const tiles = [];
-        for (let col = 0; col < this.COLS; col++) {
-          if (this.board[col][row] !== null) {
-            tiles.push({ value: this.board[col][row], originalCol: col });
-          }
-        }
+        newBoard[col][row] = this.board[col][row];
+      }
+    }
 
-        let writeCol = 0;
-        for (const tile of tiles) {
-          const targetCol = Math.max(0, tile.originalCol - 1);
+    if (direction === 'left') {
+      // Process from left to right so tiles don't overlap
+      for (let row = 0; row < this.ROWS; row++) {
+        for (let col = 1; col < this.COLS; col++) {
+          // Skip blocked tiles and empty cells
+          if (this.isCellBlocked(col, row) || newBoard[col][row] === null) continue;
 
-          if (newBoard[targetCol][row] !== null && this.canMerge(tile.value, newBoard[targetCol][row])) {
-            const mergedValue = this.getMergedValue(tile.value, newBoard[targetCol][row]);
+          const targetCol = col - 1;
+
+          // Can't move into blocked cell
+          if (this.isCellBlocked(targetCol, row)) continue;
+
+          const tileValue = newBoard[col][row];
+
+          if (newBoard[targetCol][row] === null) {
+            // Move one space left into empty cell
+            newBoard[targetCol][row] = tileValue;
+            newBoard[col][row] = null;
+            operations.push({ type: 'move', fromCol: col, toCol: targetCol, row, value: tileValue });
+          } else if (this.canMerge(tileValue, newBoard[targetCol][row])) {
+            // Merge with tile to the left
+            const mergedValue = this.getMergedValue(tileValue, newBoard[targetCol][row]);
             newBoard[targetCol][row] = mergedValue;
+            newBoard[col][row] = null;
             this.mergeCount++;
             this.trackTileCreated(mergedValue);
-            operations.push({ type: 'merge', fromCol: tile.originalCol, toCol: targetCol, row, value: mergedValue });
-          } else {
-            while (writeCol < this.COLS && newBoard[writeCol][row] !== null) writeCol++;
-            if (writeCol < this.COLS) {
-              const finalCol = Math.max(writeCol, Math.min(targetCol, this.COLS - 1));
-              newBoard[finalCol][row] = tile.value;
-              if (tile.originalCol !== finalCol) {
-                operations.push({ type: 'move', fromCol: tile.originalCol, toCol: finalCol, row, value: tile.value });
-              }
-              writeCol = finalCol + 1;
-            }
+            operations.push({ type: 'merge', fromCol: col, toCol: targetCol, row, value: mergedValue });
           }
+          // If target is occupied and can't merge, tile stays in place
         }
       }
     } else if (direction === 'right') {
+      // Process from right to left so tiles don't overlap
       for (let row = 0; row < this.ROWS; row++) {
-        const tiles = [];
-        for (let col = this.COLS - 1; col >= 0; col--) {
-          if (this.board[col][row] !== null) {
-            tiles.push({ value: this.board[col][row], originalCol: col });
-          }
-        }
+        for (let col = this.COLS - 2; col >= 0; col--) {
+          // Skip blocked tiles and empty cells
+          if (this.isCellBlocked(col, row) || newBoard[col][row] === null) continue;
 
-        let writeCol = this.COLS - 1;
-        for (const tile of tiles) {
-          const targetCol = Math.min(this.COLS - 1, tile.originalCol + 1);
+          const targetCol = col + 1;
 
-          if (newBoard[targetCol][row] !== null && this.canMerge(tile.value, newBoard[targetCol][row])) {
-            const mergedValue = this.getMergedValue(tile.value, newBoard[targetCol][row]);
+          // Can't move into blocked cell
+          if (this.isCellBlocked(targetCol, row)) continue;
+
+          const tileValue = newBoard[col][row];
+
+          if (newBoard[targetCol][row] === null) {
+            // Move one space right into empty cell
+            newBoard[targetCol][row] = tileValue;
+            newBoard[col][row] = null;
+            operations.push({ type: 'move', fromCol: col, toCol: targetCol, row, value: tileValue });
+          } else if (this.canMerge(tileValue, newBoard[targetCol][row])) {
+            // Merge with tile to the right
+            const mergedValue = this.getMergedValue(tileValue, newBoard[targetCol][row]);
             newBoard[targetCol][row] = mergedValue;
+            newBoard[col][row] = null;
             this.mergeCount++;
             this.trackTileCreated(mergedValue);
-            operations.push({ type: 'merge', fromCol: tile.originalCol, toCol: targetCol, row, value: mergedValue });
-          } else {
-            while (writeCol >= 0 && newBoard[writeCol][row] !== null) writeCol--;
-            if (writeCol >= 0) {
-              const finalCol = Math.min(writeCol, Math.max(targetCol, 0));
-              newBoard[finalCol][row] = tile.value;
-              if (tile.originalCol !== finalCol) {
-                operations.push({ type: 'move', fromCol: tile.originalCol, toCol: finalCol, row, value: tile.value });
-              }
-              writeCol = finalCol - 1;
-            }
+            operations.push({ type: 'merge', fromCol: col, toCol: targetCol, row, value: mergedValue });
           }
+          // If target is occupied and can't merge, tile stays in place
         }
       }
     }
@@ -318,15 +444,21 @@ class BoardLogic {
           const value = this.board[col][row];
           if (value === null) continue;
 
+          // Steel tiles don't fall - they're fixed in place
+          if (this.isCellBlocked(col, row)) continue;
+
           let targetRow = row;
           for (let r = row + 1; r < this.ROWS; r++) {
+            // Can't fall through blocked cells (steel)
+            if (this.isCellBlocked(col, r)) break;
             if (this.board[col][r] === null) targetRow = r;
             else break;
           }
 
           if (targetRow < this.ROWS - 1) {
             const below = this.board[col][targetRow + 1];
-            if (below !== null && this.canMerge(value, below)) {
+            // Can't merge with blocked tiles
+            if (below !== null && !this.isCellBlocked(col, targetRow + 1) && this.canMerge(value, below)) {
               const mergedValue = this.getMergedValue(value, below);
               this.board[col][targetRow + 1] = mergedValue;
               this.board[col][row] = null;
@@ -348,6 +480,156 @@ class BoardLogic {
       }
     }
 
+    return operations;
+  }
+
+  /**
+   * Swap two tiles on the board (Swapper power-up)
+   */
+  swapTiles(col1, row1, col2, row2) {
+    // Validate positions
+    if (col1 < 0 || col1 >= this.COLS || row1 < 0 || row1 >= this.ROWS) {
+      return { success: false, reason: 'Invalid position 1' };
+    }
+    if (col2 < 0 || col2 >= this.COLS || row2 < 0 || row2 >= this.ROWS) {
+      return { success: false, reason: 'Invalid position 2' };
+    }
+
+    // Can't swap blocked cells
+    if (this.isCellBlocked(col1, row1) || this.isCellBlocked(col2, row2)) {
+      return { success: false, reason: 'Cannot swap blocked tiles' };
+    }
+
+    // Both cells must have tiles
+    if (this.board[col1][row1] === null || this.board[col2][row2] === null) {
+      return { success: false, reason: 'Cannot swap with empty cell' };
+    }
+
+    // Perform swap
+    const temp = this.board[col1][row1];
+    this.board[col1][row1] = this.board[col2][row2];
+    this.board[col2][row2] = temp;
+
+    return { success: true };
+  }
+
+  /**
+   * Force merge two adjacent tiles (Merger power-up)
+   * Merges at the second tile's position
+   */
+  forceMerge(col1, row1, col2, row2) {
+    const value1 = this.board[col1][row1];
+    const value2 = this.board[col2][row2];
+
+    // Check both tiles exist
+    if (value1 === null || value2 === null) {
+      return { success: false, reason: 'empty_cell' };
+    }
+
+    // Check compatibility (with debug logging on failure)
+    if (!this.canMerge(value1, value2)) {
+      console.log('forceMerge failed - incompatible tiles:', { value1, value2, col1, row1, col2, row2 });
+      this.canMerge(value1, value2, true); // Re-run with debug to see why
+      return { success: false, reason: 'incompatible' };
+    }
+
+    // Perform merge at second tile's position
+    const mergedValue = this.getMergedValue(value1, value2);
+    this.board[col1][row1] = null;
+    this.board[col2][row2] = mergedValue;
+    this.mergeCount++;
+    this.trackTileCreated(mergedValue);
+
+    return {
+      success: true,
+      mergedValue: mergedValue,
+      mergedCol: col2,
+      mergedRow: row2,
+      clearedCol: col1,
+      clearedRow: row1
+    };
+  }
+
+  /**
+   * Frenzy mode shift - omni-directional 1-space movement, no gravity
+   */
+  frenzyShift(direction) {
+    const operations = [];
+    const newBoard = this.createEmptyBoard();
+
+    const deltas = {
+      'left': { dc: -1, dr: 0 },
+      'right': { dc: 1, dr: 0 },
+      'up': { dc: 0, dr: -1 },
+      'down': { dc: 0, dr: 1 }
+    };
+
+    const { dc, dr } = deltas[direction] || { dc: 0, dr: 0 };
+    if (dc === 0 && dr === 0) return operations;
+
+    // Process in correct order based on direction
+    const colStart = dc > 0 ? this.COLS - 1 : 0;
+    const colEnd = dc > 0 ? -1 : this.COLS;
+    const colStep = dc > 0 ? -1 : 1;
+    const rowStart = dr > 0 ? this.ROWS - 1 : 0;
+    const rowEnd = dr > 0 ? -1 : this.ROWS;
+    const rowStep = dr > 0 ? -1 : 1;
+
+    for (let col = colStart; col !== colEnd; col += colStep) {
+      for (let row = rowStart; row !== rowEnd; row += rowStep) {
+        const value = this.board[col][row];
+        if (value === null) continue;
+
+        // Skip blocked tiles
+        if (this.isCellBlocked(col, row)) {
+          newBoard[col][row] = value;
+          continue;
+        }
+
+        const newCol = Math.max(0, Math.min(this.COLS - 1, col + dc));
+        const newRow = Math.max(0, Math.min(this.ROWS - 1, row + dr));
+
+        // Check if target is blocked
+        if (this.isCellBlocked(newCol, newRow)) {
+          newBoard[col][row] = value;
+          continue;
+        }
+
+        // Check for merge
+        if (newBoard[newCol][newRow] !== null && this.canMerge(value, newBoard[newCol][newRow])) {
+          const mergedValue = this.getMergedValue(value, newBoard[newCol][newRow]);
+          newBoard[newCol][newRow] = mergedValue;
+          this.mergeCount++;
+          this.trackTileCreated(mergedValue);
+          operations.push({
+            type: 'frenzy-merge',
+            fromCol: col,
+            fromRow: row,
+            toCol: newCol,
+            toRow: newRow,
+            value: mergedValue
+          });
+        } else if (newBoard[newCol][newRow] === null) {
+          // Move to empty cell
+          newBoard[newCol][newRow] = value;
+          if (col !== newCol || row !== newRow) {
+            operations.push({
+              type: 'frenzy-move',
+              fromCol: col,
+              fromRow: row,
+              toCol: newCol,
+              toRow: newRow,
+              value: value
+            });
+          }
+        } else {
+          // Can't move, stay in place
+          newBoard[col][row] = value;
+        }
+      }
+    }
+
+    this.board = newBoard;
     return operations;
   }
 }

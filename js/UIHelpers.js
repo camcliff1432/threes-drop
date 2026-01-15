@@ -62,7 +62,7 @@ const UIHelpers = {
   },
 
   /**
-   * Show the How to Play modal
+   * Show the How to Play modal with scrollable content
    */
   showHowToPlay(scene, onClose) {
     const { width, height } = scene.cameras.main;
@@ -75,8 +75,8 @@ const UIHelpers = {
     bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
     overlay.add(bg);
 
-    // Modal
-    const mw = 340, mh = 420;
+    // Modal dimensions - larger for better readability
+    const mw = 380, mh = 620;
     const mx = (width - mw) / 2, my = (height - mh) / 2;
     const modal = scene.add.graphics();
     modal.fillStyle(GameConfig.UI.BACKGROUND_DARK, 1);
@@ -85,10 +85,36 @@ const UIHelpers = {
     modal.strokeRoundedRect(mx, my, mw, mh, 12);
     overlay.add(modal);
 
-    // Title
+    // Title (fixed, not scrollable)
     overlay.add(scene.add.text(width / 2, my + 25, 'HOW TO PLAY', {
       fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5));
+
+    // Scroll hint
+    overlay.add(scene.add.text(width / 2, my + 48, '↓ Scroll for more ↓', {
+      fontSize: '10px', fontFamily: 'Arial, sans-serif', color: '#666666'
+    }).setOrigin(0.5));
+
+    // Scrollable content area dimensions
+    const scrollX = mx + 10;
+    const scrollY = my + 60;
+    const scrollW = mw - 20;
+    const scrollH = mh - 110; // Leave room for title and close button
+
+    // Create scrollable content container
+    const scrollContent = scene.add.container(scrollX, scrollY);
+    overlay.add(scrollContent);
+
+    // Create mask for scroll area
+    const maskShape = scene.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(scrollX, scrollY, scrollW, scrollH);
+    const mask = maskShape.createGeometryMask();
+    scrollContent.setMask(mask);
+
+    // Build content inside scrollContent (positions relative to container)
+    let ty = 10; // Start position within scroll container
+    const contentX = scrollW / 2; // Center X relative to container
 
     // Merge example tiles
     const tiles = [
@@ -98,40 +124,257 @@ const UIHelpers = {
       { icon: '=' },
       { icon: '3', color: GameConfig.COLORS[3], textColor: '#000000' }
     ];
-    const startX = mx + 40, exY = my + 70;
+    const tileStartX = 55;
     tiles.forEach((t, i) => {
       if (t.icon === '+' || t.icon === '=') {
-        overlay.add(scene.add.text(startX + i * 55, exY, t.icon, {
-          fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+        scrollContent.add(scene.add.text(tileStartX + i * 55, ty, t.icon, {
+          fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
       } else {
         const box = scene.add.graphics();
         box.fillStyle(t.color, 1);
-        box.fillRoundedRect(startX + i * 55 - 18, exY - 18, 36, 36, 6);
-        overlay.add(box);
-        overlay.add(scene.add.text(startX + i * 55, exY, t.icon, {
-          fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: t.textColor || '#ffffff'
+        box.fillRoundedRect(tileStartX + i * 55 - 18, ty - 18, 36, 36, 6);
+        scrollContent.add(box);
+        scrollContent.add(scene.add.text(tileStartX + i * 55, ty, t.icon, {
+          fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: t.textColor || '#ffffff'
         }).setOrigin(0.5));
       }
     });
+    ty += 45;
 
-    // Instructions text
-    const lines = [
-      'Tap a column to drop a tile.', '',
-      '1 + 2 = 3', 'Matching tiles (3+3, 6+6...) double.', '',
-      'Fill the SWIPE bar with 5 merges', 'to unlock left/right shifting.', '',
-      'Swipes allow horizontal merges', 'and trigger cascading combos!'
+    // Basic instructions
+    const basicLines = [
+      'Tap a column to drop a tile.',
+      '1 + 2 = 3  |  Matching tiles double (3+3=6)',
+      'Use arrow keys or swipe gestures to shift tiles.'
     ];
-    let ty = my + 120;
-    lines.forEach(line => {
-      overlay.add(scene.add.text(width / 2, ty, line, {
-        fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#cccccc'
+    basicLines.forEach(line => {
+      scrollContent.add(scene.add.text(contentX, ty, line, {
+        fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#cccccc'
       }).setOrigin(0.5));
-      ty += 22;
+      ty += 20;
     });
 
-    // Close button
-    const closeBtn = scene.add.text(width / 2, my + mh - 35, 'TAP TO CLOSE', {
+    // Game modes section
+    ty += 15;
+    scrollContent.add(scene.add.text(contentX, ty, 'GAME MODES', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4CAF50'
+    }).setOrigin(0.5));
+    ty += 22;
+
+    const modeInfo = [
+      { name: 'ORIGINAL', desc: 'Classic gameplay - swipe to shift tiles' },
+      { name: 'CRAZY', desc: 'All power-ups, frenzy mode, special tiles' },
+      { name: 'LEVELS', desc: '20 levels with objectives and challenges' },
+    ];
+    modeInfo.forEach(mode => {
+      scrollContent.add(scene.add.text(15, ty, mode.name, {
+        fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4CAF50'
+      }).setOrigin(0, 0.5));
+      scrollContent.add(scene.add.text(100, ty, mode.desc, {
+        fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      }).setOrigin(0, 0.5));
+      ty += 20;
+    });
+
+    // Power-ups section
+    ty += 15;
+    scrollContent.add(scene.add.text(contentX, ty, 'POWER-UPS', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+    }).setOrigin(0.5));
+    ty += 8;
+    scrollContent.add(scene.add.text(contentX, ty, '(Crazy & Level Modes)', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    }).setOrigin(0.5));
+    ty += 22;
+
+    const powerUpInfo = [
+      { name: 'SWIPE (5pts)', desc: 'Shift all tiles left or right one space' },
+      { name: 'SWAP (10pts)', desc: 'Exchange any two tiles on the board' },
+      { name: 'MERGE (10pts)', desc: 'Force merge two compatible tiles' },
+      { name: 'WILDCARD (20pts)', desc: 'Next tile becomes a wildcard' },
+    ];
+    powerUpInfo.forEach(pu => {
+      scrollContent.add(scene.add.text(15, ty, pu.name, {
+        fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      }).setOrigin(0, 0.5));
+      scrollContent.add(scene.add.text(130, ty, pu.desc, {
+        fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      }).setOrigin(0, 0.5));
+      ty += 20;
+    });
+
+    // How to earn points
+    ty += 8;
+    scrollContent.add(scene.add.text(contentX, ty, 'Earn 1 power point for each merge!', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', fontStyle: 'italic', color: '#f5a623'
+    }).setOrigin(0.5));
+
+    // Frenzy mode
+    ty += 25;
+    scrollContent.add(scene.add.text(contentX, ty, 'FRENZY MODE', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff6b6b'
+    }).setOrigin(0.5));
+    ty += 22;
+    scrollContent.add(scene.add.text(contentX, ty, '50 merges fills the frenzy meter!', {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#cccccc'
+    }).setOrigin(0.5));
+    ty += 18;
+    scrollContent.add(scene.add.text(contentX, ty, 'When activated:', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    }).setOrigin(0.5));
+    ty += 16;
+    scrollContent.add(scene.add.text(contentX, ty, '• 10 seconds of no gravity', {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#ff6b6b'
+    }).setOrigin(0.5));
+    ty += 16;
+    scrollContent.add(scene.add.text(contentX, ty, '• Swipe in all 4 directions (↑↓←→)', {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#ff6b6b'
+    }).setOrigin(0.5));
+
+    // Special tiles section
+    ty += 30;
+    scrollContent.add(scene.add.text(contentX, ty, 'SPECIAL TILES', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#9b59b6'
+    }).setOrigin(0.5));
+    ty += 28;
+
+    // Helper to create tile examples
+    const createTileExample = (y, color, strokeColor, label, labelColor, description) => {
+      const box = scene.add.graphics();
+      box.fillStyle(color, 1);
+      box.lineStyle(2, strokeColor, 0.8);
+      box.fillRoundedRect(15, y - 15, 32, 32, 5);
+      box.strokeRoundedRect(15, y - 15, 32, 32, 5);
+      scrollContent.add(box);
+      scrollContent.add(scene.add.text(31, y, label, {
+        fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: labelColor
+      }).setOrigin(0.5));
+      scrollContent.add(scene.add.text(60, y, description, {
+        fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      }).setOrigin(0, 0.5));
+    };
+
+    // Steel tile
+    createTileExample(ty, GameConfig.COLORS.STEEL, 0x4a4a4a, '3', '#333333',
+      'STEEL - Blocks cell for N turns');
+    ty += 40;
+
+    // Lead tile
+    createTileExample(ty, GameConfig.COLORS.LEAD, 0x444444, '5', '#888888',
+      'LEAD - Countdown timer, clears at 0');
+    ty += 40;
+
+    // Glass tile
+    createTileExample(ty, GameConfig.COLORS.GLASS, 0x87ceeb, '3', '#000000',
+      'GLASS - Cracks on adjacent merges');
+    ty += 40;
+
+    // Wildcard tile
+    createTileExample(ty, GameConfig.COLORS.WILDCARD, 0xff66ff, '?', '#ffffff',
+      'WILDCARD - Matches any tile 3+');
+    ty += 45;
+
+    // Tips section
+    scrollContent.add(scene.add.text(contentX, ty, 'TIPS', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#2ecc71'
+    }).setOrigin(0.5));
+    ty += 22;
+
+    const tips = [
+      '• Build up high-value tiles in corners',
+      '• Save wildcards for high-value merges',
+      '• Use frenzy mode strategically',
+      '• In levels, focus on objectives first'
+    ];
+    tips.forEach(tip => {
+      scrollContent.add(scene.add.text(contentX, ty, tip, {
+        fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      }).setOrigin(0.5));
+      ty += 18;
+    });
+
+    // Total content height
+    const totalContentHeight = ty + 20;
+
+    // Scroll variables
+    let scrollOffset = 0;
+    const maxScroll = Math.max(0, totalContentHeight - scrollH);
+
+    // Scroll bar (only show if content exceeds view)
+    let scrollBar = null;
+    let scrollBarBg = null;
+    const scrollBarWidth = 6;
+    const scrollBarX = mx + mw - 15;
+
+    if (maxScroll > 0) {
+      // Scroll bar background
+      scrollBarBg = scene.add.graphics();
+      scrollBarBg.fillStyle(0x333333, 0.5);
+      scrollBarBg.fillRoundedRect(scrollBarX, scrollY, scrollBarWidth, scrollH, 3);
+      overlay.add(scrollBarBg);
+
+      // Scroll bar handle
+      const handleHeight = Math.max(30, (scrollH / totalContentHeight) * scrollH);
+      scrollBar = scene.add.graphics();
+      scrollBar.fillStyle(GameConfig.UI.PRIMARY, 0.8);
+      scrollBar.fillRoundedRect(scrollBarX, scrollY, scrollBarWidth, handleHeight, 3);
+      overlay.add(scrollBar);
+
+      // Update scroll bar position
+      const updateScrollBar = () => {
+        if (scrollBar) {
+          const handleHeight = Math.max(30, (scrollH / totalContentHeight) * scrollH);
+          const handleY = scrollY + (scrollOffset / maxScroll) * (scrollH - handleHeight);
+          scrollBar.clear();
+          scrollBar.fillStyle(GameConfig.UI.PRIMARY, 0.8);
+          scrollBar.fillRoundedRect(scrollBarX, handleY, scrollBarWidth, handleHeight, 3);
+        }
+      };
+
+      // Drag to scroll
+      const scrollZone = scene.add.rectangle(
+        scrollX + scrollW / 2, scrollY + scrollH / 2,
+        scrollW, scrollH, 0x000000, 0
+      ).setInteractive();
+      overlay.add(scrollZone);
+
+      let isDragging = false;
+      let lastY = 0;
+
+      scrollZone.on('pointerdown', (pointer) => {
+        isDragging = true;
+        lastY = pointer.y;
+      });
+
+      scene.input.on('pointermove', (pointer) => {
+        if (isDragging) {
+          const deltaY = lastY - pointer.y;
+          scrollOffset = Phaser.Math.Clamp(scrollOffset + deltaY, 0, maxScroll);
+          scrollContent.y = scrollY - scrollOffset;
+          lastY = pointer.y;
+          updateScrollBar();
+        }
+      });
+
+      scene.input.on('pointerup', () => {
+        isDragging = false;
+      });
+
+      // Mouse wheel support
+      scene.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+        // Check if pointer is within modal bounds
+        if (pointer.x >= mx && pointer.x <= mx + mw &&
+            pointer.y >= my && pointer.y <= my + mh) {
+          scrollOffset = Phaser.Math.Clamp(scrollOffset + deltaY * 0.5, 0, maxScroll);
+          scrollContent.y = scrollY - scrollOffset;
+          updateScrollBar();
+        }
+      });
+    }
+
+    // Close button (fixed at bottom)
+    const closeBtn = scene.add.text(width / 2, my + mh - 30, 'TAP TO CLOSE', {
       fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
     }).setOrigin(0.5).setInteractive();
     overlay.add(closeBtn);
@@ -139,6 +382,11 @@ const UIHelpers = {
     scene.tweens.add({ targets: closeBtn, alpha: 0.5, duration: 600, yoyo: true, repeat: -1 });
 
     const close = () => {
+      // Clean up scroll listeners
+      scene.input.off('pointermove');
+      scene.input.off('pointerup');
+      scene.input.off('wheel');
+      maskShape.destroy();
       overlay.destroy();
       if (onClose) onClose();
     };
