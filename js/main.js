@@ -25,7 +25,7 @@ const config = {
     roundPixels: false
   },
   resolution: window.devicePixelRatio || 1,
-  scene: [MenuScene, LevelSelectScene, TutorialSelectScene, LeaderboardScene, AchievementScene, GameScene]
+  scene: [MenuScene, TileCollectionScene, LevelSelectScene, TutorialSelectScene, LeaderboardScene, AchievementScene, GameScene]
 };
 
 const game = new Phaser.Game(config);

@@ -1460,6 +1460,7 @@ class GameScene extends Phaser.Scene {
 
       this.boardLogic.addScore(newValue);
       this.powerUpManager.addMergePoint();
+      tileCollectionManager.recordTile(newValue);
       this.updateUI();
 
       this.tweens.add({

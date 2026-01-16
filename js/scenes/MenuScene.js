@@ -6,6 +6,10 @@ class MenuScene extends Phaser.Scene {
     super({ key: 'MenuScene' });
   }
 
+  preload() {
+    // Video is loaded directly via HTML element in showUltraVideo
+  }
+
   create() {
     const { width, height } = this.cameras.main;
     UIHelpers.drawBackground(this);
@@ -44,6 +48,14 @@ class MenuScene extends Phaser.Scene {
         description: 'Bombs explode for points\nAll features enabled',
         color: 0xff4444,
         tiles: ['bomb', 'auto_swapper', 'bomb']
+      },
+      {
+        mode: 'ultra',
+        title: 'ULTRA',
+        subtitle: '??? MODE ???',
+        description: 'Only for the brave\nAre you ready?',
+        color: 0xff00ff,
+        tiles: ['ultra', 'ultra', 'ultra']
       }
     ];
 
@@ -208,6 +220,20 @@ class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5);
             container.add(swapText);
             break;
+
+          case 'ultra':
+            // Ultra tile - rainbow/magenta with skull
+            tileBg.fillStyle(0xff00ff, 1);
+            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            tileBg.lineStyle(2, 0xffff00, 0.8);
+            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            container.add(tileBg);
+            // Skull/danger symbol
+            const ultraText = this.add.text(tileX, tileY, '☠', {
+              fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5);
+            container.add(ultraText);
+            break;
         }
       } else {
         // Regular numeric tile
@@ -239,19 +265,39 @@ class MenuScene extends Phaser.Scene {
     goalBg.fillRoundedRect(-100, goalY - 14, 200, 28, 6);
     container.add(goalBg);
 
-    const goalText = this.add.text(0, goalY, modeData.mode === 'endless' ? 'GOAL: HIGHEST SCORE' : 'GOAL: HIGHEST TILE', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: modeData.mode === 'endless' ? '#ff6b6b' : '#7ed321'
+    let goalLabel, goalColor;
+    if (modeData.mode === 'ultra') {
+      goalLabel = 'GOAL: SURVIVE';
+      goalColor = '#ff00ff';
+    } else if (modeData.mode === 'endless') {
+      goalLabel = 'GOAL: HIGHEST SCORE';
+      goalColor = '#ff6b6b';
+    } else {
+      goalLabel = 'GOAL: HIGHEST TILE';
+      goalColor = '#7ed321';
+    }
+
+    const goalText = this.add.text(0, goalY, goalLabel, {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: goalColor
     }).setOrigin(0.5);
     container.add(goalText);
 
-    // High score - more prominent
-    const highScore = highScoreManager.getHighScore(modeData.mode);
-    const scoreText = highScore > 0 ? `BEST: ${highScore}` : 'NO SCORE YET';
-    const scoreColor = highScore > 0 ? '#f5a623' : '#888888';
-    const score = this.add.text(0, this.cardHeight / 2 - 28, scoreText, {
-      fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: scoreColor
-    }).setOrigin(0.5);
-    container.add(score);
+    // High score - more prominent (skip for ultra mode)
+    if (modeData.mode !== 'ultra') {
+      const highScore = highScoreManager.getHighScore(modeData.mode);
+      const scoreText = highScore > 0 ? `BEST: ${highScore}` : 'NO SCORE YET';
+      const scoreColor = highScore > 0 ? '#f5a623' : '#888888';
+      const score = this.add.text(0, this.cardHeight / 2 - 28, scoreText, {
+        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: scoreColor
+      }).setOrigin(0.5);
+      container.add(score);
+    } else {
+      // Ultra mode - show warning instead
+      const warning = this.add.text(0, this.cardHeight / 2 - 28, '⚠ DANGER ⚠', {
+        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff00ff'
+      }).setOrigin(0.5);
+      container.add(warning);
+    }
 
     return { container, bg, modeData };
   }
@@ -268,6 +314,11 @@ class MenuScene extends Phaser.Scene {
     this.leftArrow.on('pointerdown', () => this.navigateCarousel(-1));
     this.leftArrow.on('pointerover', () => this.leftArrow.setColor('#7ab8ff'));
     this.leftArrow.on('pointerout', () => this.leftArrow.setColor('#4a90e2'));
+
+    // Collection hint (shows when on first card)
+    this.collectionHint = this.add.text(15, arrowY + 35, 'TILES', {
+      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    }).setOrigin(0.5).setAlpha(0.7);
 
     // Right arrow
     this.rightArrow = this.add.text(width - 15, arrowY, '>', {
@@ -298,8 +349,89 @@ class MenuScene extends Phaser.Scene {
 
     this.playButton = UIHelpers.createButton(this, width / 2, buttonY, 'PLAY', () => {
       const mode = this.gameModes[this.currentIndex].mode;
-      this.scene.start('GameScene', { mode });
+      if (mode === 'ultra') {
+        this.showUltraVideo();
+      } else {
+        this.scene.start('GameScene', { mode });
+      }
     }, { width: 180, height: 50, fontSize: '24px' });
+  }
+
+  showUltraVideo() {
+    const { width, height } = this.cameras.main;
+
+    // Create dark overlay in Phaser
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.95);
+    overlay.setDepth(1000);
+
+    // Create HTML video element directly to avoid CORS issues
+    const video = document.createElement('video');
+    video.src = 'cat.mp4';
+    video.loop = true;
+    video.muted = false;
+    video.playsInline = true;
+    video.style.position = 'absolute';
+    video.style.zIndex = '1000';
+    video.style.maxWidth = '90%';
+    video.style.maxHeight = '80%';
+    video.style.top = '50%';
+    video.style.left = '50%';
+    video.style.transform = 'translate(-50%, -50%)';
+    video.style.borderRadius = '10px';
+    video.style.boxShadow = '0 0 30px rgba(255, 0, 255, 0.5)';
+
+    // Add to game container
+    const container = document.getElementById('game-container');
+    container.appendChild(video);
+    video.play();
+
+    // Close button (HTML)
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.zIndex = '1001';
+    closeBtn.style.top = '20px';
+    closeBtn.style.right = '20px';
+    closeBtn.style.fontSize = '32px';
+    closeBtn.style.fontWeight = 'bold';
+    closeBtn.style.color = '#ffffff';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.textShadow = '0 0 10px #ff00ff';
+    container.appendChild(closeBtn);
+
+    // Tap hint
+    const tapHint = document.createElement('div');
+    tapHint.innerHTML = 'Tap anywhere to close';
+    tapHint.style.position = 'absolute';
+    tapHint.style.zIndex = '1001';
+    tapHint.style.bottom = '30px';
+    tapHint.style.left = '50%';
+    tapHint.style.transform = 'translateX(-50%)';
+    tapHint.style.fontSize = '14px';
+    tapHint.style.color = '#888888';
+    container.appendChild(tapHint);
+
+    // Overlay click zone (HTML)
+    const clickZone = document.createElement('div');
+    clickZone.style.position = 'absolute';
+    clickZone.style.zIndex = '999';
+    clickZone.style.top = '0';
+    clickZone.style.left = '0';
+    clickZone.style.width = '100%';
+    clickZone.style.height = '100%';
+    container.appendChild(clickZone);
+
+    const cleanup = () => {
+      video.pause();
+      video.remove();
+      closeBtn.remove();
+      tapHint.remove();
+      clickZone.remove();
+      overlay.destroy();
+    };
+
+    closeBtn.onclick = cleanup;
+    clickZone.onclick = cleanup;
   }
 
   createMenuButtons() {
@@ -335,6 +467,13 @@ class MenuScene extends Phaser.Scene {
 
   navigateCarousel(direction) {
     const newIndex = this.currentIndex + direction;
+
+    // If swiping left past the first card, go to Tile Collection
+    if (newIndex < 0 && this.currentIndex === 0) {
+      this.scene.start('TileCollectionScene');
+      return;
+    }
+
     if (newIndex >= 0 && newIndex < this.gameModes.length) {
       this.currentIndex = newIndex;
       this.updateCarousel(true);
@@ -374,8 +513,14 @@ class MenuScene extends Phaser.Scene {
     });
 
     // Update arrow visibility
-    this.leftArrow.setAlpha(this.currentIndex > 0 ? 1 : 0.3);
+    // Left arrow is always active (goes to Collection when at index 0)
+    this.leftArrow.setAlpha(1);
     this.rightArrow.setAlpha(this.currentIndex < this.gameModes.length - 1 ? 1 : 0.3);
+
+    // Show collection hint when on first card
+    if (this.collectionHint) {
+      this.collectionHint.setVisible(this.currentIndex === 0);
+    }
   }
 
   setupDragNavigation() {
@@ -392,6 +537,7 @@ class MenuScene extends Phaser.Scene {
 
     let startX = 0;
     let isDragging = false;
+    let lastTapTime = 0;
 
     dragZone.on('pointerdown', (pointer) => {
       startX = pointer.x;
@@ -414,11 +560,28 @@ class MenuScene extends Phaser.Scene {
         } else {
           this.navigateCarousel(-1); // Swipe right = go left
         }
+      } else {
+        // It was a tap, not a swipe - check for double tap
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          // Double tap detected - play the current mode
+          this.playCurrentMode();
+        }
+        lastTapTime = now;
       }
     });
 
     dragZone.on('pointerout', () => {
       isDragging = false;
     });
+  }
+
+  playCurrentMode() {
+    const mode = this.gameModes[this.currentIndex].mode;
+    if (mode === 'ultra') {
+      this.showUltraVideo();
+    } else {
+      this.scene.start('GameScene', { mode });
+    }
   }
 }
