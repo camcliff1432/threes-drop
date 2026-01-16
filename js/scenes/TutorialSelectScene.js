@@ -28,14 +28,22 @@ class TutorialSelectScene extends Phaser.Scene {
     // Scrollable content container
     this.scrollContainer = this.add.container(0, 0);
 
-    // Level grid settings
+    // Level grid settings - responsive to screen width
     const cols = 4;
-    const startX = 45;
-    const startY = 110;
-    const spacingX = 85;
-    const spacingY = 85;
     const total = levelManager.getTotalLevels();
     const rows = Math.ceil(total / cols);
+
+    // Calculate button size and spacing based on screen width
+    const margin = 30; // Margin on each side
+    const availableWidth = width - margin * 2;
+    const buttonSize = Math.min(70, (availableWidth - 30) / cols); // 30px total gap between buttons
+    const spacingX = (availableWidth - buttonSize) / (cols - 1);
+    const spacingY = buttonSize + 25; // Vertical spacing
+
+    // Center the grid horizontally
+    const gridWidth = buttonSize + (cols - 1) * spacingX;
+    const startX = (width - gridWidth) / 2 + buttonSize / 2;
+    const startY = 120;
 
     // Calculate content height
     this.contentHeight = startY + rows * spacingY + 40;
@@ -43,13 +51,16 @@ class TutorialSelectScene extends Phaser.Scene {
     this.minScrollY = Math.min(0, height - this.contentHeight);
     this.maxScrollY = 0;
 
+    // Store button size for createLevelButton
+    this.buttonSize = buttonSize;
+
     // Create level buttons in the container
     for (let i = 0; i < total; i++) {
       const level = levelManager.getLevel(i + 1);
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = startX + col * spacingX + 35;
-      const y = startY + row * spacingY + 20;
+      const x = startX + col * spacingX;
+      const y = startY + row * spacingY;
 
       this.createLevelButton(x, y, level);
     }
@@ -64,7 +75,10 @@ class TutorialSelectScene extends Phaser.Scene {
   }
 
   createLevelButton(x, y, level) {
-    const size = 60;
+    const size = this.buttonSize || 60;
+    const fontSize = Math.max(16, Math.floor(size * 0.4));
+    const nameFontSize = Math.max(7, Math.floor(size * 0.12));
+
     const bg = this.add.graphics();
     bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
     bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
@@ -72,13 +86,13 @@ class TutorialSelectScene extends Phaser.Scene {
     bg.strokeRoundedRect(x - size / 2, y - size / 2, size, size, 8);
     this.scrollContainer.add(bg);
 
-    const numText = this.add.text(x, y - 6, level.id.toString(), {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    const numText = this.add.text(x, y - size * 0.1, level.id.toString(), {
+      fontSize: `${fontSize}px`, fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
     this.scrollContainer.add(numText);
 
-    const nameText = this.add.text(x, y + 16, level.name, {
-      fontSize: '8px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    const nameText = this.add.text(x, y + size * 0.28, level.name, {
+      fontSize: `${nameFontSize}px`, fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
     }).setOrigin(0.5);
     this.scrollContainer.add(nameText);
 

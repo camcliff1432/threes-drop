@@ -458,6 +458,16 @@ class Tile extends Phaser.GameObjects.Container {
     if (this.tileType === 'glass' && this.specialData.durability === 1) {
       this.addCrackOverlay();
     }
+
+    // Update auto-swapper swaps remaining indicator
+    if (this.tileType === 'auto_swapper' && this.lifeText) {
+      this.lifeText.setText(this.specialData.swapsRemaining?.toString() || '');
+    }
+
+    // Update bomb merges remaining indicator
+    if (this.tileType === 'bomb' && this.mergesText) {
+      this.mergesText.setText(this.specialData.mergesRemaining?.toString() || '');
+    }
   }
 
   /**

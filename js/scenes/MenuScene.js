@@ -64,6 +64,14 @@ class MenuScene extends Phaser.Scene {
         tiles: ['bomb', 'auto_swapper', 'bomb']
       },
       {
+        mode: 'levels',
+        title: 'LEVELS',
+        subtitle: 'Tutorial & Puzzles',
+        description: 'Learn the mechanics\nProgress through challenges',
+        color: 0x7ed321,
+        tiles: [6, 12, 24]
+      },
+      {
         mode: 'ultra',
         title: 'ULTRA',
         subtitle: '??? MODE ???',
@@ -73,8 +81,8 @@ class MenuScene extends Phaser.Scene {
       }
     ];
 
-    // Carousel state
-    this.currentIndex = 0;
+    // Carousel state - start on 'original' mode (index 1)
+    this.currentIndex = 1;
     this.cardWidth = 260;
     this.cardHeight = 280;
     this.cardGap = 20;
@@ -305,6 +313,9 @@ class MenuScene extends Phaser.Scene {
     } else if (modeData.mode === 'daily') {
       goalLabel = modeData.dailyStats?.todayCompleted ? 'COMPLETED TODAY' : 'GOAL: COMPLETE CHALLENGE';
       goalColor = modeData.dailyStats?.todayCompleted ? '#22c55e' : '#fbbf24';
+    } else if (modeData.mode === 'levels') {
+      goalLabel = 'GOAL: COMPLETE ALL LEVELS';
+      goalColor = '#7ed321';
     } else {
       goalLabel = 'GOAL: HIGHEST TILE';
       goalColor = '#7ed321';
@@ -332,6 +343,14 @@ class MenuScene extends Phaser.Scene {
         fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: statsColor
       }).setOrigin(0.5);
       container.add(stats);
+    } else if (modeData.mode === 'levels') {
+      // Levels mode - show progress
+      const totalLevels = levelManager.getTotalLevels();
+      const progressText = `${totalLevels} levels available`;
+      const progress = this.add.text(0, this.cardHeight / 2 - 28, progressText, {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+      }).setOrigin(0.5);
+      container.add(progress);
     } else {
       // Regular modes - show high score
       const highScore = highScoreManager.getHighScore(modeData.mode);
@@ -488,26 +507,17 @@ class MenuScene extends Phaser.Scene {
     const buttonWidth = 140;
     const buttonGap = 15;
 
-    // Row 1: Tutorial and Levels
-    UIHelpers.createButton(this, width / 2 - buttonWidth / 2 - buttonGap / 2, startY, 'TUTORIAL', () => {
-      this.scene.start('TutorialSelectScene');
-    }, { width: buttonWidth, height: 40, fontSize: '14px' });
-
-    UIHelpers.createButton(this, width / 2 + buttonWidth / 2 + buttonGap / 2, startY, 'LEVELS', () => {
-      this.scene.start('LevelSelectScene');
-    }, { width: buttonWidth, height: 40, fontSize: '14px' });
-
-    // Row 2: Leaderboards and Achievements
-    UIHelpers.createButton(this, width / 2 - buttonWidth / 2 - buttonGap / 2, startY + spacing, 'LEADERBOARD', () => {
+    // Row 1: Leaderboards and Achievements
+    UIHelpers.createButton(this, width / 2 - buttonWidth / 2 - buttonGap / 2, startY, 'LEADERBOARD', () => {
       this.scene.start('LeaderboardScene');
     }, { width: buttonWidth, height: 40, fontSize: '12px' });
 
-    UIHelpers.createButton(this, width / 2 + buttonWidth / 2 + buttonGap / 2, startY + spacing, 'ACHIEVEMENTS', () => {
+    UIHelpers.createButton(this, width / 2 + buttonWidth / 2 + buttonGap / 2, startY, 'ACHIEVEMENTS', () => {
       this.scene.start('AchievementScene');
     }, { width: buttonWidth, height: 40, fontSize: '12px' });
 
-    // Row 3: How to Play
-    UIHelpers.createButton(this, width / 2, startY + spacing * 2, 'HOW TO PLAY', () => {
+    // Row 2: How to Play
+    UIHelpers.createButton(this, width / 2, startY + spacing, 'HOW TO PLAY', () => {
       UIHelpers.showHowToPlay(this);
     }, { width: buttonWidth + 60, height: 40, fontSize: '14px' });
   }
@@ -629,6 +639,8 @@ class MenuScene extends Phaser.Scene {
       this.showUltraVideo();
     } else if (mode === 'daily') {
       this.scene.start('DailyChallengeScene');
+    } else if (mode === 'levels') {
+      this.scene.start('TutorialSelectScene');
     } else {
       this.scene.start('GameScene', { mode });
     }

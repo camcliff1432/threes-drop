@@ -301,12 +301,98 @@ class GameScene extends Phaser.Scene {
     if (this.gameMode === 'level') {
       this.add.text(15, 15, '< BACK', {
         fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
-      }).setInteractive().on('pointerdown', () => this.scene.start('LevelSelectScene'));
+      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
+    } else if (this.gameMode === 'daily') {
+      this.add.text(15, 15, '< MENU', {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     } else {
       this.add.text(15, 15, '< MENU', {
         fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
-      }).setInteractive().on('pointerdown', () => this.scene.start('MenuScene'));
+      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     }
+  }
+
+  /**
+   * Show exit confirmation popup
+   */
+  showExitConfirmation(targetScene) {
+    // Check if game has started (tiles placed or score > 0)
+    const hasProgress = this.boardLogic.getScore() > 0 || this.boardLogic.getMovesUsed() > 0;
+
+    if (!hasProgress) {
+      // No progress, just exit
+      this.scene.start(targetScene);
+      return;
+    }
+
+    this.modalOpen = true;
+    const { width, height } = this.cameras.main;
+
+    // Dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(900);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
+
+    // Popup box
+    const boxWidth = 280;
+    const boxHeight = 180;
+    const boxX = width / 2 - boxWidth / 2;
+    const boxY = height / 2 - boxHeight / 2;
+
+    const box = this.add.graphics();
+    box.fillStyle(0x1a1a2e, 1);
+    box.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+    box.lineStyle(2, 0x4a90e2, 1);
+    box.strokeRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+    box.setDepth(901);
+
+    // Title
+    const title = this.add.text(width / 2, boxY + 30, 'EXIT GAME?', {
+      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(902);
+
+    // Message
+    const message = this.add.text(width / 2, boxY + 65, 'Your progress will be lost.', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0.5).setDepth(902);
+
+    // Continue playing button
+    const continueBtn = this.add.text(width / 2, boxY + 105, 'CONTINUE PLAYING', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 16, y: 10 }
+    }).setOrigin(0.5).setDepth(902).setInteractive();
+
+    // Exit button
+    const exitBtn = this.add.text(width / 2, boxY + 150, 'EXIT TO MENU', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#e24a4a'
+    }).setOrigin(0.5).setDepth(902).setInteractive();
+
+    // Cleanup function
+    const cleanup = () => {
+      this.modalOpen = false;
+      overlay.destroy();
+      box.destroy();
+      title.destroy();
+      message.destroy();
+      continueBtn.destroy();
+      exitBtn.destroy();
+    };
+
+    continueBtn.on('pointerdown', () => {
+      cleanup();
+    });
+
+    exitBtn.on('pointerdown', () => {
+      cleanup();
+      this.scene.start(targetScene);
+    });
+
+    overlay.on('pointerdown', () => {
+      cleanup();
+    });
   }
 
   setupGrid() {
@@ -1177,6 +1263,7 @@ class GameScene extends Phaser.Scene {
       this.isFrenzyMode = true;
       this.showFrenzyOverlay();
       this.updatePowerUpUI();
+      achievementManager.recordFrenzy();
     }
   }
 
@@ -1536,6 +1623,7 @@ class GameScene extends Phaser.Scene {
       this.boardLogic.addScore(newValue);
       this.powerUpManager.addMergePoint();
       tileCollectionManager.recordTile(newValue);
+      achievementManager.recordTile(newValue);
       this.updateUI();
 
       this.tweens.add({
@@ -1662,6 +1750,7 @@ class GameScene extends Phaser.Scene {
             tile.fadeOutAnimation();
           }
           this.leadCleared++;
+          achievementManager.recordLeadCleared();
           break;
         case 'lead_decremented':
           if (tile) {
@@ -1674,6 +1763,7 @@ class GameScene extends Phaser.Scene {
             tile.breakAnimation();
           }
           this.glassCleared++;
+          achievementManager.recordGlassBroken();
           break;
         case 'glass_cracked':
           if (tile) {
@@ -1727,10 +1817,23 @@ class GameScene extends Phaser.Scene {
     if (fromTile) {
       fromTile.updatePosition(event.toCol, event.toRow, true);
       this.tiles[toKey] = fromTile;
+      // Update the swaps remaining display
+      if (fromTile.tileType === 'auto_swapper') {
+        fromTile.updateSpecialData({ swapsRemaining: event.swapsRemaining });
+      }
     }
     if (toTile) {
       toTile.updatePosition(event.fromCol, event.fromRow, true);
       this.tiles[fromKey] = toTile;
+    } else {
+      // If there was no tile at the target position, check if the board has a value there now
+      // (can happen when swapper swaps with an empty cell that has a normal tile value)
+      const boardValue = this.boardLogic.board[event.fromCol][event.fromRow];
+      if (boardValue !== null && typeof boardValue === 'number') {
+        // Create a new tile for the value that moved to the swapper's old position
+        const newTile = new Tile(this, event.fromCol, event.fromRow, boardValue, this.boardLogic.nextTileId++);
+        this.tiles[fromKey] = newTile;
+      }
     }
   }
 
@@ -1785,6 +1888,9 @@ class GameScene extends Phaser.Scene {
    */
   executeBombExplosion(col, row, explosionData) {
     const { affectedTiles, totalPoints } = explosionData;
+
+    // Track bomb explosion for achievements
+    achievementManager.recordBombExploded();
 
     // Extract chain reaction bombs from affected tiles
     const chainReactions = affectedTiles ? affectedTiles.filter(t => t.chainReaction) : [];
@@ -2402,13 +2508,16 @@ class GameScene extends Phaser.Scene {
 
     // Update frenzy bar
     if (this.frenzyBarFill && this.frenzyBarText) {
-      const ratio = state.frenzyMeter / state.frenzyThreshold;
+      // Cap ratio at 1 to prevent bar overflow
+      const ratio = Math.min(state.frenzyMeter / state.frenzyThreshold, 1);
       this.frenzyBarFill.clear();
       if (ratio > 0) {
         this.frenzyBarFill.fillStyle(GameConfig.UI.FRENZY, 1);
         this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, this.frenzyBarWidth * ratio, 16, 4);
       }
-      this.frenzyBarText.setText(`${state.frenzyMeter}/${state.frenzyThreshold}`);
+      // Display actual meter value but capped display at threshold
+      const displayMeter = Math.min(state.frenzyMeter, state.frenzyThreshold);
+      this.frenzyBarText.setText(`${displayMeter}/${state.frenzyThreshold}`);
 
       // Show/hide activate button
       if (this.frenzyActivateBtn) {
@@ -2610,6 +2719,11 @@ class GameScene extends Phaser.Scene {
 
   showLevelComplete() {
     const { width, height } = this.cameras.main;
+
+    // Track level completion for achievements
+    achievementManager.recordLevelCompleted();
+    achievementManager.recordScore(this.boardLogic.getScore());
+
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, width, height);
@@ -2670,6 +2784,10 @@ class GameScene extends Phaser.Scene {
   showGameOver() {
     const { width, height } = this.cameras.main;
     const finalScore = this.boardLogic.getScore();
+
+    // Track achievements
+    achievementManager.recordScore(finalScore);
+    achievementManager.recordGamePlayed(this.gameMode);
 
     // Save high score for original and crazy modes
     const isNewHighScore = highScoreManager.submitScore(this.gameMode, finalScore);

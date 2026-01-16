@@ -195,6 +195,7 @@ class TileCollectionScene extends Phaser.Scene {
   shiftAllTiles(direction) {
     const moves = [];
 
+    // Move each tile only ONE space in the direction (if that space is empty)
     if (direction === 'left') {
       for (let row = 0; row < this.gridRows; row++) {
         for (let col = 1; col < this.gridCols; col++) {
