@@ -1,12 +1,14 @@
 /**
- * SpecialTileManager - Handles special tile logic (Steel, Lead, Glass)
+ * SpecialTileManager - Handles special tile logic (Steel, Lead, Glass, AutoSwapper, Bomb)
  */
 class SpecialTileManager {
   constructor(boardLogic) {
     this.boardLogic = boardLogic;
-    this.steelPlates = [];  // {col, row, turnsRemaining}
-    this.leadTiles = [];    // {col, row, countdown}
-    this.glassTiles = [];   // {col, row, durability, value}
+    this.steelPlates = [];     // {col, row, turnsRemaining}
+    this.leadTiles = [];       // {col, row, countdown}
+    this.glassTiles = [];      // {col, row, durability, value}
+    this.autoSwapperTiles = []; // {col, row, movesRemaining, nextSwapIn, value}
+    this.bombTiles = [];       // {col, row, mergesRemaining, value}
   }
 
   /**
@@ -79,6 +81,60 @@ class SpecialTileManager {
   }
 
   /**
+   * Spawn an auto-swapper tile at a specific position with a value
+   * @returns {Object} The spawned auto-swapper tile info
+   */
+  spawnAutoSwapper(col, row, value) {
+    const nextSwapIn = Math.floor(Math.random() *
+      (GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MAX - GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MIN + 1)) +
+      GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MIN;
+
+    const tile = {
+      col: col,
+      row: row,
+      swapsRemaining: GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAPS,
+      nextSwapIn: nextSwapIn,
+      value: value,
+      type: 'auto_swapper'
+    };
+    this.autoSwapperTiles.push(tile);
+
+    // Mark in board
+    this.boardLogic.board[col][row] = {
+      type: 'auto_swapper',
+      value: value,
+      swapsRemaining: tile.swapsRemaining,
+      nextSwapIn: tile.nextSwapIn
+    };
+
+    return tile;
+  }
+
+  /**
+   * Spawn a bomb tile at a specific position with a value
+   * @returns {Object} The spawned bomb tile info
+   */
+  spawnBomb(col, row, value) {
+    const tile = {
+      col: col,
+      row: row,
+      mergesRemaining: GameConfig.SPECIAL_TILES.BOMB_MERGE_TRIGGER,
+      value: value,
+      type: 'bomb'
+    };
+    this.bombTiles.push(tile);
+
+    // Mark in board
+    this.boardLogic.board[col][row] = {
+      type: 'bomb',
+      value: value,
+      mergesRemaining: tile.mergesRemaining
+    };
+
+    return tile;
+  }
+
+  /**
    * Called after each drop/turn to update special tiles
    * @returns {Array} Events that occurred (for animation)
    */
@@ -113,7 +169,99 @@ class SpecialTileManager {
       return true;
     });
 
+    // Update auto-swapper tiles
+    this.autoSwapperTiles = this.autoSwapperTiles.filter(tile => {
+      tile.nextSwapIn--;
+
+      // Check if it's time to swap
+      if (tile.nextSwapIn <= 0) {
+        const swapResult = this.performAutoSwap(tile);
+        if (swapResult) {
+          tile.swapsRemaining--;
+          events.push({
+            type: 'auto_swap',
+            fromCol: swapResult.fromCol,
+            fromRow: swapResult.fromRow,
+            toCol: swapResult.toCol,
+            toRow: swapResult.toRow,
+            swapsRemaining: tile.swapsRemaining
+          });
+
+          // Check if tile has expired after this swap
+          if (tile.swapsRemaining <= 0) {
+            // Convert to normal tile
+            this.boardLogic.board[tile.col][tile.row] = tile.value;
+            events.push({ type: 'swapper_expired', col: tile.col, row: tile.row, value: tile.value });
+            return false;
+          }
+        }
+        // Reset swap timer
+        tile.nextSwapIn = Math.floor(Math.random() *
+          (GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MAX - GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MIN + 1)) +
+          GameConfig.SPECIAL_TILES.AUTO_SWAPPER_SWAP_MIN;
+      }
+
+      // Update board state
+      if (this.boardLogic.board[tile.col][tile.row]?.type === 'auto_swapper') {
+        this.boardLogic.board[tile.col][tile.row].swapsRemaining = tile.swapsRemaining;
+        this.boardLogic.board[tile.col][tile.row].nextSwapIn = tile.nextSwapIn;
+      }
+      events.push({
+        type: 'swapper_tick',
+        col: tile.col,
+        row: tile.row,
+        swapsRemaining: tile.swapsRemaining
+      });
+      return true;
+    });
+
     return events;
+  }
+
+  /**
+   * Perform auto-swap for an auto-swapper tile
+   * Valid neighbors: Left, Right, Down only (NEVER up or diagonals)
+   */
+  performAutoSwap(swapperTile) {
+    const { col, row } = swapperTile;
+    const validNeighbors = [
+      { col: col - 1, row: row },     // Left
+      { col: col + 1, row: row },     // Right
+      { col: col, row: row + 1 }      // Down
+    ].filter(n =>
+      n.col >= 0 && n.col < this.boardLogic.COLS &&
+      n.row >= 0 && n.row < this.boardLogic.ROWS &&
+      !this.isBlockedCell(n.col, n.row)  // Can't swap with steel
+    );
+
+    if (validNeighbors.length === 0) return null;
+
+    // Pick a random valid neighbor
+    const target = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
+
+    // Save old position before any updates
+    const oldCol = swapperTile.col;
+    const oldRow = swapperTile.row;
+
+    // Update any other special tile at the target position BEFORE updating the swapper
+    // This moves any special tile at target to the swapper's old position
+    this.updateTilePosition(target.col, target.row, oldCol, oldRow);
+
+    // Swap board positions
+    const temp = this.boardLogic.board[target.col][target.row];
+    this.boardLogic.board[target.col][target.row] = this.boardLogic.board[col][row];
+    this.boardLogic.board[col][row] = temp;
+
+    // Update swapper tile position
+    swapperTile.col = target.col;
+    swapperTile.row = target.row;
+
+    return {
+      fromCol: oldCol,
+      fromRow: oldRow,
+      toCol: target.col,
+      toRow: target.row
+    };
   }
 
   /**
@@ -153,6 +301,130 @@ class SpecialTileManager {
   }
 
   /**
+   * Called when two bombs merge together - immediate explosion
+   * @param {number} col1 - Column of first bomb
+   * @param {number} row1 - Row of first bomb
+   * @param {number} col2 - Column of second bomb (where explosion occurs)
+   * @param {number} row2 - Row of second bomb (where explosion occurs)
+   * @returns {Object} Explosion data
+   */
+  onBombBombMerge(col1, row1, col2, row2) {
+    // Remove the first bomb (it's merging into the second)
+    this.bombTiles = this.bombTiles.filter(b => !(b.col === col1 && b.row === row1));
+    this.boardLogic.board[col1][row1] = null;
+
+    // Detonate the second bomb (where the merge happens)
+    return this.detonateBomb(col2, row2);
+  }
+
+  /**
+   * Called when a bomb tile participates in a merge
+   * @param {number} col - Column of the bomb
+   * @param {number} row - Row of the bomb
+   * @param {number} newValue - The new merged value
+   * @returns {Object|null} Explosion data if bomb explodes, null otherwise
+   */
+  onBombMerge(col, row, newValue) {
+    const bomb = this.bombTiles.find(b => b.col === col && b.row === row);
+    if (!bomb) return null;
+
+    bomb.mergesRemaining--;
+    bomb.value = newValue;
+
+    if (bomb.mergesRemaining <= 0) {
+      // BOOM! Trigger explosion
+      return this.detonateBomb(col, row);
+    }
+
+    // Update board state
+    if (this.boardLogic.board[col][row]?.type === 'bomb') {
+      this.boardLogic.board[col][row].mergesRemaining = bomb.mergesRemaining;
+      this.boardLogic.board[col][row].value = newValue;
+    }
+
+    return { exploded: false, mergesRemaining: bomb.mergesRemaining };
+  }
+
+  /**
+   * Detonate a bomb - destroys 3x3 area
+   * @param {number} centerCol - Center column of explosion
+   * @param {number} centerRow - Center row of explosion
+   * @returns {Object} Explosion data with affected tiles
+   */
+  detonateBomb(centerCol, centerRow) {
+    const affectedTiles = [];
+    let totalPoints = 0;
+
+    // 3x3 area centered on bomb
+    for (let dc = -1; dc <= 1; dc++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        const col = centerCol + dc;
+        const row = centerRow + dr;
+
+        if (col < 0 || col >= this.boardLogic.COLS ||
+            row < 0 || row >= this.boardLogic.ROWS) {
+          continue;
+        }
+
+        // Skip the center cell (where the bomb is) - it's handled separately
+        if (col === centerCol && row === centerRow) {
+          continue;
+        }
+
+        const cell = this.boardLogic.board[col][row];
+        if (cell === null) continue;
+
+        // Steel and Lead survive explosions
+        if (typeof cell === 'object') {
+          if (cell.type === 'steel' || cell.type === 'lead') {
+            continue;
+          }
+          // Glass shatters
+          if (cell.type === 'glass') {
+            affectedTiles.push({ col, row, type: 'glass', value: cell.value });
+            totalPoints += cell.value || 0;
+            this.boardLogic.board[col][row] = null;
+            this.glassTiles = this.glassTiles.filter(g => !(g.col === col && g.row === row));
+            continue;
+          }
+          // Other bombs trigger chain reaction (handled by caller)
+          if (cell.type === 'bomb') {
+            affectedTiles.push({ col, row, type: 'bomb', value: cell.value, chainReaction: true });
+            continue;
+          }
+          // Auto-swapper destroyed
+          if (cell.type === 'auto_swapper') {
+            affectedTiles.push({ col, row, type: 'auto_swapper', value: cell.value });
+            totalPoints += cell.value || 0;
+            this.boardLogic.board[col][row] = null;
+            this.autoSwapperTiles = this.autoSwapperTiles.filter(s => !(s.col === col && s.row === row));
+            continue;
+          }
+        }
+
+        // Normal numeric tile
+        if (typeof cell === 'number') {
+          affectedTiles.push({ col, row, type: 'normal', value: cell });
+          totalPoints += cell;
+          this.boardLogic.board[col][row] = null;
+        }
+      }
+    }
+
+    // Remove the bomb itself
+    this.bombTiles = this.bombTiles.filter(b => !(b.col === centerCol && b.row === centerRow));
+    this.boardLogic.board[centerCol][centerRow] = null;
+
+    return {
+      exploded: true,
+      centerCol,
+      centerRow,
+      affectedTiles,
+      totalPoints
+    };
+  }
+
+  /**
    * Find a random empty cell on the board
    * @returns {Object|null} {col, row} or null if no empty cells
    */
@@ -189,6 +461,12 @@ class SpecialTileManager {
     const glass = this.glassTiles.find(t => t.col === col && t.row === row);
     if (glass) return glass;
 
+    const swapper = this.autoSwapperTiles.find(t => t.col === col && t.row === row);
+    if (swapper) return swapper;
+
+    const bomb = this.bombTiles.find(t => t.col === col && t.row === row);
+    if (bomb) return bomb;
+
     return null;
   }
 
@@ -209,6 +487,20 @@ class SpecialTileManager {
       glass.col = newCol;
       glass.row = newRow;
     }
+
+    // Update auto-swapper tiles
+    const swapper = this.autoSwapperTiles.find(t => t.col === oldCol && t.row === oldRow);
+    if (swapper) {
+      swapper.col = newCol;
+      swapper.row = newRow;
+    }
+
+    // Update bomb tiles
+    const bomb = this.bombTiles.find(t => t.col === oldCol && t.row === oldRow);
+    if (bomb) {
+      bomb.col = newCol;
+      bomb.row = newRow;
+    }
   }
 
   /**
@@ -218,6 +510,8 @@ class SpecialTileManager {
     this.steelPlates = this.steelPlates.filter(p => !(p.col === col && p.row === row));
     this.leadTiles = this.leadTiles.filter(t => !(t.col === col && t.row === row));
     this.glassTiles = this.glassTiles.filter(t => !(t.col === col && t.row === row));
+    this.autoSwapperTiles = this.autoSwapperTiles.filter(t => !(t.col === col && t.row === row));
+    this.bombTiles = this.bombTiles.filter(t => !(t.col === col && t.row === row));
   }
 
   /**
@@ -235,5 +529,7 @@ class SpecialTileManager {
     this.steelPlates = [];
     this.leadTiles = [];
     this.glassTiles = [];
+    this.autoSwapperTiles = [];
+    this.bombTiles = [];
   }
 }

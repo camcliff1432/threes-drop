@@ -45,7 +45,40 @@ const GameConfig = {
     STEEL_MAX_DURATION: 6,
     LEAD_MIN_COUNTDOWN: 3,
     LEAD_MAX_COUNTDOWN: 7,
-    GLASS_INITIAL_DURABILITY: 2
+    GLASS_INITIAL_DURABILITY: 2,
+    // Auto-Swapper settings
+    AUTO_SWAPPER_SPAWN_CHANCE: 0.04,  // 4% per drop
+    AUTO_SWAPPER_SWAPS: 3,            // Expires after 3 swaps
+    AUTO_SWAPPER_SWAP_MIN: 4,         // Swaps every 4-10 moves
+    AUTO_SWAPPER_SWAP_MAX: 10,
+    // Bomb settings
+    BOMB_SPAWN_CHANCE: 0.03,   // 3% per drop (endless mode only)
+    BOMB_MERGE_TRIGGER: 3      // Explodes after 3 merges
+  },
+
+  // Game mode configurations
+  GAME_MODES: {
+    original: {
+      powerUps: ['swipe'],
+      frenzy: false,
+      specialTiles: false,
+      autoSwapper: false,
+      bomb: false
+    },
+    crazy: {
+      powerUps: ['swipe', 'swapper', 'merger', 'wildcard'],
+      frenzy: true,
+      specialTiles: true,
+      autoSwapper: true,
+      bomb: false
+    },
+    endless: {
+      powerUps: ['swipe', 'swapper', 'merger', 'wildcard'],
+      frenzy: true,
+      specialTiles: true,
+      autoSwapper: true,
+      bomb: true
+    }
   },
 
   // Tile colors by value
@@ -66,7 +99,9 @@ const GameConfig = {
     STEEL: 0x708090,
     LEAD: 0x1a1a1a,
     GLASS: 0xadd8e6,
-    WILDCARD: 0xff00ff
+    WILDCARD: 0xff00ff,
+    AUTO_SWAPPER: 0x9932CC,  // Purple
+    BOMB: 0xff4444           // Red
   },
 
   // Score thresholds for unlocking higher tiles (classic mode)
@@ -91,6 +126,51 @@ const GameConfig = {
     GRID_BG: 0x0f3460,
     CELL_BG: 0x16213e,
     DISABLED: 0x333333
+  },
+
+  /**
+   * Dynamic layout calculator for responsive UI
+   * Call with current screen dimensions to get proper sizing
+   */
+  getLayout(width, height) {
+    // Reserve space for header (title, score, buttons) and footer (power-ups, controls)
+    const headerHeight = 140;
+    const footerHeight = 140;
+    const horizontalMargin = 30;
+
+    // Calculate available space for the grid
+    const availableWidth = width - (horizontalMargin * 2);
+    const availableHeight = height - headerHeight - footerHeight;
+
+    // Calculate tile size to fit grid in available space
+    // Grid is 4 columns x 6 rows
+    const tileSizeByWidth = availableWidth / 4;
+    const tileSizeByHeight = availableHeight / 6;
+    const tileSize = Math.min(tileSizeByWidth, tileSizeByHeight, 90);
+
+    // Calculate grid dimensions
+    const gridWidth = tileSize * 4;
+    const gridHeight = tileSize * 6;
+
+    // Center the grid horizontally
+    const offsetX = (width - gridWidth) / 2;
+    // Position grid below header
+    const offsetY = headerHeight;
+
+    return {
+      tileSize: Math.floor(tileSize),
+      gridWidth: Math.floor(gridWidth),
+      gridHeight: Math.floor(gridHeight),
+      offsetX: Math.floor(offsetX),
+      offsetY: Math.floor(offsetY),
+      headerHeight,
+      footerHeight,
+      // Footer starts after grid
+      footerY: offsetY + gridHeight + 10,
+      // Screen dimensions for reference
+      screenWidth: width,
+      screenHeight: height
+    };
   }
 };
 

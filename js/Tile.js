@@ -48,6 +48,16 @@ class Tile extends Phaser.GameObjects.Container {
         strokeColor = 0xff66ff;
         strokeAlpha = 0.8;
         break;
+      case 'auto_swapper':
+        color = GameConfig.COLORS.AUTO_SWAPPER;
+        strokeColor = 0xb366e0;
+        strokeAlpha = 0.8;
+        break;
+      case 'bomb':
+        color = GameConfig.COLORS.BOMB;
+        strokeColor = 0xcc0000;
+        strokeAlpha = 0.9;
+        break;
       default:
         break;
     }
@@ -65,6 +75,10 @@ class Tile extends Phaser.GameObjects.Container {
       this.addLeadKettlebellPattern();
     } else if (this.tileType === 'glass' && this.specialData.durability === 1) {
       this.addCrackOverlay();
+    } else if (this.tileType === 'auto_swapper') {
+      this.addAutoSwapperPattern();
+    } else if (this.tileType === 'bomb') {
+      this.addBombPattern();
     }
 
     // Text content based on type
@@ -94,6 +108,18 @@ class Tile extends Phaser.GameObjects.Container {
         displayText = 'W';
         textColor = '#ffffff';
         fontSize = '40px';
+        break;
+      case 'auto_swapper':
+        // Show value for auto-swapper
+        displayText = this.value?.toString() || '';
+        textColor = '#ffffff';
+        fontSize = '28px';
+        break;
+      case 'bomb':
+        // Show value for bomb
+        displayText = this.value?.toString() || '';
+        textColor = '#ffffff';
+        fontSize = '28px';
         break;
       default:
         break;
@@ -239,6 +265,127 @@ class Tile extends Phaser.GameObjects.Container {
     this.add(this.crackOverlay);
   }
 
+  /**
+   * Add swirl pattern for auto-swapper tiles
+   */
+  addAutoSwapperPattern() {
+    const pattern = this.scene.add.graphics();
+
+    // Circular arrows / swirl to indicate swap behavior
+    pattern.lineStyle(2, 0xffffff, 0.4);
+
+    // Draw curved arrow (left arc)
+    pattern.beginPath();
+    pattern.arc(-8, 0, 8, Math.PI * 0.3, Math.PI * 1.2, false);
+    pattern.strokePath();
+
+    // Draw curved arrow (right arc)
+    pattern.beginPath();
+    pattern.arc(8, 0, 8, Math.PI * 1.3, Math.PI * 2.2, false);
+    pattern.strokePath();
+
+    // Arrowheads
+    pattern.fillStyle(0xffffff, 0.4);
+    pattern.fillTriangle(-12, -6, -8, -10, -6, -4);
+    pattern.fillTriangle(12, 6, 8, 10, 6, 4);
+
+    // Swaps remaining indicator in bottom corner
+    if (this.specialData.swapsRemaining !== undefined) {
+      const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
+        fontSize: '10px',
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'bold',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+      this.add(lifeText);
+      this.lifeText = lifeText;
+    }
+
+    this.add(pattern);
+    this.swapperPattern = pattern;
+  }
+
+  /**
+   * Add bomb icon pattern for bomb tiles
+   */
+  addBombPattern() {
+    const pattern = this.scene.add.graphics();
+
+    // Bomb body (circle) - behind the value
+    pattern.fillStyle(0x000000, 0.3);
+    pattern.fillCircle(0, 3, 14);
+
+    // Fuse
+    pattern.lineStyle(3, 0x444444, 1);
+    pattern.beginPath();
+    pattern.moveTo(0, -11);
+    pattern.lineTo(4, -18);
+    pattern.lineTo(8, -16);
+    pattern.strokePath();
+
+    // Fuse spark
+    pattern.fillStyle(0xff8800, 0.9);
+    pattern.fillCircle(8, -16, 4);
+    pattern.fillStyle(0xffff00, 1);
+    pattern.fillCircle(8, -16, 2);
+
+    // Merges remaining indicator in corner
+    if (this.specialData.mergesRemaining !== undefined) {
+      const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
+        fontSize: '12px',
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'bold',
+        color: '#ffff00'
+      }).setOrigin(0.5);
+      this.add(mergesText);
+      this.mergesText = mergesText;
+    }
+
+    this.add(pattern);
+    this.bombPattern = pattern;
+  }
+
+  /**
+   * Explosion animation for bomb tiles
+   */
+  explodeAnimation(callback) {
+    // Create explosion particles
+    const particles = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const particle = this.scene.add.circle(this.x, this.y, 5, 0xff8800, 1);
+      particles.push(particle);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: this.x + Math.cos(angle) * 60,
+        y: this.y + Math.sin(angle) * 60,
+        alpha: 0,
+        scale: 0.5,
+        duration: 400,
+        ease: 'Power2',
+        onComplete: () => particle.destroy()
+      });
+    }
+
+    // Screen shake effect
+    this.scene.cameras.main.shake(200, 0.01);
+
+    // Expand and fade the tile
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 300,
+      ease: 'Power2',
+      onComplete: () => {
+        if (callback) callback();
+        this.destroy();
+      }
+    });
+  }
+
   updateGraphics() {
     const size = this.TILE_SIZE - 8;
     this.bg.clear();
@@ -267,6 +414,16 @@ class Tile extends Phaser.GameObjects.Container {
         color = GameConfig.COLORS.WILDCARD;
         strokeColor = 0xff66ff;
         strokeAlpha = 0.8;
+        break;
+      case 'auto_swapper':
+        color = GameConfig.COLORS.AUTO_SWAPPER;
+        strokeColor = 0xb366e0;
+        strokeAlpha = 0.8;
+        break;
+      case 'bomb':
+        color = GameConfig.COLORS.BOMB;
+        strokeColor = 0xcc0000;
+        strokeAlpha = 0.9;
         break;
       default:
         break;
@@ -312,11 +469,59 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   gridToWorldX(gx) {
-    return this.scene.GRID_OFFSET_X + (gx * this.TILE_SIZE) + (this.TILE_SIZE / 2);
+    // Get layout - prefer scene's cached layout, compute dynamically if needed
+    const layout = this.getLayout();
+    return layout.offsetX + (gx * layout.tileSize) + (layout.tileSize / 2);
   }
 
   gridToWorldY(gy) {
-    return this.scene.GRID_OFFSET_Y + (gy * this.TILE_SIZE) + (this.TILE_SIZE / 2);
+    // Get layout - prefer scene's cached layout, compute dynamically if needed
+    const layout = this.getLayout();
+    return layout.offsetY + (gy * layout.tileSize) + (layout.tileSize / 2);
+  }
+
+  /**
+   * Get the current layout, computing it if necessary
+   */
+  getLayout() {
+    // Try scene's cached layout first
+    if (this.scene && this.scene.layout) {
+      return this.scene.layout;
+    }
+    // Compute layout dynamically from scene camera dimensions
+    if (this.scene && this.scene.cameras && this.scene.cameras.main) {
+      const { width, height } = this.scene.cameras.main;
+      return GameConfig.getLayout(width, height);
+    }
+    // Fallback to static config values
+    return {
+      tileSize: this.TILE_SIZE || GameConfig.GRID.TILE_SIZE,
+      offsetX: GameConfig.GRID.OFFSET_X,
+      offsetY: GameConfig.GRID.OFFSET_Y
+    };
+  }
+
+  /**
+   * Update tile position when layout changes (responsive resize)
+   */
+  updateLayoutPosition(tileSize, offsetX, offsetY) {
+    this.TILE_SIZE = tileSize;
+    const worldX = offsetX + (this.gridX * tileSize) + (tileSize / 2);
+    const worldY = offsetY + (this.gridY * tileSize) + (tileSize / 2);
+    this.x = worldX;
+    this.y = worldY;
+    // Redraw graphics at new size
+    this.recreateGraphics();
+  }
+
+  /**
+   * Recreate graphics at current tile size (for resize)
+   */
+  recreateGraphics() {
+    // Remove existing graphics
+    this.removeAll(true);
+    // Recreate at new size
+    this.createGraphics();
   }
 
   updatePosition(gridX, gridY, animate = true, duration = GameConfig.ANIM.SHIFT) {
@@ -325,7 +530,7 @@ class Tile extends Phaser.GameObjects.Container {
     const worldX = this.gridToWorldX(gridX);
     const worldY = this.gridToWorldY(gridY);
 
-    if (animate) {
+    if (animate && this.scene && this.scene.tweens) {
       this.scene.tweens.add({ targets: this, x: worldX, y: worldY, duration, ease: 'Power2' });
     } else {
       this.x = worldX;
@@ -336,7 +541,7 @@ class Tile extends Phaser.GameObjects.Container {
   updateValue(newValue, animate = true) {
     this.value = newValue;
     this.updateGraphics();
-    if (animate) {
+    if (animate && this.scene && this.scene.tweens) {
       this.scene.tweens.add({ targets: this, scaleX: 1.2, scaleY: 1.2, duration: 100, yoyo: true, ease: 'Power2' });
     }
   }

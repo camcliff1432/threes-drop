@@ -21,7 +21,8 @@ class HighScoreManager {
     }
     return {
       original: 0,
-      crazy: 0
+      crazy: 0,
+      endless: 0
     };
   }
 
@@ -46,12 +47,12 @@ class HighScoreManager {
 
   /**
    * Submit a score and update if it's a new high score
-   * @param {string} mode - 'original' or 'crazy'
+   * @param {string} mode - 'original', 'crazy', or 'endless'
    * @param {number} score - The score to submit
    * @returns {boolean} True if it's a new high score
    */
   submitScore(mode, score) {
-    if (mode !== 'original' && mode !== 'crazy') {
+    if (mode !== 'original' && mode !== 'crazy' && mode !== 'endless') {
       return false;
     }
 
@@ -70,7 +71,8 @@ class HighScoreManager {
   resetScores() {
     this.scores = {
       original: 0,
-      crazy: 0
+      crazy: 0,
+      endless: 0
     };
     this.saveScores();
   }

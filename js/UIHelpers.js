@@ -165,7 +165,8 @@ const UIHelpers = {
     const modeInfo = [
       { name: 'ORIGINAL', desc: 'Classic gameplay - swipe to shift tiles' },
       { name: 'CRAZY', desc: 'All power-ups, frenzy mode, special tiles' },
-      { name: 'LEVELS', desc: '20 levels with objectives and challenges' },
+      { name: 'POINTS MAX', desc: 'High score mode with bomb tiles!' },
+      { name: 'TUTORIAL', desc: '20 levels to learn the game' },
     ];
     modeInfo.forEach(mode => {
       scrollContent.add(scene.add.text(15, ty, mode.name, {
@@ -311,6 +312,52 @@ const UIHelpers = {
     // Wildcard tile
     createBasicTileExample(ty, GameConfig.COLORS.WILDCARD, 0xff66ff, 'W', '#ffffff',
       'WILDCARD - Matches any tile 3+');
+    ty += 40;
+
+    // Auto-Swapper tile
+    const swapperX = 31, swapperY = ty;
+    const swapperBox = scene.add.graphics();
+    swapperBox.fillStyle(GameConfig.COLORS.AUTO_SWAPPER, 1);
+    swapperBox.lineStyle(2, 0xb366e0, 0.8);
+    swapperBox.fillRoundedRect(15, ty - 15, 32, 32, 5);
+    swapperBox.strokeRoundedRect(15, ty - 15, 32, 32, 5);
+    // Swirl arrows
+    swapperBox.lineStyle(1.5, 0xffffff, 0.5);
+    swapperBox.beginPath();
+    swapperBox.arc(swapperX - 5, swapperY, 5, Math.PI * 0.5, Math.PI * 1.3, false);
+    swapperBox.strokePath();
+    swapperBox.beginPath();
+    swapperBox.arc(swapperX + 5, swapperY, 5, Math.PI * 1.5, Math.PI * 2.3, false);
+    swapperBox.strokePath();
+    scrollContent.add(swapperBox);
+    scrollContent.add(scene.add.text(swapperX, swapperY, '6', {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5));
+    scrollContent.add(scene.add.text(60, ty, 'SWAPPER - Auto-swaps neighbors', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0, 0.5));
+    ty += 40;
+
+    // Bomb tile
+    const bombX = 31, bombY = ty;
+    const bombBox = scene.add.graphics();
+    bombBox.fillStyle(GameConfig.COLORS.BOMB, 1);
+    bombBox.lineStyle(2, 0xcc0000, 0.9);
+    bombBox.fillRoundedRect(15, ty - 15, 32, 32, 5);
+    bombBox.strokeRoundedRect(15, ty - 15, 32, 32, 5);
+    // Fuse
+    bombBox.lineStyle(2, 0x444444, 1);
+    bombBox.lineBetween(bombX, bombY - 12, bombX + 5, bombY - 15);
+    // Spark
+    bombBox.fillStyle(0xffff00, 1);
+    bombBox.fillCircle(bombX + 5, bombY - 15, 3);
+    scrollContent.add(bombBox);
+    scrollContent.add(scene.add.text(bombX, bombY + 2, '12', {
+      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5));
+    scrollContent.add(scene.add.text(60, ty, 'BOMB - Explodes after 3 merges!', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0, 0.5));
     ty += 45;
 
     // Tips section

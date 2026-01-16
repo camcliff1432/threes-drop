@@ -256,23 +256,30 @@ class BoardLogic {
   }
 
   getRandomTileValue() {
-    const threshold = GameConfig.GAMEPLAY.IMBALANCE_THRESHOLD;
     const countOnes = this.countTilesOnBoard(1);
     const countTwos = this.countTilesOnBoard(2);
+    const difference = countOnes - countTwos;
 
     // Base weights
     let weight1 = 45;
     let weight2 = 45;
 
-    // Balance adjustment when board is imbalanced
-    if (countOnes > threshold && countOnes > countTwos) {
-      const extra = countOnes - threshold;
-      weight2 += extra * 15;
-      weight1 = Math.max(10, weight1 - extra * 10);
-    } else if (countTwos > threshold && countTwos > countOnes) {
-      const extra = countTwos - threshold;
-      weight1 += extra * 15;
-      weight2 = Math.max(10, weight2 - extra * 10);
+    // Gentle balance adjustment - only kicks in when difference is 3+
+    // This allows natural randomness while preventing extreme imbalance
+    const balanceThreshold = 4;
+    if (Math.abs(difference) >= balanceThreshold) {
+      const excess = Math.abs(difference) - balanceThreshold + 1;
+      const adjustment = Math.min(excess * 8, 25); // Gentler: 8 per tile, cap at 25
+
+      if (difference > 0) {
+        // More 1s than 2s - slightly favor spawning 2s
+        weight2 += adjustment;
+        weight1 = Math.max(20, weight1 - adjustment);
+      } else {
+        // More 2s than 1s - slightly favor spawning 1s
+        weight1 += adjustment;
+        weight2 = Math.max(20, weight2 - adjustment);
+      }
     }
 
     // Build available tiles

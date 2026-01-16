@@ -1,5 +1,6 @@
 /**
- * LevelSelectScene - Level selection grid
+ * LevelSelectScene - New levels (coming soon placeholder)
+ * Future expansion for additional level packs
  */
 class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -11,7 +12,7 @@ class LevelSelectScene extends Phaser.Scene {
     UIHelpers.drawBackground(this);
 
     // Title
-    this.add.text(width / 2, 50, 'SELECT LEVEL', {
+    this.add.text(width / 2, 50, 'LEVELS', {
       fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -20,54 +21,34 @@ class LevelSelectScene extends Phaser.Scene {
       fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
     }).setInteractive().on('pointerdown', () => this.scene.start('MenuScene'));
 
-    // Level grid - 4 columns for 20 levels
-    const cols = 4, startX = 45, startY = 100, spacingX = 85, spacingY = 85;
-    const total = levelManager.getTotalLevels();
+    // Coming soon message
+    const centerY = height / 2 - 30;
 
-    for (let i = 0; i < total; i++) {
-      const level = levelManager.getLevel(i + 1);
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = startX + col * spacingX + 35;
-      const y = startY + row * spacingY + 20;
+    // Decorative lock icon
+    const lockSize = 80;
+    const lockGraphics = this.add.graphics();
+    lockGraphics.lineStyle(4, 0x4a90e2, 0.6);
+    // Lock body
+    lockGraphics.fillStyle(0x4a90e2, 0.2);
+    lockGraphics.fillRoundedRect(width / 2 - lockSize / 2, centerY - 10, lockSize, lockSize * 0.7, 8);
+    lockGraphics.strokeRoundedRect(width / 2 - lockSize / 2, centerY - 10, lockSize, lockSize * 0.7, 8);
+    // Lock shackle
+    lockGraphics.beginPath();
+    lockGraphics.arc(width / 2, centerY - 10, lockSize / 3, Math.PI, 0, false);
+    lockGraphics.strokePath();
 
-      this.createLevelButton(x, y, level);
-    }
-  }
-
-  createLevelButton(x, y, level) {
-    const size = 60;
-    const bg = this.add.graphics();
-    bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-    bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
-    bg.fillRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-    bg.strokeRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-
-    this.add.text(x, y - 6, level.id.toString(), {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    this.add.text(width / 2, centerY + 80, 'More levels coming soon!', {
+      fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
     }).setOrigin(0.5);
 
-    this.add.text(x, y + 16, level.name, {
-      fontSize: '8px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    this.add.text(width / 2, centerY + 115, 'Complete the Tutorial to\nmaster the basics first.', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa',
+      align: 'center', lineSpacing: 4
     }).setOrigin(0.5);
 
-    const hitArea = this.add.rectangle(x, y, size, size, 0x000000, 0).setInteractive();
-    hitArea.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(GameConfig.UI.PRIMARY, 0.6);
-      bg.lineStyle(2, GameConfig.UI.PRIMARY_LIGHT, 1);
-      bg.fillRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-      bg.strokeRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-    });
-    hitArea.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-      bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
-      bg.fillRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-      bg.strokeRoundedRect(x - size / 2, y - size / 2, size, size, 8);
-    });
-    hitArea.on('pointerdown', () => {
-      this.scene.start('GameScene', { mode: 'level', levelId: level.id });
-    });
+    // Tutorial button
+    UIHelpers.createButton(this, width / 2, centerY + 180, 'GO TO TUTORIAL', () => {
+      this.scene.start('TutorialSelectScene');
+    }, { width: 200, height: 45, fontSize: '16px' });
   }
 }
