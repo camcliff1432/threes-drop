@@ -12,6 +12,9 @@ class PowerUpManager {
     // Power-up availability (configurable per mode/level)
     this.enabledPowerUps = config.enabledPowerUps || ['swipe', 'swapper', 'merger', 'wildcard'];
     this.frenzyEnabled = config.frenzyEnabled !== false;
+
+    // Frenzy charge multiplier (for modifiers like frenzy_boost)
+    this.frenzyChargeMultiplier = config.frenzyChargeMultiplier || 1.0;
   }
 
   /**
@@ -20,7 +23,8 @@ class PowerUpManager {
   addMergePoint() {
     this.resourcePoints++;
     if (this.frenzyEnabled && !this.isFrenzyActive) {
-      this.frenzyMeter++;
+      // Apply frenzy charge multiplier (e.g., 2.0 for double charge speed)
+      this.frenzyMeter += this.frenzyChargeMultiplier;
       if (this.frenzyMeter >= GameConfig.POWERUPS.FRENZY_THRESHOLD) {
         this.isFrenzyReady = true;
       }

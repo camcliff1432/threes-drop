@@ -385,6 +385,221 @@ class LevelManager {
         frenzyEnabled: true,
         startingPoints: 30,
         specialTiles: { steel: true, lead: true, glass: true }
+      },
+
+      // ===========================================
+      // TEST CHAPTER: DAILY CHALLENGE TYPES (Levels 21-26)
+      // Test each challenge type
+      // ===========================================
+
+      // Level 21: Score Target Test
+      {
+        id: 21,
+        name: 'TEST: Score Target',
+        description: 'Reach 50 points (score_target test)',
+        objective: { type: 'score', target: 50 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 20,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // Level 22: Tile Target Test
+      {
+        id: 22,
+        name: 'TEST: Tile Target',
+        description: 'Create a 24 tile (tile_target test)',
+        objective: { type: 'create_tile', value: 24, count: 1 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 25,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // Level 23: Limited Moves Test
+      {
+        id: 23,
+        name: 'TEST: Limited Moves',
+        description: 'Score high in only 10 moves',
+        objective: { type: 'score', target: 30 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 10,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: false,
+        startingPoints: 5,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // Level 24: No Power-Ups Test
+      {
+        id: 24,
+        name: 'TEST: No Power-Ups',
+        description: 'Reach 40 points without power-ups',
+        objective: { type: 'score', target: 40 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 25,
+        startingBoard: null,
+        powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
+        frenzyEnabled: false,
+        startingPoints: 0,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // Level 25: Survival Test (max_tiles objective)
+      {
+        id: 25,
+        name: 'TEST: Survival',
+        description: 'Survive 15 moves without filling board',
+        objective: { type: 'survival', moves: 15 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 15,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // ===========================================
+      // TEST CHAPTER: MODIFIERS (Levels 26-32)
+      // Test each modifier type
+      // ===========================================
+
+      // Level 26: Heavy 1s Modifier
+      {
+        id: 26,
+        name: 'TEST: Heavy 1s',
+        description: '1s drop more often',
+        objective: { type: 'score', target: 50 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 25,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false },
+        modifier: { id: 'more_1s', tileWeights: { 1: 0.75, 2: 0.25 } }
+      },
+
+      // Level 27: Heavy 2s Modifier
+      {
+        id: 27,
+        name: 'TEST: Heavy 2s',
+        description: '2s drop more often',
+        objective: { type: 'score', target: 50 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 25,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false },
+        modifier: { id: 'more_2s', tileWeights: { 1: 0.25, 2: 0.75 } }
+      },
+
+      // Level 28: Glass Chaos Modifier
+      {
+        id: 28,
+        name: 'TEST: Glass Chaos',
+        description: 'Many glass tiles spawn',
+        objective: { type: 'score', target: 75 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 30,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: true },
+        modifier: { id: 'glass_chaos', glassSpawnRate: 0.4 }
+      },
+
+      // Level 29: Steel Maze Modifier
+      {
+        id: 29,
+        name: 'TEST: Steel Maze',
+        description: 'Start with steel blockers',
+        objective: { type: 'score', target: 60 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 30,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 15,
+        specialTiles: { steel: true, lead: false, glass: false },
+        modifier: { id: 'steel_maze' },
+        startingSpecialTiles: [
+          { type: 'steel', col: 0, row: 4, duration: 15 },
+          { type: 'steel', col: 1, row: 3, duration: 15 },
+          { type: 'steel', col: 2, row: 3, duration: 15 },
+          { type: 'steel', col: 3, row: 4, duration: 15 }
+        ]
+      },
+
+      // Level 30: Frenzy Boost Modifier
+      {
+        id: 30,
+        name: 'TEST: Frenzy Boost',
+        description: 'Frenzy charges 2x faster',
+        objective: { type: 'create_tile', value: 48, count: 1 },
+        allowedTiles: [1, 2, 3, 6, 12],
+        maxMoves: 35,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: false, lead: false, glass: false },
+        modifier: { id: 'frenzy_boost', frenzyChargeMultiplier: 2.0 }
+      },
+
+      // Level 31: Narrow Board Modifier
+      {
+        id: 31,
+        name: 'TEST: Narrow Board',
+        description: 'Only 3 columns available',
+        objective: { type: 'score', target: 40 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 25,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 10,
+        specialTiles: { steel: true, lead: false, glass: false },
+        modifier: { id: 'narrow_board' },
+        startingSpecialTiles: [
+          { type: 'steel', col: 3, row: 0, duration: 999 },
+          { type: 'steel', col: 3, row: 1, duration: 999 },
+          { type: 'steel', col: 3, row: 2, duration: 999 },
+          { type: 'steel', col: 3, row: 3, duration: 999 },
+          { type: 'steel', col: 3, row: 4, duration: 999 },
+          { type: 'steel', col: 3, row: 5, duration: 999 }
+        ]
+      },
+
+      // Level 32: Combined Modifiers Test
+      {
+        id: 32,
+        name: 'TEST: Combined',
+        description: 'Glass Chaos + Steel Maze',
+        objective: { type: 'score', target: 100 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 40,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
+        frenzyEnabled: true,
+        startingPoints: 20,
+        specialTiles: { steel: true, lead: false, glass: true },
+        modifier: { id: 'combined', glassSpawnRate: 0.3 },
+        startingSpecialTiles: [
+          { type: 'steel', col: 0, row: 5, duration: 20 },
+          { type: 'steel', col: 3, row: 5, duration: 20 }
+        ]
       }
     ];
   }
@@ -412,6 +627,9 @@ class LevelManager {
         return (gameState.leadCleared || 0) >= objective.count;
       case 'clear_glass':
         return (gameState.glassCleared || 0) >= objective.count;
+      case 'survival':
+        // Survival: complete if player reaches the move target without board filling
+        return gameState.movesUsed >= objective.moves;
       default:
         return false;
     }
@@ -435,6 +653,8 @@ class LevelManager {
       case 'clear_glass':
         const glassCleared = gameState.glassCleared || 0;
         return `${glassCleared}/${objective.count}`;
+      case 'survival':
+        return `${gameState.movesUsed}/${objective.moves} moves`;
       default:
         return '';
     }

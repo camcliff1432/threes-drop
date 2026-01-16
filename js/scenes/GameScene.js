@@ -7,9 +7,14 @@ class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.gameMode = data.mode || 'original';  // 'original', 'crazy', 'level'
+    this.gameMode = data.mode || 'original';  // 'original', 'crazy', 'level', 'daily'
     this.levelId = data.levelId || null;
     this.levelConfig = this.levelId ? levelManager.getLevel(this.levelId) : null;
+
+    // Daily challenge data
+    this.dailyChallenge = data.dailyChallenge || null;
+    this.dailyMoveCount = 0;
+    this.dailyChallengeCompleted = false;
   }
 
   create() {
@@ -37,15 +42,37 @@ class GameScene extends Phaser.Scene {
     if (this.levelConfig) {
       boardConfig.allowedTiles = this.levelConfig.allowedTiles;
       boardConfig.startingCombo = this.levelConfig.startingCombo || 0;
+
+      // Apply modifier tile weights if present
+      if (this.levelConfig.modifier?.tileWeights) {
+        boardConfig.tileWeights = this.levelConfig.modifier.tileWeights;
+      }
     }
+
+    // Apply daily challenge modifier tile weights
+    if (this.dailyChallenge?.modifier?.id === 'more_1s') {
+      boardConfig.tileWeights = { 1: 0.75, 2: 0.25 };
+    } else if (this.dailyChallenge?.modifier?.id === 'more_2s') {
+      boardConfig.tileWeights = { 1: 0.25, 2: 0.75 };
+    }
+
+    // Store modifier for other effects (frenzy boost, glass spawn rate, etc.)
+    this.modifier = this.levelConfig?.modifier || this.dailyChallenge?.modifier || null;
 
     this.boardLogic = new BoardLogic(boardConfig);
 
     // Initialize PowerUpManager based on mode
     this.powerUpManager = new PowerUpManager(this.getPowerUpConfig());
 
-    // Initialize SpecialTileManager for crazy and endless modes
-    if (this.gameMode === 'crazy' || this.gameMode === 'endless' || this.levelConfig?.specialTiles) {
+    // Initialize SpecialTileManager for crazy, endless, daily modes, or levels with special tiles
+    const needsSpecialTiles = this.gameMode === 'crazy' ||
+      this.gameMode === 'endless' ||
+      this.gameMode === 'daily' ||
+      this.levelConfig?.specialTiles ||
+      this.modifier?.id === 'glass_chaos' ||
+      this.modifier?.id === 'steel_maze';
+
+    if (needsSpecialTiles) {
       this.specialTileManager = new SpecialTileManager(this.boardLogic);
     }
 
@@ -61,6 +88,34 @@ class GameScene extends Phaser.Scene {
     // Note: we create the tiles here, but they get synced visually later in create()
     if (this.specialTileManager && this.levelConfig?.startingSpecialTiles) {
       this.initializeStartingSpecialTilesData(this.levelConfig.startingSpecialTiles);
+    }
+
+    // Initialize starting special tiles for daily challenge modifiers
+    if (this.specialTileManager && this.gameMode === 'daily' && this.dailyChallenge?.modifier) {
+      const modifier = this.dailyChallenge.modifier;
+      if (modifier.id === 'steel_maze') {
+        // Create a maze pattern with steel tiles
+        const steelTiles = [
+          { type: 'steel', col: 0, row: 4, duration: 20 },
+          { type: 'steel', col: 1, row: 3, duration: 20 },
+          { type: 'steel', col: 2, row: 3, duration: 20 },
+          { type: 'steel', col: 3, row: 4, duration: 20 }
+        ];
+        this.initializeStartingSpecialTilesData(steelTiles);
+        this.dailyStartingSpecialTiles = steelTiles;
+      } else if (modifier.id === 'narrow_board') {
+        // Block the rightmost column with permanent steel
+        const steelTiles = [
+          { type: 'steel', col: 3, row: 0, duration: 999 },
+          { type: 'steel', col: 3, row: 1, duration: 999 },
+          { type: 'steel', col: 3, row: 2, duration: 999 },
+          { type: 'steel', col: 3, row: 3, duration: 999 },
+          { type: 'steel', col: 3, row: 4, duration: 999 },
+          { type: 'steel', col: 3, row: 5, duration: 999 }
+        ];
+        this.initializeStartingSpecialTilesData(steelTiles);
+        this.dailyStartingSpecialTiles = steelTiles;
+      }
     }
     this.isAnimating = false;
     this.nextTileValue = null;
@@ -111,6 +166,12 @@ class GameScene extends Phaser.Scene {
       this.renderSpecialTiles();
     }
 
+    // Render daily challenge starting special tiles
+    if (this.specialTileManager && this.dailyStartingSpecialTiles) {
+      this.applyStartingSpecialTilesGravity();
+      this.renderSpecialTiles();
+    }
+
     this.generateNextTile();
   }
 
@@ -142,7 +203,21 @@ class GameScene extends Phaser.Scene {
         return {
           enabledPowerUps: Object.keys(levelPowerUps).filter(k => levelPowerUps[k]),
           frenzyEnabled: this.levelConfig?.frenzyEnabled || false,
-          startingPoints: this.levelConfig?.startingPoints || 0
+          startingPoints: this.levelConfig?.startingPoints || 0,
+          frenzyChargeMultiplier: this.levelConfig?.modifier?.frenzyChargeMultiplier || 1.0
+        };
+      case 'daily':
+        // Daily challenges use configurable power-ups based on challenge type
+        const dailyPowerUps = this.dailyChallenge?.type === 'no_power_ups'
+          ? []
+          : ['swipe', 'swapper', 'merger', 'wildcard'];
+        // Apply frenzy boost modifier if present
+        const dailyFrenzyMultiplier = this.dailyChallenge?.modifier?.id === 'frenzy_boost' ? 2.0 : 1.0;
+        return {
+          enabledPowerUps: dailyPowerUps,
+          frenzyEnabled: this.dailyChallenge?.type !== 'no_power_ups',
+          startingPoints: 0,
+          frenzyChargeMultiplier: dailyFrenzyMultiplier
         };
       default:
         return { enabledPowerUps: ['swipe'], frenzyEnabled: false };
@@ -1512,8 +1587,9 @@ class GameScene extends Phaser.Scene {
         }
       } else if (this.gameMode === 'level' && this.levelConfig) {
         // Level mode: use level-specific spawn rates for objectives (only one per drop)
-        const glassSpawnRate = this.levelConfig.glassSpawnRate || 0;
-        const leadSpawnRate = this.levelConfig.leadSpawnRate || 0;
+        // Check both direct level config and modifier config for spawn rates
+        const glassSpawnRate = this.levelConfig.modifier?.glassSpawnRate || this.levelConfig.glassSpawnRate || 0;
+        const leadSpawnRate = this.levelConfig.modifier?.leadSpawnRate || this.levelConfig.leadSpawnRate || 0;
 
         const roll = Math.random();
         if (roll < glassSpawnRate) {
@@ -1531,6 +1607,22 @@ class GameScene extends Phaser.Scene {
           if (emptyCell) {
             const leadTile = this.specialTileManager.spawnLeadTile(emptyCell.col, emptyCell.row);
             this.createSpecialTile(emptyCell.col, emptyCell.row, 'lead', { countdown: leadTile.countdown });
+          }
+        }
+      } else if (this.gameMode === 'daily' && this.specialTileManager) {
+        // Daily challenge mode: apply modifier-based special tile spawning
+        const modifier = this.dailyChallenge?.modifier;
+
+        if (modifier?.id === 'glass_chaos') {
+          const glassSpawnRate = 0.35; // 35% chance per drop
+          if (Math.random() < glassSpawnRate) {
+            const emptyCell = this.specialTileManager.findRandomEmptyCell();
+            if (emptyCell) {
+              const glassValues = [3, 6, 12];
+              const glassValue = glassValues[Math.floor(Math.random() * glassValues.length)];
+              const glassTile = this.specialTileManager.spawnGlassTile(emptyCell.col, emptyCell.row, glassValue);
+              this.createSpecialTile(emptyCell.col, emptyCell.row, 'glass', { durability: glassTile.durability, value: glassValue });
+            }
           }
         }
       }
@@ -2368,11 +2460,152 @@ class GameScene extends Phaser.Scene {
         this.showLevelFailed();
         return;
       }
+    } else if (this.gameMode === 'daily' && this.dailyChallenge) {
+      // Check daily challenge conditions
+      if (this.checkDailyChallengeComplete()) {
+        this.showDailyChallengeComplete();
+        return;
+      }
+
+      // Check fail conditions
+      if (this.checkDailyChallengeFailed()) {
+        this.showDailyChallengeFailed();
+        return;
+      }
     } else {
       if (this.boardLogic.isBoardFull()) {
         this.showGameOver();
       }
     }
+  }
+
+  checkDailyChallengeComplete() {
+    if (!this.dailyChallenge || this.dailyChallengeCompleted) return false;
+
+    const state = this.boardLogic.getGameState();
+    const challenge = this.dailyChallenge;
+
+    switch (challenge.type) {
+      case 'score_target':
+      case 'no_power_ups':
+        return state.score >= challenge.target;
+
+      case 'tile_target':
+        return state.highestTile >= challenge.target;
+
+      case 'limited_moves':
+        // Limited moves: game ends when moves run out, success is based on score
+        return false; // Check is handled in fail condition
+
+      case 'survival':
+        return state.movesUsed >= challenge.survivalMoves;
+
+      default:
+        return false;
+    }
+  }
+
+  checkDailyChallengeFailed() {
+    if (!this.dailyChallenge) return false;
+
+    const challenge = this.dailyChallenge;
+    const state = this.boardLogic.getGameState();
+
+    // Board full = fail for most challenges
+    if (this.boardLogic.isBoardFull()) {
+      return true;
+    }
+
+    // Limited moves: out of moves
+    if (challenge.type === 'limited_moves' && state.movesUsed >= challenge.moveLimit) {
+      return true;
+    }
+
+    return false;
+  }
+
+  showDailyChallengeComplete() {
+    this.dailyChallengeCompleted = true;
+    const { width, height } = this.cameras.main;
+    const finalScore = this.boardLogic.getScore();
+
+    // Mark challenge complete and get rewards
+    const result = dailyChallengeManager.completeChallenge(finalScore);
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(1000);
+
+    this.add.text(width / 2, height / 2 - 100, 'CHALLENGE COMPLETE!', {
+      fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#22c55e'
+    }).setOrigin(0.5).setDepth(1001);
+
+    this.add.text(width / 2, height / 2 - 50, `Score: ${finalScore}`, {
+      fontSize: '24px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(1001);
+
+    if (result) {
+      this.add.text(width / 2, height / 2 - 10, `+${result.points} points`, {
+        fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#a78bfa'
+      }).setOrigin(0.5).setDepth(1001);
+
+      if (result.streak > 1) {
+        this.add.text(width / 2, height / 2 + 20, `${result.streak} day streak!`, {
+          fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#fbbf24'
+        }).setOrigin(0.5).setDepth(1001);
+      }
+    }
+
+    const menuBtn = this.add.text(width / 2, height / 2 + 70, 'BACK TO MENU', {
+      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+    menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    this.tweens.add({ targets: menuBtn, alpha: 0.5, duration: 800, yoyo: true, repeat: -1 });
+  }
+
+  showDailyChallengeFailed() {
+    const { width, height } = this.cameras.main;
+    const finalScore = this.boardLogic.getScore();
+    const challenge = this.dailyChallenge;
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(1000);
+
+    this.add.text(width / 2, height / 2 - 80, 'CHALLENGE FAILED', {
+      fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ef4444'
+    }).setOrigin(0.5).setDepth(1001);
+
+    this.add.text(width / 2, height / 2 - 30, `Score: ${finalScore}`, {
+      fontSize: '20px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(1001);
+
+    // Show target for context
+    let targetText = '';
+    if (challenge.target) targetText = `Target: ${challenge.target}`;
+    else if (challenge.survivalMoves) targetText = `Survive: ${challenge.survivalMoves} moves`;
+
+    if (targetText) {
+      this.add.text(width / 2, height / 2, targetText, {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#888888'
+      }).setOrigin(0.5).setDepth(1001);
+    }
+
+    const retryBtn = this.add.text(width / 2, height / 2 + 50, 'TRY AGAIN', {
+      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+    retryBtn.on('pointerdown', () => this.scene.start('DailyChallengeScene'));
+    this.tweens.add({ targets: retryBtn, alpha: 0.5, duration: 800, yoyo: true, repeat: -1 });
+
+    const menuBtn = this.add.text(width / 2, height / 2 + 90, 'MAIN MENU', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+    menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
   }
 
   showLevelComplete() {

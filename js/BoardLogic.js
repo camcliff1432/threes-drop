@@ -10,6 +10,9 @@ class BoardLogic {
     this.unlockThresholds = config.unlockThresholds || GameConfig.UNLOCK_THRESHOLDS;
     this.useScoreUnlocks = config.useScoreUnlocks !== false;
 
+    // Custom tile weights for modifiers (e.g., { 1: 0.75, 2: 0.25 })
+    this.customTileWeights = config.tileWeights || null;
+
     this.board = this.createEmptyBoard();
     this.mergeCount = config.startingCombo || 0;
     this.nextTileId = 1;
@@ -260,25 +263,31 @@ class BoardLogic {
     const countTwos = this.countTilesOnBoard(2);
     const difference = countOnes - countTwos;
 
-    // Base weights
+    // Base weights - check for custom weights from modifiers
     let weight1 = 45;
     let weight2 = 45;
 
-    // Gentle balance adjustment - only kicks in when difference is 3+
-    // This allows natural randomness while preventing extreme imbalance
-    const balanceThreshold = 4;
-    if (Math.abs(difference) >= balanceThreshold) {
-      const excess = Math.abs(difference) - balanceThreshold + 1;
-      const adjustment = Math.min(excess * 8, 25); // Gentler: 8 per tile, cap at 25
+    if (this.customTileWeights) {
+      // Use custom weights (values are ratios, e.g., 0.75 for 75%)
+      weight1 = (this.customTileWeights[1] || 0.5) * 90;
+      weight2 = (this.customTileWeights[2] || 0.5) * 90;
+    } else {
+      // Gentle balance adjustment - only kicks in when difference is 3+
+      // This allows natural randomness while preventing extreme imbalance
+      const balanceThreshold = 4;
+      if (Math.abs(difference) >= balanceThreshold) {
+        const excess = Math.abs(difference) - balanceThreshold + 1;
+        const adjustment = Math.min(excess * 8, 25); // Gentler: 8 per tile, cap at 25
 
-      if (difference > 0) {
-        // More 1s than 2s - slightly favor spawning 2s
-        weight2 += adjustment;
-        weight1 = Math.max(20, weight1 - adjustment);
-      } else {
-        // More 2s than 1s - slightly favor spawning 1s
-        weight1 += adjustment;
-        weight2 = Math.max(20, weight2 - adjustment);
+        if (difference > 0) {
+          // More 1s than 2s - slightly favor spawning 2s
+          weight2 += adjustment;
+          weight1 = Math.max(20, weight1 - adjustment);
+        } else {
+          // More 2s than 1s - slightly favor spawning 1s
+          weight1 += adjustment;
+          weight2 = Math.max(20, weight2 - adjustment);
+        }
       }
     }
 

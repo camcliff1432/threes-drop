@@ -24,7 +24,21 @@ class MenuScene extends Phaser.Scene {
 
     // Game mode cards data
     // tiles can be numbers for regular tiles, or special types: 'steel', 'glass', 'lead', 'bomb', 'auto_swapper'
+    const dailyStats = dailyChallengeManager.getStats();
+    const dailyChallenge = dailyChallengeManager.generateChallenge();
+
     this.gameModes = [
+      {
+        mode: 'daily',
+        title: 'DAILY',
+        subtitle: dailyStats.todayCompleted ? 'Completed!' : dailyChallenge.name,
+        description: dailyStats.todayCompleted
+          ? `Streak: ${dailyStats.currentStreak} days\nCome back tomorrow!`
+          : `${dailyChallenge.description}\n${dailyChallenge.difficulty.toUpperCase()}`,
+        color: dailyStats.todayCompleted ? 0x22c55e : 0xfbbf24,
+        tiles: ['daily', 'daily', 'daily'],
+        dailyStats: dailyStats
+      },
       {
         mode: 'original',
         title: 'ORIGINAL',
@@ -234,6 +248,22 @@ class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5);
             container.add(ultraText);
             break;
+
+          case 'daily':
+            // Daily challenge tile - calendar/star icon
+            const dailyColor = modeData.dailyStats?.todayCompleted ? 0x22c55e : 0xfbbf24;
+            tileBg.fillStyle(dailyColor, 1);
+            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            tileBg.lineStyle(2, 0xffffff, 0.5);
+            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            container.add(tileBg);
+            // Calendar/checkmark symbol
+            const dailyIcon = modeData.dailyStats?.todayCompleted ? '✓' : '📅';
+            const dailyText = this.add.text(tileX, tileY, dailyIcon, {
+              fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5);
+            container.add(dailyText);
+            break;
         }
       } else {
         // Regular numeric tile
@@ -272,6 +302,9 @@ class MenuScene extends Phaser.Scene {
     } else if (modeData.mode === 'endless') {
       goalLabel = 'GOAL: HIGHEST SCORE';
       goalColor = '#ff6b6b';
+    } else if (modeData.mode === 'daily') {
+      goalLabel = modeData.dailyStats?.todayCompleted ? 'COMPLETED TODAY' : 'GOAL: COMPLETE CHALLENGE';
+      goalColor = modeData.dailyStats?.todayCompleted ? '#22c55e' : '#fbbf24';
     } else {
       goalLabel = 'GOAL: HIGHEST TILE';
       goalColor = '#7ed321';
@@ -282,8 +315,25 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     container.add(goalText);
 
-    // High score - more prominent (skip for ultra mode)
-    if (modeData.mode !== 'ultra') {
+    // High score / stats - mode-specific
+    if (modeData.mode === 'ultra') {
+      // Ultra mode - show warning
+      const warning = this.add.text(0, this.cardHeight / 2 - 28, '⚠ DANGER ⚠', {
+        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff00ff'
+      }).setOrigin(0.5);
+      container.add(warning);
+    } else if (modeData.mode === 'daily') {
+      // Daily mode - show streak info
+      const streak = modeData.dailyStats?.currentStreak || 0;
+      const total = modeData.dailyStats?.totalCompleted || 0;
+      const statsText = streak > 0 ? `🔥 ${streak} day streak` : `${total} completed`;
+      const statsColor = streak > 0 ? '#fbbf24' : '#888888';
+      const stats = this.add.text(0, this.cardHeight / 2 - 28, statsText, {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: statsColor
+      }).setOrigin(0.5);
+      container.add(stats);
+    } else {
+      // Regular modes - show high score
       const highScore = highScoreManager.getHighScore(modeData.mode);
       const scoreText = highScore > 0 ? `BEST: ${highScore}` : 'NO SCORE YET';
       const scoreColor = highScore > 0 ? '#f5a623' : '#888888';
@@ -291,12 +341,6 @@ class MenuScene extends Phaser.Scene {
         fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: scoreColor
       }).setOrigin(0.5);
       container.add(score);
-    } else {
-      // Ultra mode - show warning instead
-      const warning = this.add.text(0, this.cardHeight / 2 - 28, '⚠ DANGER ⚠', {
-        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff00ff'
-      }).setOrigin(0.5);
-      container.add(warning);
     }
 
     return { container, bg, modeData };
@@ -379,6 +423,7 @@ class MenuScene extends Phaser.Scene {
     video.style.transform = 'translate(-50%, -50%)';
     video.style.borderRadius = '10px';
     video.style.boxShadow = '0 0 30px rgba(255, 0, 255, 0.5)';
+    video.style.pointerEvents = 'none'; // Let clicks pass through to the click zone
 
     // Add to game container
     const container = document.getElementById('game-container');
@@ -411,14 +456,15 @@ class MenuScene extends Phaser.Scene {
     tapHint.style.color = '#888888';
     container.appendChild(tapHint);
 
-    // Overlay click zone (HTML)
+    // Overlay click zone (HTML) - z-index above video so clicks register
     const clickZone = document.createElement('div');
     clickZone.style.position = 'absolute';
-    clickZone.style.zIndex = '999';
+    clickZone.style.zIndex = '1002';
     clickZone.style.top = '0';
     clickZone.style.left = '0';
     clickZone.style.width = '100%';
     clickZone.style.height = '100%';
+    clickZone.style.cursor = 'pointer';
     container.appendChild(clickZone);
 
     const cleanup = () => {
@@ -436,8 +482,9 @@ class MenuScene extends Phaser.Scene {
 
   createMenuButtons() {
     const { width, height } = this.cameras.main;
+    // Start below the PLAY button (which is at carouselY + cardHeight/2 + 60)
     const startY = this.carouselY + this.cardHeight / 2 + 130;
-    const spacing = 50;
+    const spacing = 45;
     const buttonWidth = 140;
     const buttonGap = 15;
 
@@ -580,6 +627,8 @@ class MenuScene extends Phaser.Scene {
     const mode = this.gameModes[this.currentIndex].mode;
     if (mode === 'ultra') {
       this.showUltraVideo();
+    } else if (mode === 'daily') {
+      this.scene.start('DailyChallengeScene');
     } else {
       this.scene.start('GameScene', { mode });
     }
