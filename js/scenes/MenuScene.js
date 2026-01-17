@@ -411,12 +411,7 @@ class MenuScene extends Phaser.Scene {
     const buttonY = this.carouselY + this.cardHeight / 2 + 60;
 
     this.playButton = UIHelpers.createButton(this, width / 2, buttonY, 'PLAY', () => {
-      const mode = this.gameModes[this.currentIndex].mode;
-      if (mode === 'ultra') {
-        this.showUltraVideo();
-      } else {
-        this.scene.start('GameScene', { mode });
-      }
+      this.playCurrentMode();
     }, { width: 180, height: 50, fontSize: '24px' });
   }
 
@@ -642,7 +637,108 @@ class MenuScene extends Phaser.Scene {
     } else if (mode === 'levels') {
       this.scene.start('TutorialSelectScene');
     } else {
-      this.scene.start('GameScene', { mode });
+      // Check for saved game
+      if (gameStateManager.hasSavedGame(mode)) {
+        this.showResumePrompt(mode);
+      } else {
+        this.scene.start('GameScene', { mode });
+      }
     }
+  }
+
+  showResumePrompt(mode) {
+    const { width, height } = this.cameras.main;
+
+    // Dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(900);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
+
+    // Popup box - larger to fit bigger buttons
+    const boxWidth = 300;
+    const boxHeight = 220;
+    const boxX = width / 2 - boxWidth / 2;
+    const boxY = height / 2 - boxHeight / 2;
+
+    const box = this.add.graphics();
+    box.fillStyle(0x1a1a2e, 1);
+    box.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+    box.lineStyle(2, 0x4a90e2, 1);
+    box.strokeRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+    box.setDepth(901);
+
+    // Title
+    const title = this.add.text(width / 2, boxY + 30, 'CONTINUE GAME?', {
+      fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(902);
+
+    // Message
+    const message = this.add.text(width / 2, boxY + 60, 'You have a saved game in progress.', {
+      fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    }).setOrigin(0.5).setDepth(902);
+
+    // Button dimensions for consistent sizing
+    const btnWidth = 240;
+    const btnHeight = 44;
+    const btnSpacing = 54;
+
+    // Resume button
+    const resumeBtnY = boxY + 105;
+    const resumeBtnBg = this.add.graphics();
+    resumeBtnBg.fillStyle(0x2d5a1e, 1);
+    resumeBtnBg.fillRoundedRect(width / 2 - btnWidth / 2, resumeBtnY - btnHeight / 2, btnWidth, btnHeight, 8);
+    resumeBtnBg.setDepth(902);
+
+    const resumeBtn = this.add.text(width / 2, resumeBtnY, 'RESUME GAME', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+    }).setOrigin(0.5).setDepth(903);
+
+    const resumeBtnZone = this.add.rectangle(width / 2, resumeBtnY, btnWidth, btnHeight, 0x000000, 0)
+      .setDepth(904).setInteractive();
+
+    // New game button
+    const newBtnY = resumeBtnY + btnSpacing;
+    const newBtnBg = this.add.graphics();
+    newBtnBg.fillStyle(0x5a1e1e, 1);
+    newBtnBg.fillRoundedRect(width / 2 - btnWidth / 2, newBtnY - btnHeight / 2, btnWidth, btnHeight, 8);
+    newBtnBg.setDepth(902);
+
+    const newBtn = this.add.text(width / 2, newBtnY, 'START NEW GAME', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#e24a4a'
+    }).setOrigin(0.5).setDepth(903);
+
+    const newBtnZone = this.add.rectangle(width / 2, newBtnY, btnWidth, btnHeight, 0x000000, 0)
+      .setDepth(904).setInteractive();
+
+    // Cleanup function
+    const cleanup = () => {
+      overlay.destroy();
+      box.destroy();
+      title.destroy();
+      message.destroy();
+      resumeBtnBg.destroy();
+      resumeBtn.destroy();
+      resumeBtnZone.destroy();
+      newBtnBg.destroy();
+      newBtn.destroy();
+      newBtnZone.destroy();
+    };
+
+    resumeBtnZone.on('pointerdown', () => {
+      cleanup();
+      this.scene.start('GameScene', { mode, resumeFromSave: true });
+    });
+
+    newBtnZone.on('pointerdown', () => {
+      cleanup();
+      gameStateManager.clearSavedGame();
+      this.scene.start('GameScene', { mode });
+    });
+
+    overlay.on('pointerdown', () => {
+      cleanup();
+    });
   }
 }

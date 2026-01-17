@@ -7,7 +7,7 @@ class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.gameMode = data.mode || 'original';  // 'original', 'crazy', 'level', 'daily'
+    this.gameMode = data.mode || 'original';  // 'original', 'crazy', 'level', 'daily', 'endless'
     this.levelId = data.levelId || null;
     this.levelConfig = this.levelId ? levelManager.getLevel(this.levelId) : null;
 
@@ -15,6 +15,9 @@ class GameScene extends Phaser.Scene {
     this.dailyChallenge = data.dailyChallenge || null;
     this.dailyMoveCount = 0;
     this.dailyChallengeCompleted = false;
+
+    // Check if resuming from saved state
+    this.resumeFromSave = data.resumeFromSave || false;
   }
 
   create() {
@@ -172,7 +175,47 @@ class GameScene extends Phaser.Scene {
       this.renderSpecialTiles();
     }
 
+    // Check if resuming from saved state
+    if (this.resumeFromSave) {
+      const savedState = gameStateManager.getSavedGame();
+      if (savedState && savedState.gameMode === this.gameMode) {
+        this.loadSavedState(savedState);
+        return; // Don't generate new next tile, use saved one
+      }
+    }
+
     this.generateNextTile();
+  }
+
+  /**
+   * Load saved game state and render it
+   */
+  loadSavedState(savedState) {
+    // Load state into managers
+    gameStateManager.loadGameState(this, savedState);
+
+    // Render the board state
+    this.renderBoardState();
+
+    // Render special tiles if present
+    if (this.specialTileManager) {
+      this.renderSpecialTiles();
+    }
+
+    // Update UI to reflect loaded state
+    this.updatePowerUpUI();
+    this.updateUI();
+
+    // Update original combo bar if in original mode
+    if (this.gameMode === 'original') {
+      this.updateOriginalComboBar();
+    }
+
+    // Update next tile preview with saved value
+    this.updateNextTilePreview();
+
+    // Don't clear the saved game here - keep it as backup
+    // It will be cleared on game over or when user starts a new game
   }
 
   /**
@@ -336,9 +379,12 @@ class GameScene extends Phaser.Scene {
     overlay.setDepth(900);
     overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
 
-    // Popup box
-    const boxWidth = 280;
-    const boxHeight = 180;
+    // Check if this mode supports saving (not levels or daily)
+    const canSave = this.gameMode !== 'level' && this.gameMode !== 'daily';
+
+    // Popup box - larger to fit bigger buttons
+    const boxWidth = 300;
+    const boxHeight = canSave ? 260 : 200;
     const boxX = width / 2 - boxWidth / 2;
     const boxY = height / 2 - boxHeight / 2;
 
@@ -355,20 +401,61 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(902);
 
     // Message
-    const message = this.add.text(width / 2, boxY + 65, 'Your progress will be lost.', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+    const message = this.add.text(width / 2, boxY + 60, canSave ? 'Your progress will be saved.' : 'Your progress will be lost.', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: canSave ? '#7ed321' : '#aaaaaa'
     }).setOrigin(0.5).setDepth(902);
 
-    // Continue playing button
-    const continueBtn = this.add.text(width / 2, boxY + 105, 'CONTINUE PLAYING', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
-      color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 16, y: 10 }
-    }).setOrigin(0.5).setDepth(902).setInteractive();
+    // Button dimensions for consistent sizing
+    const btnWidth = 240;
+    const btnHeight = 44;
+    const btnSpacing = 54;
 
-    // Exit button
-    const exitBtn = this.add.text(width / 2, boxY + 150, 'EXIT TO MENU', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#e24a4a'
-    }).setOrigin(0.5).setDepth(902).setInteractive();
+    // Continue playing button
+    const continueBtnY = boxY + 105;
+    const continueBtnBg = this.add.graphics();
+    continueBtnBg.fillStyle(0x4a90e2, 1);
+    continueBtnBg.fillRoundedRect(width / 2 - btnWidth / 2, continueBtnY - btnHeight / 2, btnWidth, btnHeight, 8);
+    continueBtnBg.setDepth(902);
+
+    const continueBtn = this.add.text(width / 2, continueBtnY, 'CONTINUE PLAYING', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(903);
+
+    const continueBtnZone = this.add.rectangle(width / 2, continueBtnY, btnWidth, btnHeight, 0x000000, 0)
+      .setDepth(904).setInteractive();
+
+    // Save & Exit button (or just Exit for non-saveable modes)
+    const exitBtnY = continueBtnY + btnSpacing;
+    const exitBtnBg = this.add.graphics();
+    exitBtnBg.fillStyle(canSave ? 0x2d5a1e : 0x5a1e1e, 1);
+    exitBtnBg.fillRoundedRect(width / 2 - btnWidth / 2, exitBtnY - btnHeight / 2, btnWidth, btnHeight, 8);
+    exitBtnBg.setDepth(902);
+
+    const exitBtn = this.add.text(width / 2, exitBtnY, canSave ? 'SAVE & EXIT' : 'EXIT TO MENU', {
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: canSave ? '#7ed321' : '#e24a4a'
+    }).setOrigin(0.5).setDepth(903);
+
+    const exitBtnZone = this.add.rectangle(width / 2, exitBtnY, btnWidth, btnHeight, 0x000000, 0)
+      .setDepth(904).setInteractive();
+
+    // Quit without saving button (only for modes that can save)
+    let quitBtn = null;
+    let quitBtnBg = null;
+    let quitBtnZone = null;
+    if (canSave) {
+      const quitBtnY = exitBtnY + btnSpacing;
+      quitBtnBg = this.add.graphics();
+      quitBtnBg.fillStyle(0x333333, 1);
+      quitBtnBg.fillRoundedRect(width / 2 - btnWidth / 2, quitBtnY - btnHeight / 2, btnWidth, btnHeight, 8);
+      quitBtnBg.setDepth(902);
+
+      quitBtn = this.add.text(width / 2, quitBtnY, 'QUIT WITHOUT SAVING', {
+        fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#888888'
+      }).setOrigin(0.5).setDepth(903);
+
+      quitBtnZone = this.add.rectangle(width / 2, quitBtnY, btnWidth, btnHeight, 0x000000, 0)
+        .setDepth(904).setInteractive();
+    }
 
     // Cleanup function
     const cleanup = () => {
@@ -377,18 +464,40 @@ class GameScene extends Phaser.Scene {
       box.destroy();
       title.destroy();
       message.destroy();
+      continueBtnBg.destroy();
       continueBtn.destroy();
+      continueBtnZone.destroy();
+      exitBtnBg.destroy();
       exitBtn.destroy();
+      exitBtnZone.destroy();
+      if (quitBtn) {
+        quitBtnBg.destroy();
+        quitBtn.destroy();
+        quitBtnZone.destroy();
+      }
     };
 
-    continueBtn.on('pointerdown', () => {
+    continueBtnZone.on('pointerdown', () => {
       cleanup();
     });
 
-    exitBtn.on('pointerdown', () => {
+    exitBtnZone.on('pointerdown', () => {
       cleanup();
+      if (canSave) {
+        // Save game state before exiting
+        gameStateManager.saveGameState(this);
+      }
       this.scene.start(targetScene);
     });
+
+    if (quitBtnZone) {
+      quitBtnZone.on('pointerdown', () => {
+        cleanup();
+        // Clear any saved game for this mode
+        gameStateManager.clearSavedGame();
+        this.scene.start(targetScene);
+      });
+    }
 
     overlay.on('pointerdown', () => {
       cleanup();
@@ -550,6 +659,29 @@ class GameScene extends Phaser.Scene {
       if (!this.tiles[key]) {
         const tile = new Tile(this, glass.col, glass.row, glass.value, this.boardLogic.nextTileId++, 'glass', {
           durability: glass.durability
+        });
+        this.tiles[key] = tile;
+      }
+    });
+
+    // Render auto-swapper tiles
+    this.specialTileManager.autoSwapperTiles.forEach(swapper => {
+      const key = `${swapper.col},${swapper.row}`;
+      if (!this.tiles[key]) {
+        const tile = new Tile(this, swapper.col, swapper.row, swapper.value, this.boardLogic.nextTileId++, 'auto_swapper', {
+          swapsRemaining: swapper.swapsRemaining,
+          nextSwapIn: swapper.nextSwapIn
+        });
+        this.tiles[key] = tile;
+      }
+    });
+
+    // Render bomb tiles
+    this.specialTileManager.bombTiles.forEach(bomb => {
+      const key = `${bomb.col},${bomb.row}`;
+      if (!this.tiles[key]) {
+        const tile = new Tile(this, bomb.col, bomb.row, bomb.value, this.boardLogic.nextTileId++, 'bomb', {
+          mergesRemaining: bomb.mergesRemaining
         });
         this.tiles[key] = tile;
       }
@@ -2584,7 +2716,13 @@ class GameScene extends Phaser.Scene {
     } else {
       if (this.boardLogic.isBoardFull()) {
         this.showGameOver();
+        return;
       }
+    }
+
+    // Auto-save for modes that support it (after each move)
+    if (this.gameMode === 'original' || this.gameMode === 'crazy' || this.gameMode === 'endless') {
+      gameStateManager.saveGameState(this);
     }
   }
 
@@ -2784,6 +2922,9 @@ class GameScene extends Phaser.Scene {
   showGameOver() {
     const { width, height } = this.cameras.main;
     const finalScore = this.boardLogic.getScore();
+
+    // Clear any saved game state since game is over
+    gameStateManager.clearSavedGame();
 
     // Track achievements
     achievementManager.recordScore(finalScore);
