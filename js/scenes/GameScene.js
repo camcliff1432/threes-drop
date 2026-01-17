@@ -948,8 +948,8 @@ class GameScene extends Phaser.Scene {
     const previewY = this.GRID_OFFSET_Y - 40;
 
     // NEXT label on the left side of the tile preview
-    this.add.text(previewX - 45, previewY, 'NEXT', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    this.add.text(previewX - 50, previewY, 'NEXT', {
+      fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#00fff5'
     }).setOrigin(1, 0.5);
 
     this.nextTilePreview = this.add.container(previewX, previewY);
@@ -1489,6 +1489,7 @@ class GameScene extends Phaser.Scene {
           this.powerUpManager.addMergePoint();
         }
       });
+      this.syncTilesWithBoard(); // Clean up any ghost tiles
       this.isAnimating = false;
       this.updatePowerUpUI();
     });
@@ -1634,14 +1635,15 @@ class GameScene extends Phaser.Scene {
 
   updateNextTilePreview() {
     this.nextTilePreview.removeAll(true);
-    const size = 50;
-    const bg = this.add.graphics();
+    const size = 48;
+    const halfSize = size / 2;
+    const radius = 6;
 
     let color, displayText, textColor;
 
     if (this.nextTileType === 'wildcard') {
       color = GameConfig.COLORS.WILDCARD;
-      displayText = 'W';
+      displayText = '★';
       textColor = '#ffffff';
     } else {
       color = getTileColor(this.nextTileValue);
@@ -1649,13 +1651,14 @@ class GameScene extends Phaser.Scene {
       textColor = getTileTextColor(this.nextTileValue);
     }
 
+    const bg = this.add.graphics();
+
+    // Clean flat fill
     bg.fillStyle(color, 1);
-    bg.fillRoundedRect(-size / 2, -size / 2, size, size, 6);
-    bg.lineStyle(2, 0xffffff, 0.3);
-    bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 6);
+    bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
 
     const text = this.add.text(0, 0, displayText, {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      fontSize: '20px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800',
       color: textColor
     }).setOrigin(0.5);
 
@@ -1663,7 +1666,7 @@ class GameScene extends Phaser.Scene {
   }
 
   handleColumnTap(col) {
-    if (this.isAnimating || this.selectionMode) return;
+    if (this.isAnimating || this.selectionMode || this.isFrenzyMode) return;
 
     // Check move limit for levels
     if (this.levelConfig && this.boardLogic.getMovesUsed() >= this.levelConfig.maxMoves) {
@@ -2139,14 +2142,43 @@ class GameScene extends Phaser.Scene {
     if (ops.length > 0) {
       this.animateGravity(ops, () => {
         this.updatePowerUpUI();
+        this.syncTilesWithBoard(); // Clean up any ghost tiles
         this.isAnimating = false;
         this.checkEndConditions();
         if (callback) callback();
       });
     } else {
+      this.syncTilesWithBoard(); // Clean up any ghost tiles
       this.isAnimating = false;
       this.checkEndConditions();
       if (callback) callback();
+    }
+  }
+
+  /**
+   * Sync visual tiles with board state - removes ghost tiles
+   * Called after explosions and gravity to ensure consistency
+   */
+  syncTilesWithBoard() {
+    const keysToRemove = [];
+
+    // Find tiles that exist visually but not in board logic
+    for (const key of Object.keys(this.tiles)) {
+      const [col, row] = key.split(',').map(Number);
+      const boardValue = this.boardLogic.board[col]?.[row];
+
+      if (boardValue === null || boardValue === undefined) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // Remove ghost tiles
+    for (const key of keysToRemove) {
+      const tile = this.tiles[key];
+      if (tile) {
+        delete this.tiles[key];
+        tile.fadeOutAnimation();
+      }
     }
   }
 
@@ -2236,10 +2268,12 @@ class GameScene extends Phaser.Scene {
     if (ops.length > 0) {
       this.animateGravity(ops, () => {
         this.updatePowerUpUI();
+        this.syncTilesWithBoard(); // Clean up any ghost tiles
         this.isAnimating = false;
         this.checkEndConditions();
       });
     } else {
+      this.syncTilesWithBoard(); // Clean up any ghost tiles
       this.isAnimating = false;
       this.checkEndConditions();
     }
@@ -2548,6 +2582,7 @@ class GameScene extends Phaser.Scene {
       this.swipeEnabled = false;
       this.setCrazySwipeButtonsVisible(false);
     }
+    this.syncTilesWithBoard(); // Clean up any ghost tiles
     this.updatePowerUpUI();
     this.isAnimating = false;
     this.checkEndConditions();

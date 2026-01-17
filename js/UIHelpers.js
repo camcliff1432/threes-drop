@@ -3,39 +3,40 @@
  */
 const UIHelpers = {
   /**
-   * Draw gradient background
+   * Draw clean background
    */
   drawBackground(scene) {
     const { width, height } = scene.cameras.main;
     const g = scene.add.graphics();
-    g.fillGradientStyle(GameConfig.UI.BACKGROUND_DARK, GameConfig.UI.BACKGROUND_DARK,
-                        GameConfig.UI.BACKGROUND_LIGHT, GameConfig.UI.BACKGROUND_LIGHT, 1);
+
+    // Solid slate background
+    g.fillStyle(GameConfig.UI.BACKGROUND_DARK, 1);
     g.fillRect(0, 0, width, height);
+
     return g;
   },
 
   /**
-   * Create a styled button
+   * Create a styled button - clean and minimal
    */
   createButton(scene, x, y, text, callback, options = {}) {
     const width = options.width || 220;
     const height = options.height || 50;
     const disabled = options.disabled || false;
-    const fontSize = options.fontSize || '20px';
+    const fontSize = options.fontSize || '18px';
 
     const bg = scene.add.graphics();
     const fillColor = disabled ? GameConfig.UI.DISABLED : GameConfig.UI.PRIMARY;
-    const fillAlpha = disabled ? 0.8 : 0.3;
-    const strokeColor = disabled ? 0x555555 : GameConfig.UI.PRIMARY;
 
-    bg.fillStyle(fillColor, fillAlpha);
-    bg.lineStyle(2, strokeColor, 1);
-    bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 10);
-    bg.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 10);
+    // Clean button fill
+    bg.fillStyle(fillColor, disabled ? 0.5 : 1);
+    bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
 
     const label = scene.add.text(x, y, text, {
-      fontSize, fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
-      color: disabled ? '#666666' : '#ffffff'
+      fontSize,
+      fontFamily: GameConfig.FONTS.UI,
+      fontStyle: '700',
+      color: disabled ? '#888888' : '#ffffff'
     }).setOrigin(0.5);
 
     const hitArea = scene.add.rectangle(x, y, width, height, 0x000000, 0).setInteractive();
@@ -43,17 +44,13 @@ const UIHelpers = {
     if (!disabled) {
       hitArea.on('pointerover', () => {
         bg.clear();
-        bg.fillStyle(GameConfig.UI.PRIMARY, 0.6);
-        bg.lineStyle(2, GameConfig.UI.PRIMARY_LIGHT, 1);
-        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 10);
-        bg.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 10);
+        bg.fillStyle(GameConfig.UI.PRIMARY_LIGHT, 1);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
       });
       hitArea.on('pointerout', () => {
         bg.clear();
-        bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-        bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
-        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 10);
-        bg.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 10);
+        bg.fillStyle(fillColor, 1);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
       });
       hitArea.on('pointerdown', callback);
     }
@@ -68,32 +65,32 @@ const UIHelpers = {
     const { width, height } = scene.cameras.main;
     const overlay = scene.add.container(0, 0).setDepth(2000);
 
-    // Background
+    // Semi-transparent background
     const bg = scene.add.graphics();
-    bg.fillStyle(0x000000, 0.9);
+    bg.fillStyle(0x000000, 0.7);
     bg.fillRect(0, 0, width, height);
     bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
     overlay.add(bg);
 
-    // Modal dimensions - larger for better readability
-    const mw = Math.min(400, width - 20);
-    const mh = Math.min(650, height - 40);
+    // Modal dimensions
+    const mw = Math.min(380, width - 30);
+    const mh = Math.min(620, height - 50);
     const mx = (width - mw) / 2, my = (height - mh) / 2;
     const modal = scene.add.graphics();
-    modal.fillStyle(0x1a1a2e, 1);
-    modal.fillRoundedRect(mx, my, mw, mh, 16);
-    modal.lineStyle(3, GameConfig.UI.PRIMARY, 1);
-    modal.strokeRoundedRect(mx, my, mw, mh, 16);
+
+    // Clean modal background
+    modal.fillStyle(0xf5f5f5, 1);
+    modal.fillRoundedRect(mx, my, mw, mh, 12);
     overlay.add(modal);
 
-    // Title (fixed, not scrollable)
-    overlay.add(scene.add.text(width / 2, my + 30, 'HOW TO PLAY', {
-      fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    // Title
+    overlay.add(scene.add.text(width / 2, my + 28, 'How to Play', {
+      fontSize: '24px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#2c3e50'
     }).setOrigin(0.5));
 
     // Scroll hint
-    overlay.add(scene.add.text(width / 2, my + 55, 'Swipe or scroll to see more', {
-      fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    overlay.add(scene.add.text(width / 2, my + 52, 'Swipe or scroll to see more', {
+      fontSize: '11px', fontFamily: GameConfig.FONTS.UI, color: '#888888'
     }).setOrigin(0.5));
 
     // Scrollable content area dimensions
@@ -119,40 +116,41 @@ const UIHelpers = {
     const leftX = 10;
 
     // ========== BASIC RULES ==========
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'BASIC RULES', '#4a90e2');
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Basic Rules', GameConfig.UI.PRIMARY);
     ty += 35;
 
-    // Merge example tiles - larger and clearer
+    // Merge example tiles - clean, flat style
     const tiles = [
       { icon: '1', color: GameConfig.COLORS[1] },
       { icon: '+', isSymbol: true },
       { icon: '2', color: GameConfig.COLORS[2] },
       { icon: '=', isSymbol: true },
-      { icon: '3', color: GameConfig.COLORS[3], textColor: '#000000' }
+      { icon: '3', color: GameConfig.COLORS[3], textColor: '#2c3e50' }
     ];
-    const tileSize = 40;
-    const tileGap = 50;
+    const tileSize = 38;
+    const tileGap = 48;
     const tilesStartX = (scrollW - (tiles.length * tileGap - 10)) / 2;
+    const radius = 6;
 
     tiles.forEach((t, i) => {
       const tx = tilesStartX + i * tileGap;
       if (t.isSymbol) {
         scrollContent.add(scene.add.text(tx, ty, t.icon, {
-          fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+          fontSize: '24px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#5a9fd4'
         }).setOrigin(0.5));
       } else {
         const box = scene.add.graphics();
+        const halfSize = tileSize / 2;
+        // Clean flat fill
         box.fillStyle(t.color, 1);
-        box.lineStyle(2, 0xffffff, 0.3);
-        box.fillRoundedRect(tx - tileSize/2, ty - tileSize/2, tileSize, tileSize, 8);
-        box.strokeRoundedRect(tx - tileSize/2, ty - tileSize/2, tileSize, tileSize, 8);
+        box.fillRoundedRect(tx - halfSize, ty - halfSize, tileSize, tileSize, radius);
         scrollContent.add(box);
         scrollContent.add(scene.add.text(tx, ty, t.icon, {
-          fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: t.textColor || '#ffffff'
+          fontSize: '20px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800', color: t.textColor || '#ffffff'
         }).setOrigin(0.5));
       }
     });
-    ty += 50;
+    ty += 45;
 
     // Basic rules as bullet points
     const basicRules = [
@@ -168,84 +166,86 @@ const UIHelpers = {
 
     // ========== GAME MODES ==========
     ty += 15;
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'GAME MODES', '#7ed321');
-    ty += 35;
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Game Modes', GameConfig.UI.SUCCESS);
+    ty += 32;
 
     const modes = [
-      { name: 'ORIGINAL', color: '#4a90e2', desc: 'Classic mode - swipe power-up only', goal: 'Goal: Highest tile' },
-      { name: 'CRAZY', color: '#e24a4a', desc: 'All power-ups, special tiles, frenzy', goal: 'Goal: Highest tile' },
-      { name: 'ENDLESS', color: '#ff4444', desc: 'Bombs explode for big points!', goal: 'Goal: Highest score' }
+      { name: 'Original', color: GameConfig.COLORS[1], desc: 'Classic mode - swipe power-up only', goal: 'Goal: Highest tile' },
+      { name: 'Crazy', color: GameConfig.COLORS[2], desc: 'All power-ups, special tiles, frenzy', goal: 'Goal: Highest tile' },
+      { name: 'Endless', color: GameConfig.COLORS.WILDCARD, desc: 'Bombs explode for big points!', goal: 'Goal: Highest score' }
     ];
     modes.forEach(mode => {
       // Mode name with colored badge
       const badge = scene.add.graphics();
-      badge.fillStyle(Phaser.Display.Color.HexStringToColor(mode.color).color, 0.3);
-      badge.fillRoundedRect(leftX, ty - 12, 80, 24, 4);
+      badge.fillStyle(mode.color, 1);
+      badge.fillRoundedRect(leftX, ty - 10, 70, 20, 4);
       scrollContent.add(badge);
-      scrollContent.add(scene.add.text(leftX + 40, ty, mode.name, {
-        fontSize: '13px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: mode.color
+      scrollContent.add(scene.add.text(leftX + 35, ty, mode.name, {
+        fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
       }).setOrigin(0.5));
-      scrollContent.add(scene.add.text(leftX + 95, ty - 6, mode.desc, {
-        fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#cccccc'
+      scrollContent.add(scene.add.text(leftX + 82, ty - 5, mode.desc, {
+        fontSize: '11px', fontFamily: GameConfig.FONTS.UI, color: '#555555'
       }).setOrigin(0, 0.5));
-      scrollContent.add(scene.add.text(leftX + 95, ty + 8, mode.goal, {
-        fontSize: '11px', fontFamily: 'Arial, sans-serif', fontStyle: 'italic', color: '#888888'
+      scrollContent.add(scene.add.text(leftX + 82, ty + 8, mode.goal, {
+        fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'italic', color: '#888888'
       }).setOrigin(0, 0.5));
-      ty += 40;
+      ty += 38;
     });
 
     // ========== POWER-UPS ==========
     ty += 10;
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'POWER-UPS', '#f5a623');
-    ty += 30;
-    scrollContent.add(scene.add.text(contentX, ty, 'Earn 1 point per merge!', {
-      fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'italic', color: '#f5a623'
-    }).setOrigin(0.5));
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Power-Ups', GameConfig.UI.WARNING);
     ty += 28;
+    scrollContent.add(scene.add.text(contentX, ty, 'Earn 1 point per merge!', {
+      fontSize: '11px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'italic', color: '#888888'
+    }).setOrigin(0.5));
+    ty += 24;
 
     const powerUps = [
-      { name: 'SWIPE', cost: '5', desc: 'Shift all tiles left/right', color: '#4a90e2' },
-      { name: 'SWAP', cost: '10', desc: 'Exchange any two tiles', color: '#50e3c2' },
-      { name: 'MERGE', cost: '10', desc: 'Force merge two tiles', color: '#bd10e0' },
-      { name: 'WILDCARD', cost: '20', desc: 'Next tile matches any 3+', color: '#ff00ff' }
+      { name: 'Swipe', cost: '5', desc: 'Shift all tiles left/right' },
+      { name: 'Swap', cost: '10', desc: 'Exchange any two tiles' },
+      { name: 'Merge', cost: '10', desc: 'Force merge two tiles' },
+      { name: 'Wildcard', cost: '20', desc: 'Next tile matches any 3+' }
     ];
     powerUps.forEach(pu => {
       // Cost badge
       const costBadge = scene.add.graphics();
-      costBadge.fillStyle(0x333333, 0.8);
-      costBadge.fillRoundedRect(leftX, ty - 10, 30, 20, 4);
+      costBadge.fillStyle(GameConfig.UI.WARNING, 1);
+      costBadge.fillRoundedRect(leftX, ty - 9, 28, 18, 4);
       scrollContent.add(costBadge);
-      scrollContent.add(scene.add.text(leftX + 15, ty, pu.cost, {
-        fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+      scrollContent.add(scene.add.text(leftX + 14, ty, pu.cost, {
+        fontSize: '11px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#ffffff'
       }).setOrigin(0.5));
       // Name
-      scrollContent.add(scene.add.text(leftX + 42, ty, pu.name, {
-        fontSize: '13px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: pu.color
+      scrollContent.add(scene.add.text(leftX + 38, ty, pu.name, {
+        fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#2c3e50'
       }).setOrigin(0, 0.5));
       // Description
-      scrollContent.add(scene.add.text(leftX + 120, ty, pu.desc, {
-        fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      scrollContent.add(scene.add.text(leftX + 105, ty, pu.desc, {
+        fontSize: '11px', fontFamily: GameConfig.FONTS.UI, color: '#666666'
       }).setOrigin(0, 0.5));
-      ty += 28;
+      ty += 26;
     });
 
     // ========== FRENZY MODE ==========
     ty += 15;
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'FRENZY MODE', '#ff6b6b');
-    ty += 35;
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Frenzy Mode', GameConfig.UI.FRENZY);
+    ty += 32;
 
-    // Frenzy meter visual
+    // Frenzy meter visual - clean style
     const meterWidth = scrollW - 40;
     const meterBg = scene.add.graphics();
-    meterBg.fillStyle(0x333333, 0.8);
-    meterBg.fillRoundedRect(leftX + 10, ty - 10, meterWidth, 20, 4);
-    meterBg.fillStyle(0xff6b6b, 0.8);
-    meterBg.fillRoundedRect(leftX + 10, ty - 10, meterWidth * 0.7, 20, 4);
+    // Background
+    meterBg.fillStyle(0xdddddd, 1);
+    meterBg.fillRoundedRect(leftX + 10, ty - 8, meterWidth, 16, 4);
+    // Fill
+    meterBg.fillStyle(GameConfig.UI.FRENZY, 1);
+    meterBg.fillRoundedRect(leftX + 10, ty - 8, meterWidth * 0.7, 16, 4);
     scrollContent.add(meterBg);
-    scrollContent.add(scene.add.text(leftX + 10 + meterWidth/2, ty, '50 MERGES TO FILL', {
-      fontSize: '11px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    scrollContent.add(scene.add.text(leftX + 10 + meterWidth/2, ty, '50 merges to fill', {
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#ffffff'
     }).setOrigin(0.5));
-    ty += 28;
+    ty += 24;
 
     const frenzyRules = [
       '10 seconds of no gravity!',
@@ -253,63 +253,55 @@ const UIHelpers = {
       'Set up massive combos!'
     ];
     frenzyRules.forEach(rule => {
-      this.addBulletPoint(scene, scrollContent, leftX, ty, rule, '#ff6b6b');
-      ty += 22;
+      this.addBulletPoint(scene, scrollContent, leftX, ty, rule, GameConfig.UI.FRENZY);
+      ty += 20;
     });
 
     // ========== SPECIAL TILES ==========
     ty += 15;
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'SPECIAL TILES', '#9b59b6');
-    ty += 35;
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Special Tiles', GameConfig.COLORS.AUTO_SWAPPER);
+    ty += 32;
 
     const specialTiles = [
-      { type: 'steel', name: 'STEEL', desc: 'Blocks cell for N turns', color: GameConfig.COLORS.STEEL, label: '3', labelColor: '#333333' },
-      { type: 'lead', name: 'LEAD', desc: 'Countdown timer, gone at 0', color: GameConfig.COLORS.LEAD, label: '5', labelColor: '#666666' },
-      { type: 'glass', name: 'GLASS', desc: 'Cracks on nearby merges', color: GameConfig.COLORS.GLASS, label: '6', labelColor: '#000000' },
-      { type: 'swapper', name: 'SWAPPER', desc: 'Auto-swaps with neighbors', color: GameConfig.COLORS.AUTO_SWAPPER, label: '⇄', labelColor: '#ffffff' },
-      { type: 'bomb', name: 'BOMB', desc: 'Explodes after 3 merges!', color: GameConfig.COLORS.BOMB, label: '3', labelColor: '#ffffff' }
+      { name: 'Steel', desc: 'Blocks cell for N turns', color: GameConfig.COLORS.STEEL, label: '3', labelColor: '#4a5a6a' },
+      { name: 'Lead', desc: 'Countdown timer, gone at 0', color: GameConfig.COLORS.LEAD, label: '5', labelColor: '#888888' },
+      { name: 'Glass', desc: 'Cracks on nearby merges', color: GameConfig.COLORS.GLASS, label: '6', labelColor: '#2a5080' },
+      { name: 'Swapper', desc: 'Auto-swaps with neighbors', color: GameConfig.COLORS.AUTO_SWAPPER, label: '⇄', labelColor: '#ffffff' },
+      { name: 'Bomb', desc: 'Explodes after 3 merges!', color: GameConfig.COLORS.BOMB, label: '3', labelColor: '#ffffff' }
     ];
 
-    specialTiles.forEach(tile => {
-      // Tile preview
-      const tileBox = scene.add.graphics();
-      tileBox.fillStyle(tile.color, 1);
-      tileBox.lineStyle(2, 0xffffff, 0.3);
-      tileBox.fillRoundedRect(leftX, ty - 16, 32, 32, 6);
-      tileBox.strokeRoundedRect(leftX, ty - 16, 32, 32, 6);
+    const specialTileSize = 30;
+    const specialRadius = 5;
 
-      // Add special decorations
-      if (tile.type === 'steel') {
-        tileBox.lineStyle(1, 0x555555, 0.5);
-        tileBox.lineBetween(leftX + 6, ty - 8, leftX + 26, ty - 8);
-        tileBox.lineBetween(leftX + 6, ty, leftX + 26, ty);
-        tileBox.lineBetween(leftX + 6, ty + 8, leftX + 26, ty + 8);
-      } else if (tile.type === 'bomb') {
-        tileBox.lineStyle(2, 0x444444, 1);
-        tileBox.lineBetween(leftX + 16, ty - 14, leftX + 20, ty - 18);
-        tileBox.fillStyle(0xffff00, 1);
-        tileBox.fillCircle(leftX + 21, ty - 19, 3);
-      }
+    specialTiles.forEach(tile => {
+      // Clean tile preview
+      const tileBox = scene.add.graphics();
+      const halfSize = specialTileSize / 2;
+      const tileX = leftX + halfSize;
+
+      // Main fill
+      tileBox.fillStyle(tile.color, 1);
+      tileBox.fillRoundedRect(leftX, ty - halfSize, specialTileSize, specialTileSize, specialRadius);
       scrollContent.add(tileBox);
 
-      scrollContent.add(scene.add.text(leftX + 16, ty, tile.label, {
-        fontSize: tile.label.length > 1 ? '14px' : '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: tile.labelColor
+      scrollContent.add(scene.add.text(tileX, ty, tile.label, {
+        fontSize: tile.label.length > 1 ? '12px' : '14px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: tile.labelColor
       }).setOrigin(0.5));
 
       // Name and description
-      scrollContent.add(scene.add.text(leftX + 45, ty - 6, tile.name, {
-        fontSize: '13px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      scrollContent.add(scene.add.text(leftX + 42, ty - 5, tile.name, {
+        fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#2c3e50'
       }).setOrigin(0, 0.5));
-      scrollContent.add(scene.add.text(leftX + 45, ty + 8, tile.desc, {
-        fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      scrollContent.add(scene.add.text(leftX + 42, ty + 8, tile.desc, {
+        fontSize: '10px', fontFamily: GameConfig.FONTS.UI, color: '#666666'
       }).setOrigin(0, 0.5));
-      ty += 42;
+      ty += 38;
     });
 
     // ========== TIPS ==========
     ty += 10;
-    this.addSectionHeader(scene, scrollContent, contentX, ty, 'PRO TIPS', '#2ecc71');
-    ty += 35;
+    this.addSectionHeader(scene, scrollContent, contentX, ty, 'Tips', GameConfig.UI.SUCCESS);
+    ty += 30;
 
     const tips = [
       'Keep high tiles in corners',
@@ -319,8 +311,8 @@ const UIHelpers = {
       'Plan swaps before swiping'
     ];
     tips.forEach(tip => {
-      this.addBulletPoint(scene, scrollContent, leftX, ty, tip, '#2ecc71');
-      ty += 22;
+      this.addBulletPoint(scene, scrollContent, leftX, ty, tip, GameConfig.UI.SUCCESS);
+      ty += 20;
     });
 
     // Total content height
@@ -399,14 +391,20 @@ const UIHelpers = {
       });
     }
 
-    // Close button (fixed at bottom)
+    // Close button (fixed at bottom) - clean style
     const closeBtnBg = scene.add.graphics();
-    closeBtnBg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-    closeBtnBg.fillRoundedRect(width/2 - 70, my + mh - 45, 140, 36, 8);
+    const btnWidth = 120;
+    const btnHeight = 36;
+    const btnX = width / 2 - btnWidth / 2;
+    const btnY = my + mh - 45;
+
+    // Clean button fill
+    closeBtnBg.fillStyle(GameConfig.UI.PRIMARY, 1);
+    closeBtnBg.fillRoundedRect(btnX, btnY, btnWidth, btnHeight, 6);
     overlay.add(closeBtnBg);
 
-    const closeBtn = scene.add.text(width / 2, my + mh - 27, 'CLOSE', {
-      fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    const closeBtn = scene.add.text(width / 2, btnY + btnHeight / 2, 'Close', {
+      fontSize: '15px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
     }).setOrigin(0.5).setInteractive();
     overlay.add(closeBtn);
 
@@ -425,30 +423,39 @@ const UIHelpers = {
   },
 
   /**
-   * Helper: Add section header
+   * Helper: Add section header - clean style
    */
   addSectionHeader(scene, container, x, y, text, color) {
-    // Background bar
-    const barWidth = 200;
-    const bar = scene.add.graphics();
-    bar.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 0.2);
-    bar.fillRoundedRect(x - barWidth/2, y - 12, barWidth, 24, 6);
-    container.add(bar);
+    // Parse color
+    const colorValue = typeof color === 'number' ? color : Phaser.Display.Color.HexStringToColor(color).color;
+    const colorStr = typeof color === 'string' ? color : '#' + colorValue.toString(16).padStart(6, '0');
 
-    container.add(scene.add.text(x, y, text, {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: color
-    }).setOrigin(0.5));
+    // Simple underlined header
+    const headerText = scene.add.text(x, y, text, {
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#2c3e50'
+    }).setOrigin(0.5);
+    container.add(headerText);
+
+    // Subtle underline
+    const lineWidth = headerText.width + 20;
+    const line = scene.add.graphics();
+    line.lineStyle(2, colorValue, 0.6);
+    line.lineBetween(x - lineWidth/2, y + 12, x + lineWidth/2, y + 12);
+    container.add(line);
   },
 
   /**
-   * Helper: Add bullet point
+   * Helper: Add bullet point - clean style
    */
   addBulletPoint(scene, container, x, y, text, color) {
+    const colorValue = typeof color === 'number' ? color : Phaser.Display.Color.HexStringToColor(color).color;
+    const colorStr = typeof color === 'string' ? color : '#' + colorValue.toString(16).padStart(6, '0');
+
     container.add(scene.add.text(x, y, '•', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', color: color
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: colorStr
     }).setOrigin(0, 0.5));
-    container.add(scene.add.text(x + 18, y, text, {
-      fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#cccccc'
+    container.add(scene.add.text(x + 14, y, text, {
+      fontSize: '12px', fontFamily: GameConfig.FONTS.UI, color: '#555555'
     }).setOrigin(0, 0.5));
   }
 };

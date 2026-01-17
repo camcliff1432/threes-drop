@@ -14,12 +14,12 @@ class MenuScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     UIHelpers.drawBackground(this);
 
-    // Title
-    this.add.text(width / 2, 60, 'THREES', {
-      fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+    // Title - clean, simple
+    this.add.text(width / 2, 55, 'THREES', {
+      fontSize: '56px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#ffffff'
     }).setOrigin(0.5);
-    this.add.text(width / 2, 105, 'DROP', {
-      fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    this.add.text(width / 2, 100, 'DROP', {
+      fontSize: '56px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#66c3d5'
     }).setOrigin(0.5);
 
     // Game mode cards data
@@ -122,244 +122,165 @@ class MenuScene extends Phaser.Scene {
     const { width } = this.cameras.main;
     const container = this.add.container(0, this.carouselY);
 
-    // Card background - darker fill for better contrast
+    // Card background - clean white/light style
     const bg = this.add.graphics();
-    bg.fillStyle(0x1a1a2e, 0.95);
-    bg.fillRoundedRect(-this.cardWidth / 2, -this.cardHeight / 2, this.cardWidth, this.cardHeight, 15);
-    bg.lineStyle(3, modeData.color, 1);
-    bg.strokeRoundedRect(-this.cardWidth / 2, -this.cardHeight / 2, this.cardWidth, this.cardHeight, 15);
+    bg.fillStyle(0xf8f8f8, 1);
+    bg.fillRoundedRect(-this.cardWidth / 2, -this.cardHeight / 2, this.cardWidth, this.cardHeight, 12);
     container.add(bg);
 
     // Colored header band
     const headerBand = this.add.graphics();
-    headerBand.fillStyle(modeData.color, 0.25);
-    headerBand.fillRoundedRect(-this.cardWidth / 2, -this.cardHeight / 2, this.cardWidth, 70, { tl: 15, tr: 15, bl: 0, br: 0 });
+    headerBand.fillStyle(modeData.color, 1);
+    headerBand.fillRoundedRect(-this.cardWidth / 2, -this.cardHeight / 2, this.cardWidth, 65, { tl: 12, tr: 12, bl: 0, br: 0 });
     container.add(headerBand);
 
-    // Mode title - larger, bolder
-    const title = this.add.text(0, -this.cardHeight / 2 + 28, modeData.title, {
-      fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 2
+    // Mode title
+    const title = this.add.text(0, -this.cardHeight / 2 + 26, modeData.title, {
+      fontSize: '32px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#ffffff'
     }).setOrigin(0.5);
     container.add(title);
 
-    // Subtitle - brighter color
-    const subtitle = this.add.text(0, -this.cardHeight / 2 + 56, modeData.subtitle, {
-      fontSize: '15px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#cccccc'
-    }).setOrigin(0.5);
+    // Subtitle
+    const subtitle = this.add.text(0, -this.cardHeight / 2 + 52, modeData.subtitle, {
+      fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#ffffff'
+    }).setOrigin(0.5).setAlpha(0.9);
     container.add(subtitle);
 
-    // Decorative tiles - supports both regular values and special tile types
+    // Decorative tiles - clean, flat style
     const tileY = -this.cardHeight / 2 + 115;
     modeData.tiles.forEach((val, i) => {
-      const tileX = (i - 1) * 58;
+      const tileX = (i - 1) * 55;
       const tileBg = this.add.graphics();
-      const tileSize = 48;
+      const tileSize = 44;
       const halfSize = tileSize / 2;
+      const radius = 6;
+
+      // Helper to draw clean flat tile
+      const drawTileBase = (color) => {
+        tileBg.fillStyle(color, 1);
+        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, radius);
+      };
 
       if (typeof val === 'string') {
         // Special tile types
         switch (val) {
           case 'steel':
-            // Steel plate - gray with metallic stripes
-            tileBg.fillStyle(GameConfig.COLORS.STEEL, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            // Metallic stripes
-            tileBg.lineStyle(2, 0x555555, 0.6);
-            tileBg.lineBetween(tileX - halfSize + 8, tileY - halfSize + 12, tileX + halfSize - 8, tileY - halfSize + 12);
-            tileBg.lineBetween(tileX - halfSize + 8, tileY, tileX + halfSize - 8, tileY);
-            tileBg.lineBetween(tileX - halfSize + 8, tileY + halfSize - 12, tileX + halfSize - 8, tileY + halfSize - 12);
-            tileBg.lineStyle(2, 0xaaaaaa, 0.4);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            drawTileBase(GameConfig.COLORS.STEEL);
             container.add(tileBg);
             break;
 
           case 'glass':
-            // Glass tile - light blue with crack pattern and value
-            tileBg.fillStyle(GameConfig.COLORS.GLASS, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            // Crack lines
-            tileBg.lineStyle(1, 0xffffff, 0.5);
-            tileBg.lineBetween(tileX - 6, tileY - halfSize + 8, tileX + 4, tileY + 4);
-            tileBg.lineBetween(tileX + 4, tileY + 4, tileX - 2, tileY + halfSize - 8);
-            tileBg.lineStyle(2, 0xffffff, 0.4);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            drawTileBase(GameConfig.COLORS.GLASS);
             container.add(tileBg);
-            // Glass value
-            const glassText = this.add.text(tileX, tileY, '6', {
-              fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#000000'
-            }).setOrigin(0.5);
-            container.add(glassText);
+            container.add(this.add.text(tileX, tileY, '6', {
+              fontSize: '18px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#2a5080'
+            }).setOrigin(0.5));
             break;
 
           case 'lead':
-            // Lead tile - dark with countdown number
-            tileBg.fillStyle(GameConfig.COLORS.LEAD, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            tileBg.lineStyle(2, 0x444444, 0.6);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            drawTileBase(GameConfig.COLORS.LEAD);
             container.add(tileBg);
-            // Countdown number
-            const leadText = this.add.text(tileX, tileY, '5', {
-              fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#666666'
-            }).setOrigin(0.5);
-            container.add(leadText);
+            container.add(this.add.text(tileX, tileY, '5', {
+              fontSize: '18px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#888888'
+            }).setOrigin(0.5));
             break;
 
           case 'bomb':
-            // Bomb tile - red with bomb icon
-            tileBg.fillStyle(GameConfig.COLORS.BOMB, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            tileBg.lineStyle(2, 0xff8888, 0.6);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            // Bomb circle
-            tileBg.fillStyle(0x222222, 1);
-            tileBg.fillCircle(tileX, tileY + 2, 12);
-            // Fuse
-            tileBg.lineStyle(2, 0x8B4513, 1);
-            tileBg.lineBetween(tileX, tileY - 10, tileX + 4, tileY - 16);
-            // Spark
-            tileBg.fillStyle(0xffff00, 1);
-            tileBg.fillCircle(tileX + 5, tileY - 18, 3);
+            drawTileBase(GameConfig.COLORS.BOMB);
             container.add(tileBg);
-            // Merge count
-            const bombText = this.add.text(tileX, tileY + 2, '3', {
-              fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-            }).setOrigin(0.5);
-            container.add(bombText);
+            container.add(this.add.text(tileX, tileY, '3', {
+              fontSize: '18px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#ffffff'
+            }).setOrigin(0.5));
             break;
 
           case 'auto_swapper':
-            // Auto-swapper - purple with swap arrows
-            tileBg.fillStyle(GameConfig.COLORS.AUTO_SWAPPER, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            tileBg.lineStyle(2, 0xbb66ee, 0.6);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            drawTileBase(GameConfig.COLORS.AUTO_SWAPPER);
             container.add(tileBg);
-            // Swap arrows symbol
-            const swapText = this.add.text(tileX, tileY, '⇄', {
-              fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-            }).setOrigin(0.5);
-            container.add(swapText);
+            container.add(this.add.text(tileX, tileY, '⇄', {
+              fontSize: '20px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
+            }).setOrigin(0.5));
             break;
 
           case 'ultra':
-            // Ultra tile - rainbow/magenta with skull
-            tileBg.fillStyle(0xff00ff, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            tileBg.lineStyle(2, 0xffff00, 0.8);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            drawTileBase(GameConfig.COLORS.WILDCARD);
             container.add(tileBg);
-            // Skull/danger symbol
-            const ultraText = this.add.text(tileX, tileY, '☠', {
-              fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-            }).setOrigin(0.5);
-            container.add(ultraText);
+            container.add(this.add.text(tileX, tileY, '☠', {
+              fontSize: '22px', color: '#ffffff'
+            }).setOrigin(0.5));
             break;
 
           case 'daily':
-            // Daily challenge tile - calendar/star icon
-            const dailyColor = modeData.dailyStats?.todayCompleted ? 0x22c55e : 0xfbbf24;
-            tileBg.fillStyle(dailyColor, 1);
-            tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-            tileBg.lineStyle(2, 0xffffff, 0.5);
-            tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+            const dailyColor = modeData.dailyStats?.todayCompleted ? GameConfig.UI.SUCCESS : GameConfig.UI.WARNING;
+            drawTileBase(dailyColor);
             container.add(tileBg);
-            // Calendar/checkmark symbol
             const dailyIcon = modeData.dailyStats?.todayCompleted ? '✓' : '📅';
-            const dailyText = this.add.text(tileX, tileY, dailyIcon, {
-              fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-            }).setOrigin(0.5);
-            container.add(dailyText);
+            container.add(this.add.text(tileX, tileY, dailyIcon, {
+              fontSize: '20px', color: '#ffffff'
+            }).setOrigin(0.5));
             break;
         }
       } else {
-        // Regular numeric tile
-        tileBg.fillStyle(getTileColor(val), 1);
-        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
-        tileBg.lineStyle(2, 0xffffff, 0.4);
-        tileBg.strokeRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, 8);
+        // Regular numeric tile - clean flat style
+        const color = getTileColor(val);
+        drawTileBase(color);
         container.add(tileBg);
-
-        const tileText = this.add.text(tileX, tileY, val.toString(), {
-          fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        container.add(this.add.text(tileX, tileY, val.toString(), {
+          fontSize: '18px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800',
           color: getTileTextColor(val)
-        }).setOrigin(0.5);
-        container.add(tileText);
+        }).setOrigin(0.5));
       }
     });
 
-    // Description - larger, better spacing, brighter
+    // Description
     const desc = this.add.text(0, 25, modeData.description, {
-      fontSize: '15px', fontFamily: 'Arial, sans-serif', color: '#ffffff',
+      fontSize: '11px', fontFamily: GameConfig.FONTS.UI, color: '#666666',
       align: 'center', lineSpacing: 6
     }).setOrigin(0.5);
     container.add(desc);
 
-    // Goal highlight - emphasize the goal line
-    const goalY = 85;
-    const goalBg = this.add.graphics();
-    goalBg.fillStyle(modeData.color, 0.2);
-    goalBg.fillRoundedRect(-100, goalY - 14, 200, 28, 6);
-    container.add(goalBg);
-
-    let goalLabel, goalColor;
+    // Goal highlight
+    const goalY = 80;
+    let goalLabel;
     if (modeData.mode === 'ultra') {
-      goalLabel = 'GOAL: SURVIVE';
-      goalColor = '#ff00ff';
+      goalLabel = 'Goal: Survive';
     } else if (modeData.mode === 'endless') {
-      goalLabel = 'GOAL: HIGHEST SCORE';
-      goalColor = '#ff6b6b';
+      goalLabel = 'Goal: Highest Score';
     } else if (modeData.mode === 'daily') {
-      goalLabel = modeData.dailyStats?.todayCompleted ? 'COMPLETED TODAY' : 'GOAL: COMPLETE CHALLENGE';
-      goalColor = modeData.dailyStats?.todayCompleted ? '#22c55e' : '#fbbf24';
+      goalLabel = modeData.dailyStats?.todayCompleted ? 'Completed Today' : 'Goal: Complete Challenge';
     } else if (modeData.mode === 'levels') {
-      goalLabel = 'GOAL: COMPLETE ALL LEVELS';
-      goalColor = '#7ed321';
+      goalLabel = 'Goal: Complete All Levels';
     } else {
-      goalLabel = 'GOAL: HIGHEST TILE';
-      goalColor = '#7ed321';
+      goalLabel = 'Goal: Highest Tile';
     }
 
     const goalText = this.add.text(0, goalY, goalLabel, {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: goalColor
+      fontSize: '11px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#888888'
     }).setOrigin(0.5);
     container.add(goalText);
 
     // High score / stats - mode-specific
     if (modeData.mode === 'ultra') {
-      // Ultra mode - show warning
-      const warning = this.add.text(0, this.cardHeight / 2 - 28, '⚠ DANGER ⚠', {
-        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff00ff'
-      }).setOrigin(0.5);
-      container.add(warning);
+      container.add(this.add.text(0, this.cardHeight / 2 - 28, '⚠ Danger Zone', {
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#c49cde'
+      }).setOrigin(0.5));
     } else if (modeData.mode === 'daily') {
-      // Daily mode - show streak info
       const streak = modeData.dailyStats?.currentStreak || 0;
       const total = modeData.dailyStats?.totalCompleted || 0;
       const statsText = streak > 0 ? `🔥 ${streak} day streak` : `${total} completed`;
-      const statsColor = streak > 0 ? '#fbbf24' : '#888888';
-      const stats = this.add.text(0, this.cardHeight / 2 - 28, statsText, {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: statsColor
-      }).setOrigin(0.5);
-      container.add(stats);
+      container.add(this.add.text(0, this.cardHeight / 2 - 28, statsText, {
+        fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#888888'
+      }).setOrigin(0.5));
     } else if (modeData.mode === 'levels') {
-      // Levels mode - show progress
       const totalLevels = levelManager.getTotalLevels();
-      const progressText = `${totalLevels} levels available`;
-      const progress = this.add.text(0, this.cardHeight / 2 - 28, progressText, {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
-      }).setOrigin(0.5);
-      container.add(progress);
+      container.add(this.add.text(0, this.cardHeight / 2 - 28, `${totalLevels} levels available`, {
+        fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#7cc576'
+      }).setOrigin(0.5));
     } else {
-      // Regular modes - show high score
       const highScore = highScoreManager.getHighScore(modeData.mode);
-      const scoreText = highScore > 0 ? `BEST: ${highScore}` : 'NO SCORE YET';
-      const scoreColor = highScore > 0 ? '#f5a623' : '#888888';
-      const score = this.add.text(0, this.cardHeight / 2 - 28, scoreText, {
-        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: scoreColor
-      }).setOrigin(0.5);
-      container.add(score);
+      const scoreText = highScore > 0 ? `Best: ${highScore}` : 'No score yet';
+      container.add(this.add.text(0, this.cardHeight / 2 - 28, scoreText, {
+        fontSize: '13px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: highScore > 0 ? '#f5c26b' : '#999999'
+      }).setOrigin(0.5));
     }
 
     return { container, bg, modeData };
@@ -369,39 +290,39 @@ class MenuScene extends Phaser.Scene {
     const { width } = this.cameras.main;
     const arrowY = this.carouselY;
 
-    // Left arrow
-    this.leftArrow = this.add.text(15, arrowY, '<', {
-      fontSize: '40px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    // Left arrow - clean style
+    this.leftArrow = this.add.text(20, arrowY, '◀', {
+      fontSize: '28px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
     }).setOrigin(0.5).setInteractive();
 
     this.leftArrow.on('pointerdown', () => this.navigateCarousel(-1));
-    this.leftArrow.on('pointerover', () => this.leftArrow.setColor('#7ab8ff'));
-    this.leftArrow.on('pointerout', () => this.leftArrow.setColor('#4a90e2'));
+    this.leftArrow.on('pointerover', () => this.leftArrow.setColor('#66c3d5'));
+    this.leftArrow.on('pointerout', () => this.leftArrow.setColor('#ffffff'));
 
     // Collection hint (shows when on first card)
-    this.collectionHint = this.add.text(15, arrowY + 35, 'TILES', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
-    }).setOrigin(0.5).setAlpha(0.7);
+    this.collectionHint = this.add.text(20, arrowY + 30, 'Tiles', {
+      fontSize: '9px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#aaaaaa'
+    }).setOrigin(0.5);
 
     // Right arrow
-    this.rightArrow = this.add.text(width - 15, arrowY, '>', {
-      fontSize: '40px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+    this.rightArrow = this.add.text(width - 20, arrowY, '▶', {
+      fontSize: '28px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
     }).setOrigin(0.5).setInteractive();
 
     this.rightArrow.on('pointerdown', () => this.navigateCarousel(1));
-    this.rightArrow.on('pointerover', () => this.rightArrow.setColor('#7ab8ff'));
-    this.rightArrow.on('pointerout', () => this.rightArrow.setColor('#4a90e2'));
+    this.rightArrow.on('pointerover', () => this.rightArrow.setColor('#66c3d5'));
+    this.rightArrow.on('pointerout', () => this.rightArrow.setColor('#ffffff'));
   }
 
   createDots() {
     const { width } = this.cameras.main;
     const dotY = this.carouselY + this.cardHeight / 2 + 25;
-    const dotSpacing = 20;
+    const dotSpacing = 18;
     const startX = width / 2 - ((this.gameModes.length - 1) * dotSpacing) / 2;
 
     this.dots = [];
     this.gameModes.forEach((_, i) => {
-      const dot = this.add.circle(startX + i * dotSpacing, dotY, 6, 0x4a90e2, i === 0 ? 1 : 0.3);
+      const dot = this.add.circle(startX + i * dotSpacing, dotY, 5, GameConfig.UI.PRIMARY, i === this.currentIndex ? 1 : 0.3);
       this.dots.push(dot);
     });
   }
@@ -578,11 +499,12 @@ class MenuScene extends Phaser.Scene {
   setupDragNavigation() {
     const { width } = this.cameras.main;
 
-    // Create invisible drag zone over carousel area
+    // Create invisible drag zone over carousel area (narrower to not block arrows)
+    const arrowMargin = 50; // Leave space for arrows on each side
     const dragZone = this.add.rectangle(
       width / 2,
       this.carouselY,
-      width,
+      width - arrowMargin * 2,
       this.cardHeight + 60,
       0x000000, 0
     ).setInteractive();

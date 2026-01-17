@@ -20,52 +20,60 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   createGraphics() {
-    const size = this.TILE_SIZE - 8;
+    const size = this.TILE_SIZE - 6;
+    const halfSize = size / 2;
+    const radius = 8;
+
+    // Main tile background
     this.bg = this.scene.add.graphics();
 
     let color = getTileColor(this.value);
-    let strokeColor = 0xffffff;
-    let strokeAlpha = 0.3;
+    let strokeColor = 0x000000;
+    let strokeAlpha = 0.15;
 
     switch (this.tileType) {
       case 'steel':
         color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x4a4a4a;
-        strokeAlpha = 0.8;
+        strokeColor = 0x6a7a8a;
+        strokeAlpha = 0.4;
         break;
       case 'lead':
         color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x444444;
+        strokeColor = 0x333333;
         strokeAlpha = 0.3;
         break;
       case 'glass':
         color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x87ceeb;
-        strokeAlpha = 0.6;
+        strokeColor = 0x8ab4d4;
+        strokeAlpha = 0.5;
         break;
       case 'wildcard':
         color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xff66ff;
-        strokeAlpha = 0.8;
+        strokeColor = 0xc090d0;
+        strokeAlpha = 0.5;
         break;
       case 'auto_swapper':
         color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0xb366e0;
-        strokeAlpha = 0.8;
+        strokeColor = 0x8a6ca2;
+        strokeAlpha = 0.5;
         break;
       case 'bomb':
         color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xcc0000;
-        strokeAlpha = 0.9;
+        strokeColor = 0xc05050;
+        strokeAlpha = 0.5;
         break;
       default:
         break;
     }
 
+    // Main fill - clean, flat color
     this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-size / 2, -size / 2, size, size, 8);
-    this.bg.lineStyle(2, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 8);
+    this.bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
+
+    // Subtle border
+    this.bg.lineStyle(1, strokeColor, strokeAlpha);
+    this.bg.strokeRoundedRect(-halfSize, -halfSize, size, size, radius);
+
     this.add(this.bg);
 
     // Add special visual effects based on type
@@ -81,45 +89,43 @@ class Tile extends Phaser.GameObjects.Container {
       this.addBombPattern();
     }
 
-    // Text content based on type
+    // Text content - clean styling
     let displayText = this.value?.toString() || '';
     let textColor = getTileTextColor(this.value);
-    let fontSize = '32px';
+    let fontSize = '26px';
+    let fontFamily = GameConfig.FONTS.NUMBERS;
+    let fontWeight = '800';
 
     switch (this.tileType) {
       case 'steel':
-        // Show turns remaining for steel
         displayText = this.specialData.turnsRemaining?.toString() || '';
-        textColor = '#333333';
-        fontSize = '24px';
+        textColor = '#4a5a6a';
+        fontSize = '22px';
         break;
       case 'lead':
         displayText = this.specialData.countdown?.toString() || '';
         textColor = '#888888';
-        fontSize = '32px';
+        fontSize = '26px';
         break;
       case 'glass':
-        // Show value with durability indicator
         displayText = this.value?.toString() || '';
-        textColor = '#000000';
-        fontSize = '32px';
+        textColor = '#2a5080';
+        fontSize = '26px';
         break;
       case 'wildcard':
-        displayText = 'W';
+        displayText = '★';
         textColor = '#ffffff';
-        fontSize = '40px';
+        fontSize = '32px';
         break;
       case 'auto_swapper':
-        // Show value for auto-swapper
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '28px';
+        fontSize = '22px';
         break;
       case 'bomb':
-        // Show value for bomb
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '28px';
+        fontSize = '22px';
         break;
       default:
         break;
@@ -127,8 +133,8 @@ class Tile extends Phaser.GameObjects.Container {
 
     this.text = this.scene.add.text(0, 0, displayText, {
       fontSize: fontSize,
-      fontFamily: 'Arial, sans-serif',
-      fontStyle: 'bold',
+      fontFamily: fontFamily,
+      fontStyle: fontWeight,
       color: textColor
     }).setOrigin(0.5);
     this.add(this.text);
@@ -150,12 +156,18 @@ class Tile extends Phaser.GameObjects.Container {
       this.durabilityText.destroy();
     }
 
-    // Show durability as small number in corner
+    // Show durability as small badge in corner
+    const badge = this.scene.add.graphics();
+    badge.fillStyle(durability === 1 ? 0xff3838 : 0x0066cc, 0.9);
+    badge.fillCircle(size / 2 - 8, -size / 2 + 8, 10);
+    this.add(badge);
+    this.durabilityBadge = badge;
+
     this.durabilityText = this.scene.add.text(size / 2 - 8, -size / 2 + 8, durability.toString(), {
-      fontSize: '14px',
-      fontFamily: 'Arial, sans-serif',
+      fontSize: '12px',
+      fontFamily: GameConfig.FONTS.NUMBERS,
       fontStyle: 'bold',
-      color: durability === 1 ? '#ff0000' : '#0066cc'
+      color: '#ffffff'
     }).setOrigin(0.5);
     this.add(this.durabilityText);
   }
@@ -291,9 +303,14 @@ class Tile extends Phaser.GameObjects.Container {
 
     // Swaps remaining indicator in bottom corner
     if (this.specialData.swapsRemaining !== undefined) {
+      const lifeBadge = this.scene.add.graphics();
+      lifeBadge.fillStyle(0x000000, 0.5);
+      lifeBadge.fillCircle(18, 18, 9);
+      this.add(lifeBadge);
+
       const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
-        fontSize: '10px',
-        fontFamily: 'Arial, sans-serif',
+        fontSize: '11px',
+        fontFamily: GameConfig.FONTS.NUMBERS,
         fontStyle: 'bold',
         color: '#ffffff'
       }).setOrigin(0.5);
@@ -331,11 +348,18 @@ class Tile extends Phaser.GameObjects.Container {
 
     // Merges remaining indicator in corner
     if (this.specialData.mergesRemaining !== undefined) {
+      const mergesBadge = this.scene.add.graphics();
+      mergesBadge.fillStyle(0x000000, 0.6);
+      mergesBadge.fillCircle(18, 18, 10);
+      mergesBadge.lineStyle(2, 0xffe600, 0.8);
+      mergesBadge.strokeCircle(18, 18, 10);
+      this.add(mergesBadge);
+
       const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
         fontSize: '12px',
-        fontFamily: 'Arial, sans-serif',
+        fontFamily: GameConfig.FONTS.NUMBERS,
         fontStyle: 'bold',
-        color: '#ffff00'
+        color: '#ffe600'
       }).setOrigin(0.5);
       this.add(mergesText);
       this.mergesText = mergesText;

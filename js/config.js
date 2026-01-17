@@ -3,6 +3,13 @@
  * All magic numbers and settings live here for easy tuning
  */
 const GameConfig = {
+  // Typography - Clean, friendly fonts
+  FONTS: {
+    DISPLAY: '"Nunito", "Helvetica Neue", sans-serif',  // Titles, headers
+    NUMBERS: '"Nunito", "Helvetica Neue", sans-serif',  // Tile numbers, scores
+    UI: '"Nunito", "Helvetica Neue", sans-serif'        // UI text, buttons
+  },
+
   // Grid settings
   GRID: {
     COLS: 4,
@@ -81,27 +88,29 @@ const GameConfig = {
     }
   },
 
-  // Tile colors by value
+  // Tile colors by value - Soft, friendly palette inspired by Threes
   COLORS: {
-    1: 0x4a90e2,
-    2: 0xe24a4a,
-    3: 0xffffff,
-    6: 0xf5a623,
-    12: 0xf8e71c,
-    24: 0x7ed321,
-    48: 0x50e3c2,
-    96: 0xb8e986,
-    192: 0xbd10e0,
-    384: 0xff6b6b,
-    768: 0x4ecdc4,
-    DEFAULT: 0x999999,
+    1: 0x66c3d5,    // Soft sky blue
+    2: 0xe88a8a,    // Soft coral pink
+    3: 0xf5f5f5,    // Off-white / cream
+    6: 0xf5c26b,    // Warm honey
+    12: 0x7cc576,   // Soft sage green
+    24: 0x5fb3d4,   // Ocean blue
+    48: 0xc49cde,   // Lavender
+    96: 0xf2a477,   // Peach
+    192: 0x7dd3c0,  // Mint
+    384: 0xe8b4cb,  // Rose
+    768: 0xa8c5e2,  // Periwinkle
+    1536: 0xf0d264, // Soft gold
+    3072: 0xd4a5a5, // Dusty rose
+    DEFAULT: 0x9e9e9e,
     // Special tile colors
-    STEEL: 0x708090,
-    LEAD: 0x1a1a1a,
-    GLASS: 0xadd8e6,
-    WILDCARD: 0xff00ff,
-    AUTO_SWAPPER: 0x9932CC,  // Purple
-    BOMB: 0xff4444           // Red
+    STEEL: 0x8899a6,
+    LEAD: 0x4a4a4a,
+    GLASS: 0xb8d4e8,
+    WILDCARD: 0xdba4eb,
+    AUTO_SWAPPER: 0xa78dc2,
+    BOMB: 0xe07676
   },
 
   // Score thresholds for unlocking higher tiles (classic mode)
@@ -113,19 +122,21 @@ const GameConfig = {
     96: 2500
   },
 
-  // UI Colors
+  // UI Colors - Clean, warm aesthetic
   UI: {
-    PRIMARY: 0x4a90e2,
-    PRIMARY_LIGHT: 0x5aa0f2,
-    SUCCESS: 0x7ed321,
-    DANGER: 0xe24a4a,
-    WARNING: 0xf5a623,
-    FRENZY: 0xff6b6b,
-    BACKGROUND_DARK: 0x1a1a2e,
-    BACKGROUND_LIGHT: 0x16213e,
-    GRID_BG: 0x0f3460,
-    CELL_BG: 0x16213e,
-    DISABLED: 0x333333
+    PRIMARY: 0x5a9fd4,       // Calm blue accent
+    PRIMARY_LIGHT: 0x7eb8e5,
+    SUCCESS: 0x7cc576,       // Soft green
+    DANGER: 0xe07676,        // Soft red
+    WARNING: 0xf5c26b,       // Warm honey
+    FRENZY: 0xc49cde,        // Lavender
+    BACKGROUND_DARK: 0x3d4f5f,   // Slate blue-gray
+    BACKGROUND_LIGHT: 0x4a5d6e,  // Lighter slate
+    GRID_BG: 0x2d3d4d,       // Dark slate for grid
+    CELL_BG: 0x3a4a5a,       // Cell background
+    DISABLED: 0x6b7b8b,
+    TEXT_DARK: 0x2c3e50,     // Dark text
+    TEXT_LIGHT: 0xffffff     // Light text
   },
 
   /**

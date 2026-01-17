@@ -12,6 +12,40 @@ class SpecialTileManager {
   }
 
   /**
+   * Get all tile arrays for iteration
+   * @returns {Array} Array of all special tile arrays
+   */
+  _getAllTileArrays() {
+    return [
+      this.steelPlates,
+      this.leadTiles,
+      this.glassTiles,
+      this.autoSwapperTiles,
+      this.bombTiles
+    ];
+  }
+
+  /**
+   * Get tile arrays that can move (excludes steel which is fixed)
+   * @returns {Array} Array of movable tile arrays
+   */
+  _getMovableTileArrays() {
+    return [
+      this.leadTiles,
+      this.glassTiles,
+      this.autoSwapperTiles,
+      this.bombTiles
+    ];
+  }
+
+  /**
+   * Generate position key for lookups
+   */
+  _posKey(col, row) {
+    return `${col},${row}`;
+  }
+
+  /**
    * Spawn a steel plate in a random empty cell
    * @returns {Object|null} The spawned plate info or null if no space
    */
@@ -452,21 +486,10 @@ class SpecialTileManager {
    * Get special tile at position
    */
   getSpecialTileAt(col, row) {
-    const steel = this.steelPlates.find(p => p.col === col && p.row === row);
-    if (steel) return steel;
-
-    const lead = this.leadTiles.find(t => t.col === col && t.row === row);
-    if (lead) return lead;
-
-    const glass = this.glassTiles.find(t => t.col === col && t.row === row);
-    if (glass) return glass;
-
-    const swapper = this.autoSwapperTiles.find(t => t.col === col && t.row === row);
-    if (swapper) return swapper;
-
-    const bomb = this.bombTiles.find(t => t.col === col && t.row === row);
-    if (bomb) return bomb;
-
+    for (const arr of this._getAllTileArrays()) {
+      const tile = arr.find(t => t.col === col && t.row === row);
+      if (tile) return tile;
+    }
     return null;
   }
 
@@ -474,44 +497,36 @@ class SpecialTileManager {
    * Update position of a special tile (after gravity)
    */
   updateTilePosition(oldCol, oldRow, newCol, newRow) {
-    // Update lead tiles
-    const lead = this.leadTiles.find(t => t.col === oldCol && t.row === oldRow);
-    if (lead) {
-      lead.col = newCol;
-      lead.row = newRow;
-    }
-
-    // Update glass tiles
-    const glass = this.glassTiles.find(t => t.col === oldCol && t.row === oldRow);
-    if (glass) {
-      glass.col = newCol;
-      glass.row = newRow;
-    }
-
-    // Update auto-swapper tiles
-    const swapper = this.autoSwapperTiles.find(t => t.col === oldCol && t.row === oldRow);
-    if (swapper) {
-      swapper.col = newCol;
-      swapper.row = newRow;
-    }
-
-    // Update bomb tiles
-    const bomb = this.bombTiles.find(t => t.col === oldCol && t.row === oldRow);
-    if (bomb) {
-      bomb.col = newCol;
-      bomb.row = newRow;
+    // Only movable tiles (not steel) can change position
+    for (const arr of this._getMovableTileArrays()) {
+      const tile = arr.find(t => t.col === oldCol && t.row === oldRow);
+      if (tile) {
+        tile.col = newCol;
+        tile.row = newRow;
+        return; // Only one tile can be at a position
+      }
     }
   }
 
   /**
-   * Remove a special tile at position
+   * Remove a special tile at position (in-place removal for performance)
    */
   removeTileAt(col, row) {
-    this.steelPlates = this.steelPlates.filter(p => !(p.col === col && p.row === row));
-    this.leadTiles = this.leadTiles.filter(t => !(t.col === col && t.row === row));
-    this.glassTiles = this.glassTiles.filter(t => !(t.col === col && t.row === row));
-    this.autoSwapperTiles = this.autoSwapperTiles.filter(t => !(t.col === col && t.row === row));
-    this.bombTiles = this.bombTiles.filter(t => !(t.col === col && t.row === row));
+    const arrays = [
+      { arr: this.steelPlates, name: 'steelPlates' },
+      { arr: this.leadTiles, name: 'leadTiles' },
+      { arr: this.glassTiles, name: 'glassTiles' },
+      { arr: this.autoSwapperTiles, name: 'autoSwapperTiles' },
+      { arr: this.bombTiles, name: 'bombTiles' }
+    ];
+
+    for (const { arr, name } of arrays) {
+      const idx = arr.findIndex(t => t.col === col && t.row === row);
+      if (idx !== -1) {
+        arr.splice(idx, 1);
+        return; // Only one tile can be at a position
+      }
+    }
   }
 
   /**
@@ -526,10 +541,10 @@ class SpecialTileManager {
    * Reset manager state
    */
   reset() {
-    this.steelPlates = [];
-    this.leadTiles = [];
-    this.glassTiles = [];
-    this.autoSwapperTiles = [];
-    this.bombTiles = [];
+    this.steelPlates.length = 0;
+    this.leadTiles.length = 0;
+    this.glassTiles.length = 0;
+    this.autoSwapperTiles.length = 0;
+    this.bombTiles.length = 0;
   }
 }

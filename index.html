@@ -6,7 +6,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Threes-Drop</title>
+
+  <!-- Google Fonts - Clean, friendly typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
   <style>
+    :root {
+      --font-main: 'Nunito', 'Helvetica Neue', sans-serif;
+      --bg-dark: #3d4f5f;
+      --bg-light: #4a5d6e;
+      --accent-primary: #5a9fd4;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 100%;
@@ -14,8 +27,8 @@
       overflow: hidden;
     }
     body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      font-family: var(--font-main);
+      background: var(--bg-dark);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -26,6 +39,7 @@
       padding-right: env(safe-area-inset-right);
     }
     #game-container {
+      position: relative;
       width: 100%;
       height: 100%;
       max-width: 500px;
