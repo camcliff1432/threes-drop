@@ -165,7 +165,19 @@ const GameConfig = {
       specialTiles: true,
       autoSwapper: true,
       bomb: true
+    },
+    // === BIRTHDAY MODE START ===
+    birthday: {
+      powerUps: ['swipe', 'swapper'],
+      frenzy: false,
+      specialTiles: false,
+      autoSwapper: false,
+      bomb: false,
+      customMergeRules: true,
+      tileSpawnValues: [5],
+      winOnTile: 65
     }
+    // === BIRTHDAY MODE END ===
   },
 
   // Tile colors by value - Soft, friendly palette inspired by Threes
@@ -192,6 +204,18 @@ const GameConfig = {
     AUTO_SWAPPER: 0xa78dc2,
     BOMB: 0xe07676
   },
+
+  // === BIRTHDAY MODE START ===
+  // Birthday mode tile colors
+  BIRTHDAY_COLORS: {
+    5: 0xFFD700,    // Gold
+    10: 0xFF69B4,   // Hot pink
+    20: 0x9370DB,   // Medium purple
+    40: 0x00CED1,   // Dark turquoise
+    60: 0xFF6347,   // Tomato (almost there!)
+    65: 0xFFD700    // Gold (winner!)
+  },
+  // === BIRTHDAY MODE END ===
 
   // Score thresholds for unlocking higher tiles (classic mode)
   UNLOCK_THRESHOLDS: {

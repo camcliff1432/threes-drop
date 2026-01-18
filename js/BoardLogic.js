@@ -13,6 +13,13 @@ class BoardLogic {
     // Custom tile weights for modifiers (e.g., { 1: 0.75, 2: 0.25 })
     this.customTileWeights = config.tileWeights || null;
 
+    // === BIRTHDAY MODE START ===
+    // Custom merge rules for birthday mode (5+5=10, 20+40=60, 60+5=65)
+    this.customMergeRules = config.customMergeRules || false;
+    // Custom tile spawn values (e.g., [5] for birthday mode)
+    this.tileSpawnValues = config.tileSpawnValues || null;
+    // === BIRTHDAY MODE END ===
+
     this.board = this.createEmptyBoard();
     this.mergeCount = config.startingCombo || 0;
     this.nextTileId = 1;
@@ -128,6 +135,13 @@ class BoardLogic {
       return false;
     }
 
+    // === BIRTHDAY MODE START ===
+    // Custom merge rules for birthday mode
+    if (this.customMergeRules) {
+      return this.canMergeBirthday(v1, v2, debug);
+    }
+    // === BIRTHDAY MODE END ===
+
     // Wildcard merges with any tile value >= 3
     if (v1 === 'wildcard' && typeof v2 === 'number' && v2 >= 3) return true;
     if (v2 === 'wildcard' && typeof v1 === 'number' && v1 >= 3) return true;
@@ -147,10 +161,45 @@ class BoardLogic {
     return false;
   }
 
+  // === BIRTHDAY MODE START ===
+  /**
+   * Birthday mode merge rules:
+   * 5+5=10, 10+10=20, 20+20=40, 20+40=60, 60+5=65
+   * 40+40 is BLOCKED (cannot merge)
+   */
+  canMergeBirthday(v1, v2, debug = false) {
+    const num1 = typeof v1 === 'number' ? v1 : parseInt(v1);
+    const num2 = typeof v2 === 'number' ? v2 : parseInt(v2);
+    const sorted = [num1, num2].sort((a, b) => a - b);
+
+    if (debug) console.log('canMergeBirthday:', { num1, num2, sorted });
+
+    // Standard doubles: 5+5=10, 10+10=20, 20+20=40
+    if (num1 === num2 && [5, 10, 20].includes(num1)) return true;
+
+    // Special: 20+40=60
+    if (sorted[0] === 20 && sorted[1] === 40) return true;
+
+    // Special: 5+60=65
+    if (sorted[0] === 5 && sorted[1] === 60) return true;
+
+    // 40+40 is explicitly blocked (not allowed to merge)
+    if (num1 === 40 && num2 === 40) return false;
+
+    return false;
+  }
+  // === BIRTHDAY MODE END ===
+
   getMergedValue(value1, value2) {
     // Handle special tile types (objects)
     const v1 = typeof value1 === 'object' ? value1.value : value1;
     const v2 = typeof value2 === 'object' ? value2.value : value2;
+
+    // === BIRTHDAY MODE START ===
+    if (this.customMergeRules) {
+      return this.getMergedValueBirthday(v1, v2);
+    }
+    // === BIRTHDAY MODE END ===
 
     // Wildcard takes on the other tile's value and doubles it
     if (v1 === 'wildcard') return v2 * 2;
@@ -159,6 +208,29 @@ class BoardLogic {
     if ((v1 === 1 && v2 === 2) || (v1 === 2 && v2 === 1)) return 3;
     return v1 + v2;
   }
+
+  // === BIRTHDAY MODE START ===
+  /**
+   * Birthday mode merge results:
+   * 5+5=10, 10+10=20, 20+20=40, 20+40=60, 60+5=65
+   */
+  getMergedValueBirthday(v1, v2) {
+    const num1 = typeof v1 === 'number' ? v1 : parseInt(v1);
+    const num2 = typeof v2 === 'number' ? v2 : parseInt(v2);
+    const sorted = [num1, num2].sort((a, b) => a - b);
+
+    // Standard doubles: 5+5=10, 10+10=20, 20+20=40
+    if (num1 === num2) return num1 * 2;
+
+    // Special: 20+40=60
+    if (sorted[0] === 20 && sorted[1] === 40) return 60;
+
+    // Special: 5+60=65
+    if (sorted[0] === 5 && sorted[1] === 60) return 65;
+
+    return null; // Should not reach here if canMergeBirthday works correctly
+  }
+  // === BIRTHDAY MODE END ===
 
   /**
    * Get the numeric value of a cell (handles special tile objects)
@@ -259,6 +331,13 @@ class BoardLogic {
   }
 
   getRandomTileValue() {
+    // === BIRTHDAY MODE START ===
+    // Birthday mode only spawns specific tiles (e.g., [5])
+    if (this.tileSpawnValues && this.tileSpawnValues.length > 0) {
+      return this.tileSpawnValues[Math.floor(Math.random() * this.tileSpawnValues.length)];
+    }
+    // === BIRTHDAY MODE END ===
+
     const countOnes = this.countTilesOnBoard(1);
     const countTwos = this.countTilesOnBoard(2);
     const difference = countOnes - countTwos;

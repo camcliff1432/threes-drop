@@ -62,6 +62,19 @@ class GameScene extends Phaser.Scene {
     // Store modifier for other effects (frenzy boost, glass spawn rate, etc.)
     this.modifier = this.levelConfig?.modifier || this.dailyChallenge?.modifier || null;
 
+    // Track if player has used ad continue (only allowed once per game)
+    this.hasUsedAdContinue = false;
+
+    // === BIRTHDAY MODE START ===
+    // Apply birthday mode custom merge rules and tile spawning
+    if (this.gameMode === 'birthday') {
+      const birthdayConfig = GameConfig.GAME_MODES.birthday;
+      boardConfig.customMergeRules = birthdayConfig.customMergeRules;
+      boardConfig.tileSpawnValues = birthdayConfig.tileSpawnValues;
+      boardConfig.useScoreUnlocks = false;
+    }
+    // === BIRTHDAY MODE END ===
+
     this.boardLogic = new BoardLogic(boardConfig);
 
     // Initialize PowerUpManager based on mode
@@ -1617,7 +1630,17 @@ class GameScene extends Phaser.Scene {
             merged.updatePosition(op.toCol, op.toRow, false);
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
+            tileCollectionManager.recordTile(op.value);
+            achievementManager.recordTile(op.value);
             this.updateUI();
+
+            // === BIRTHDAY MODE START ===
+            if (this.gameMode === 'birthday' && op.value === 65) {
+              this.tiles[toKey] = merged;
+              this.time.delayedCall(300, () => this.showBirthdayWin());
+              return;
+            }
+            // === BIRTHDAY MODE END ===
 
             this.tweens.add({
               targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -1770,6 +1793,15 @@ class GameScene extends Phaser.Scene {
       tileCollectionManager.recordTile(newValue);
       achievementManager.recordTile(newValue);
       this.updateUI();
+
+      // === BIRTHDAY MODE START ===
+      // Check for birthday win condition (created a 65 tile)
+      if (this.gameMode === 'birthday' && newValue === 65) {
+        this.tiles[key] = merged;
+        this.time.delayedCall(300, () => this.showBirthdayWin());
+        return;
+      }
+      // === BIRTHDAY MODE END ===
 
       this.tweens.add({
         targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -2420,7 +2452,17 @@ class GameScene extends Phaser.Scene {
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
             this.powerUpManager.addMergePoint();
+            tileCollectionManager.recordTile(op.value);
+            achievementManager.recordTile(op.value);
             this.updateUI();
+
+            // === BIRTHDAY MODE START ===
+            if (this.gameMode === 'birthday' && op.value === 65) {
+              this.tiles[toKey] = merged;
+              this.time.delayedCall(300, () => this.showBirthdayWin());
+              return;
+            }
+            // === BIRTHDAY MODE END ===
 
             this.tweens.add({
               targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -2567,7 +2609,17 @@ class GameScene extends Phaser.Scene {
               merged.setScale(0.5).setAlpha(0.5);
               this.boardLogic.addScore(op.value);
               this.powerUpManager.addMergePoint();
+              tileCollectionManager.recordTile(op.value);
+              achievementManager.recordTile(op.value);
               this.updateUI();
+
+              // === BIRTHDAY MODE START ===
+              if (this.gameMode === 'birthday' && op.value === 65) {
+                this.tiles[toKey] = merged;
+                this.time.delayedCall(300, () => this.showBirthdayWin());
+                return;
+              }
+              // === BIRTHDAY MODE END ===
 
               this.tweens.add({
                 targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -2824,6 +2876,10 @@ class GameScene extends Phaser.Scene {
     // Mark challenge complete and get rewards
     const result = dailyChallengeManager.completeChallenge(finalScore);
 
+    // Track achievements
+    achievementManager.recordScore(finalScore);
+    achievementManager.recordGamePlayed('daily');
+
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.8);
     overlay.fillRect(0, 0, width, height);
@@ -2861,6 +2917,10 @@ class GameScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     const finalScore = this.boardLogic.getScore();
     const challenge = this.dailyChallenge;
+
+    // Track achievements even on failure
+    achievementManager.recordScore(finalScore);
+    achievementManager.recordGamePlayed('daily');
 
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.8);
@@ -2906,6 +2966,7 @@ class GameScene extends Phaser.Scene {
     // Track level completion for achievements
     achievementManager.recordLevelCompleted();
     achievementManager.recordScore(this.boardLogic.getScore());
+    achievementManager.recordGamePlayed('level');
 
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.7);
@@ -2929,7 +2990,7 @@ class GameScene extends Phaser.Scene {
       if (nextId <= levelManager.getTotalLevels()) {
         this.scene.start('GameScene', { mode: 'level', levelId: nextId });
       } else {
-        this.scene.start('LevelSelectScene');
+        this.scene.start('TutorialSelectScene');
       }
     });
 
@@ -2937,7 +2998,7 @@ class GameScene extends Phaser.Scene {
       fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(1001).setInteractive();
 
-    menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+    menuBtn.on('pointerdown', () => this.scene.start('TutorialSelectScene'));
 
     // Add "Back to Editor" button if this is a test level session
     if (window.isTestLevelSession) {
@@ -2954,6 +3015,11 @@ class GameScene extends Phaser.Scene {
 
   showLevelFailed() {
     const { width, height } = this.cameras.main;
+
+    // Track achievements even on failure
+    achievementManager.recordScore(this.boardLogic.getScore());
+    achievementManager.recordGamePlayed('level');
+
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, width, height);
@@ -2973,7 +3039,7 @@ class GameScene extends Phaser.Scene {
       fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(1001).setInteractive();
 
-    menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+    menuBtn.on('pointerdown', () => this.scene.start('TutorialSelectScene'));
 
     // Add "Back to Editor" button if this is a test level session
     if (window.isTestLevelSession) {
@@ -2988,9 +3054,104 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // === BIRTHDAY MODE START ===
+  /**
+   * Show birthday win celebration when player creates a 65 tile
+   */
+  showBirthdayWin() {
+    const { width, height } = this.cameras.main;
+
+    // Stop input
+    this.inputEnabled = false;
+
+    // Clear any saved game state
+    gameStateManager.clearSavedGame();
+
+    // Dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.85);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(2000);
+
+    // Big golden "65"
+    const bigNumber = this.add.text(width / 2, height / 2 - 100, '65', {
+      fontSize: '140px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#FFD700'
+    }).setOrigin(0.5).setDepth(2001);
+
+    // Add glow effect with pulsing
+    this.tweens.add({
+      targets: bigNumber,
+      scale: 1.1,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Birthday message
+    this.add.text(width / 2, height / 2 + 20, 'Happy 65th Birthday Dad!', {
+      fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#FFFFFF'
+    }).setOrigin(0.5).setDepth(2001);
+
+    // Custom sub-message (customize this!)
+    this.add.text(width / 2, height / 2 + 60, 'With love from your family', {
+      fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#AAAAAA'
+    }).setOrigin(0.5).setDepth(2001);
+
+    // Create confetti particles
+    this.createBirthdayConfetti();
+
+    // Back to menu button
+    const menuBtn = UIHelpers.createButton(this, width / 2, height / 2 + 140, 'BACK TO MENU', () => {
+      this.scene.start('MenuScene');
+    }, { width: 180, height: 50, fontSize: '18px' });
+    // Set depth on button components
+    menuBtn.bg.setDepth(2001);
+    menuBtn.label.setDepth(2001);
+    menuBtn.hitArea.setDepth(2001);
+  }
+
+  /**
+   * Create celebratory confetti for birthday win
+   */
+  createBirthdayConfetti() {
+    const { width, height } = this.cameras.main;
+    const colors = [0xFFD700, 0xFF69B4, 0x9370DB, 0x00CED1, 0xFF6347, 0x7FFF00];
+
+    // Create multiple confetti pieces
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * width;
+      const y = -20 - Math.random() * 100;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = 8 + Math.random() * 8;
+
+      const confetti = this.add.graphics();
+      confetti.fillStyle(color, 1);
+      confetti.fillRect(-size / 2, -size / 2, size, size);
+      confetti.setPosition(x, y);
+      confetti.setDepth(2002);
+
+      // Animate falling with rotation
+      this.tweens.add({
+        targets: confetti,
+        y: height + 50,
+        x: x + (Math.random() - 0.5) * 200,
+        rotation: Math.random() * 10,
+        duration: 2000 + Math.random() * 2000,
+        delay: Math.random() * 1000,
+        ease: 'Sine.easeIn',
+        onComplete: () => confetti.destroy()
+      });
+    }
+  }
+  // === BIRTHDAY MODE END ===
+
   showGameOver() {
     const { width, height } = this.cameras.main;
     const finalScore = this.boardLogic.getScore();
+
+    // Track if we can offer continue (endless mode only, once per game)
+    const canContinue = this.gameMode === 'endless' && !this.hasUsedAdContinue;
 
     // Clear any saved game state since game is over
     gameStateManager.clearSavedGame();
@@ -3002,45 +3163,294 @@ class GameScene extends Phaser.Scene {
     // Save high score for original and crazy modes
     const isNewHighScore = highScoreManager.submitScore(this.gameMode, finalScore);
 
+    // Store game over UI elements so we can remove them if continuing
+    this.gameOverElements = [];
+
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, width, height);
     overlay.setDepth(1000);
+    this.gameOverElements.push(overlay);
 
-    this.add.text(width / 2, height / 2 - 70, 'GAME OVER', {
+    const gameOverText = this.add.text(width / 2, height / 2 - 90, 'GAME OVER', {
       fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5).setDepth(1001);
+    this.gameOverElements.push(gameOverText);
 
-    this.add.text(width / 2, height / 2 - 20, `Final Score: ${finalScore}`, {
+    const scoreText = this.add.text(width / 2, height / 2 - 40, `Final Score: ${finalScore}`, {
       fontSize: '24px', fontFamily: 'Arial, sans-serif', color: '#f5a623'
     }).setOrigin(0.5).setDepth(1001);
+    this.gameOverElements.push(scoreText);
 
     // Show new high score message if achieved
     if (isNewHighScore) {
-      const newRecordText = this.add.text(width / 2, height / 2 + 15, 'NEW HIGH SCORE!', {
+      const newRecordText = this.add.text(width / 2, height / 2 - 5, 'NEW HIGH SCORE!', {
         fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
       }).setOrigin(0.5).setDepth(1001);
       this.tweens.add({ targets: newRecordText, scale: 1.1, duration: 500, yoyo: true, repeat: -1 });
+      this.gameOverElements.push(newRecordText);
     } else {
       const highScore = highScoreManager.getHighScore(this.gameMode);
-      this.add.text(width / 2, height / 2 + 15, `Best: ${highScore}`, {
+      const bestText = this.add.text(width / 2, height / 2 - 5, `Best: ${highScore}`, {
         fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#888888'
       }).setOrigin(0.5).setDepth(1001);
+      this.gameOverElements.push(bestText);
     }
 
-    const restartBtn = this.add.text(width / 2, height / 2 + 60, 'TAP TO RESTART', {
+    let buttonY = height / 2 + 35;
+
+    // Watch Ad to Continue button (endless mode only)
+    if (canContinue) {
+      const adBtn = this.add.text(width / 2, buttonY, 'WATCH AD TO CONTINUE', {
+        fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+      }).setOrigin(0.5).setDepth(1001).setInteractive();
+      this.gameOverElements.push(adBtn);
+
+      adBtn.on('pointerdown', () => this.showAdAndContinue());
+      this.tweens.add({ targets: adBtn, alpha: 0.6, duration: 600, yoyo: true, repeat: -1 });
+
+      buttonY += 45;
+    }
+
+    const restartBtn = this.add.text(width / 2, buttonY, 'TAP TO RESTART', {
       fontSize: '24px', fontFamily: 'Arial, sans-serif', color: '#4a90e2'
     }).setOrigin(0.5).setDepth(1001).setInteractive();
+    this.gameOverElements.push(restartBtn);
 
     restartBtn.on('pointerdown', () => this.scene.restart());
     this.tweens.add({ targets: restartBtn, alpha: 0.5, duration: 800, yoyo: true, repeat: -1 });
 
     // Menu button
-    const menuBtn = this.add.text(width / 2, height / 2 + 100, 'MAIN MENU', {
+    const menuBtn = this.add.text(width / 2, buttonY + 40, 'MAIN MENU', {
       fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(1001).setInteractive();
+    this.gameOverElements.push(menuBtn);
 
     menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+  }
+
+  /**
+   * Show an ad video and continue the game after watching
+   */
+  showAdAndContinue() {
+    const { width, height } = this.cameras.main;
+
+    // Mark that we've used the continue option
+    this.hasUsedAdContinue = true;
+
+    // Create full-screen ad container
+    const adOverlay = this.add.graphics();
+    adOverlay.fillStyle(0x000000, 1);
+    adOverlay.fillRect(0, 0, width, height);
+    adOverlay.setDepth(2000);
+
+    // Create HTML video element for the ad
+    const videoContainer = document.createElement('div');
+    videoContainer.id = 'ad-container';
+    videoContainer.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      z-index: 10000;
+    `;
+
+    const video = document.createElement('video');
+    video.style.cssText = 'max-width: 100%; max-height: 100%;';
+    video.autoplay = true;
+    video.playsInline = true;
+
+    // Get ad URL
+    const adUrl = this.loadRandomAd();
+
+    if (adUrl) {
+      // Play the video ad
+      video.src = adUrl;
+      videoContainer.appendChild(video);
+      document.body.appendChild(videoContainer);
+
+      // Skip button (appears after 3 seconds)
+      const skipBtn = document.createElement('button');
+      skipBtn.textContent = 'Skip';
+      skipBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        font-size: 16px;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 2px solid white;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 10001;
+        display: none;
+      `;
+
+      skipBtn.onclick = () => {
+        this.finishAdAndContinue(videoContainer, adOverlay);
+      };
+
+      videoContainer.appendChild(skipBtn);
+
+      // Show skip button after 3 seconds
+      setTimeout(() => {
+        skipBtn.style.display = 'block';
+      }, 3000);
+
+      // Auto-continue when video ends
+      video.onended = () => {
+        this.finishAdAndContinue(videoContainer, adOverlay);
+      };
+
+      // Handle video errors
+      video.onerror = () => {
+        this.finishAdAndContinue(videoContainer, adOverlay);
+      };
+    } else {
+      // No ads available - show placeholder for 3 seconds
+      const placeholderText = this.add.text(width / 2, height / 2, 'Ad Placeholder\n(Add .mp4 files to /ads folder)', {
+        fontSize: '20px', fontFamily: 'Arial, sans-serif', color: '#888888', align: 'center'
+      }).setOrigin(0.5).setDepth(2001);
+
+      const countdownText = this.add.text(width / 2, height / 2 + 60, '3', {
+        fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      }).setOrigin(0.5).setDepth(2001);
+
+      let countdown = 3;
+      this.time.addEvent({
+        delay: 1000,
+        callback: () => {
+          countdown--;
+          if (countdown > 0) {
+            countdownText.setText(countdown.toString());
+          } else {
+            placeholderText.destroy();
+            countdownText.destroy();
+            adOverlay.destroy();
+            this.continueAfterAd();
+          }
+        },
+        repeat: 2
+      });
+    }
+  }
+
+  /**
+   * Load a random ad video from the ads folder
+   * Add your .mp4 filenames to the array below
+   */
+  loadRandomAd() {
+    // List your ad video filenames here
+    const adVideos = [
+      'cat.mp4'
+      // Add more: 'ad2.mp4', 'ad3.mp4', etc.
+    ];
+
+    if (adVideos.length === 0) return null;
+
+    const randomAd = adVideos[Math.floor(Math.random() * adVideos.length)];
+    return 'ads/' + randomAd;
+  }
+
+  /**
+   * Clean up video container and continue the game
+   */
+  finishAdAndContinue(videoContainer, adOverlay) {
+    if (videoContainer && videoContainer.parentNode) {
+      videoContainer.parentNode.removeChild(videoContainer);
+    }
+    if (adOverlay) {
+      adOverlay.destroy();
+    }
+    this.continueAfterAd();
+  }
+
+  /**
+   * Continue the game after watching an ad
+   * Clears a tile in the second-to-bottom row with a bomb explosion
+   */
+  continueAfterAd() {
+    // Remove game over UI
+    if (this.gameOverElements) {
+      this.gameOverElements.forEach(el => {
+        if (el && el.destroy) el.destroy();
+      });
+      this.gameOverElements = [];
+    }
+
+    // Find a tile in the second-to-bottom row (row 4, since rows are 0-5)
+    const targetRow = 4;
+    let targetCol = -1;
+
+    // First, look for a tile in the second-to-bottom row
+    for (let col = 0; col < 4; col++) {
+      if (this.boardLogic.board[col][targetRow] !== null) {
+        targetCol = col;
+        break;
+      }
+    }
+
+    // If no tile in row 4, try row 5 (bottom row)
+    if (targetCol === -1) {
+      for (let col = 0; col < 4; col++) {
+        if (this.boardLogic.board[col][5] !== null) {
+          targetCol = col;
+          break;
+        }
+      }
+    }
+
+    // If still no tile found, just pick the center
+    if (targetCol === -1) {
+      targetCol = 1;
+    }
+
+    const finalRow = this.boardLogic.board[targetCol][targetRow] !== null ? targetRow : 5;
+
+    // Create explosion data for a 3x3 area
+    const affectedTiles = [];
+    let totalPoints = 0;
+
+    for (let dc = -1; dc <= 1; dc++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        const col = targetCol + dc;
+        const row = finalRow + dr;
+
+        if (col < 0 || col >= 4 || row < 0 || row >= 6) continue;
+
+        const value = this.boardLogic.board[col][row];
+        if (value !== null && typeof value === 'number') {
+          affectedTiles.push({ col, row, value });
+          totalPoints += value;
+          this.boardLogic.board[col][row] = null;
+        } else if (value !== null && typeof value === 'object') {
+          affectedTiles.push({ col, row, value: value.value || 0 });
+          totalPoints += value.value || 0;
+          this.boardLogic.board[col][row] = null;
+        }
+      }
+    }
+
+    // Remove special tiles in the explosion area
+    if (this.specialTileManager) {
+      affectedTiles.forEach(t => {
+        this.specialTileManager.removeTileAt(t.col, t.row);
+      });
+    }
+
+    // Execute the explosion visually
+    this.executeBombExplosion(targetCol, finalRow, { affectedTiles, totalPoints });
+
+    // Resume game after explosion settles
+    this.time.delayedCall(800, () => {
+      this.isAnimating = false;
+    });
   }
 
   /**

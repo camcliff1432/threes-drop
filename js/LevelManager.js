@@ -648,6 +648,10 @@ class LevelManager {
     return this.levels.find(l => l.id === id) || null;
   }
 
+  getAllLevels() {
+    return this.levels;
+  }
+
   getTotalLevels() {
     return this.levels.length;
   }

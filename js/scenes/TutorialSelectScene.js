@@ -28,9 +28,12 @@ class TutorialSelectScene extends Phaser.Scene {
     // Scrollable content container
     this.scrollContainer = this.add.container(0, 0);
 
+    // Get all levels and sort by ID
+    const levels = levelManager.getAllLevels().slice().sort((a, b) => a.id - b.id);
+    const total = levels.length;
+
     // Level grid settings - responsive to screen width
     const cols = 4;
-    const total = levelManager.getTotalLevels();
     const rows = Math.ceil(total / cols);
 
     // Calculate button size and spacing based on screen width
@@ -55,15 +58,14 @@ class TutorialSelectScene extends Phaser.Scene {
     this.buttonSize = buttonSize;
 
     // Create level buttons in the container
-    for (let i = 0; i < total; i++) {
-      const level = levelManager.getLevel(i + 1);
+    levels.forEach((level, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = startX + col * spacingX;
       const y = startY + row * spacingY;
 
       this.createLevelButton(x, y, level);
-    }
+    });
 
     // Setup scrolling
     this.setupScrolling();
@@ -212,21 +214,61 @@ class TutorialSelectScene extends Phaser.Scene {
 
   createScrollIndicator() {
     const { width, height } = this.cameras.main;
+    const trackHeight = height - 130;
 
     // Scroll track
     this.scrollTrack = this.add.graphics();
     this.scrollTrack.fillStyle(0x333333, 0.5);
-    this.scrollTrack.fillRoundedRect(width - 12, 110, 6, height - 130, 3);
+    this.scrollTrack.fillRoundedRect(width - 12, 110, 6, trackHeight, 3);
     this.scrollTrack.setDepth(100);
 
     // Scroll thumb
-    const thumbHeight = Math.max(30, (height - 130) * ((height - 110) / this.contentHeight));
+    const thumbHeight = Math.max(30, trackHeight * ((height - 110) / this.contentHeight));
     this.scrollThumb = this.add.graphics();
     this.scrollThumb.fillStyle(0x4a90e2, 0.8);
     this.scrollThumb.fillRoundedRect(width - 12, 110, 6, thumbHeight, 3);
     this.scrollThumb.setDepth(100);
 
     this.thumbHeight = thumbHeight;
+    this.trackHeight = trackHeight;
+
+    // Make scroll bar area interactive
+    const scrollBarHitArea = this.add.rectangle(width - 9, 110 + trackHeight / 2, 18, trackHeight, 0x000000, 0);
+    scrollBarHitArea.setInteractive();
+    scrollBarHitArea.setDepth(101);
+
+    let isDraggingThumb = false;
+
+    scrollBarHitArea.on('pointerdown', (pointer) => {
+      isDraggingThumb = true;
+      this.scrollToPointerY(pointer.y);
+    });
+
+    this.input.on('pointermove', (pointer) => {
+      if (isDraggingThumb) {
+        this.scrollToPointerY(pointer.y);
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      isDraggingThumb = false;
+    });
+  }
+
+  scrollToPointerY(pointerY) {
+    const { height } = this.cameras.main;
+    const trackTop = 110;
+    const trackHeight = this.trackHeight;
+
+    // Calculate scroll position from pointer Y
+    const relativeY = Phaser.Math.Clamp(pointerY - trackTop, 0, trackHeight);
+    const scrollProgress = relativeY / trackHeight;
+    const scrollRange = this.maxScrollY - this.minScrollY;
+
+    this.scrollY = this.maxScrollY - scrollProgress * scrollRange;
+    this.scrollY = Phaser.Math.Clamp(this.scrollY, this.minScrollY, this.maxScrollY);
+    this.scrollContainer.y = this.scrollY;
+    this.updateScrollIndicator();
   }
 
   updateScrollIndicator() {
