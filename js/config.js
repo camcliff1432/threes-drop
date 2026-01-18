@@ -3,11 +3,32 @@
  * All magic numbers and settings live here for easy tuning
  */
 const GameConfig = {
+  // Save state version - increment when save format changes
+  SAVE_VERSION: 1,
+
   // Typography - Clean, friendly fonts
   FONTS: {
     DISPLAY: '"Nunito", "Helvetica Neue", sans-serif',  // Titles, headers
     NUMBERS: '"Nunito", "Helvetica Neue", sans-serif',  // Tile numbers, scores
     UI: '"Nunito", "Helvetica Neue", sans-serif'        // UI text, buttons
+  },
+
+  // UI text sizes for consistent styling
+  UI_SIZES: {
+    TITLE: '32px',
+    LABEL: '14px',
+    BUTTON: '16px',
+    HELP_BUTTON: '24px',
+    SCORE: '18px',
+    PREVIEW_TILE: 48,
+    COMBO_BAR_WIDTH: 200,
+    COMBO_BAR_HEIGHT: 30,
+    POWER_UP_BUTTON_WIDTH: 56,
+    POWER_UP_BUTTON_HEIGHT: 36,
+    FRENZY_BAR_WIDTH: 180,
+    FRENZY_BAR_HEIGHT: 16,
+    SWIPE_BUTTON_WIDTH: 55,
+    SWIPE_BUTTON_HEIGHT: 28
   },
 
   // Grid settings
@@ -53,6 +74,8 @@ const GameConfig = {
     LEAD_MIN_COUNTDOWN: 3,
     LEAD_MAX_COUNTDOWN: 7,
     GLASS_INITIAL_DURABILITY: 2,
+    GLASS_SPAWN_CHANCE: 0.03,  // 3% per drop
+    LEAD_SPAWN_CHANCE: 0.02,   // 2% per drop
     // Auto-Swapper settings
     AUTO_SWAPPER_SPAWN_CHANCE: 0.04,  // 4% per drop
     AUTO_SWAPPER_SWAPS: 3,            // Expires after 3 swaps
@@ -61,6 +84,63 @@ const GameConfig = {
     // Bomb settings
     BOMB_SPAWN_CHANCE: 0.03,   // 3% per drop (endless mode only)
     BOMB_MERGE_TRIGGER: 3      // Explodes after 3 merges
+  },
+
+  // Daily challenge settings
+  DAILY_CHALLENGE: {
+    MODIFIER_CHANCE: 0.3,      // 30% chance of modifier
+    GLASS_CHAOS_SPAWN_RATE: 0.35,
+    DEFAULT_GLASS_VALUES: [3, 6, 12]
+  },
+
+  /**
+   * Tile type visual configuration - eliminates switch statements in Tile.js
+   * Each type defines colors, stroke styles, and text styling
+   */
+  TILE_TYPES: {
+    steel: {
+      colorKey: 'STEEL',
+      strokeColor: 0x6a7a8a,
+      strokeAlpha: 0.4,
+      textColor: '#4a5a6a',
+      fontSize: '22px'
+    },
+    lead: {
+      colorKey: 'LEAD',
+      strokeColor: 0x333333,
+      strokeAlpha: 0.3,
+      textColor: '#888888',
+      fontSize: '26px'
+    },
+    glass: {
+      colorKey: 'GLASS',
+      strokeColor: 0x8ab4d4,
+      strokeAlpha: 0.5,
+      textColor: '#2a5080',
+      fontSize: '26px'
+    },
+    wildcard: {
+      colorKey: 'WILDCARD',
+      strokeColor: 0xc090d0,
+      strokeAlpha: 0.5,
+      textColor: '#ffffff',
+      fontSize: '32px',
+      displayText: '★'
+    },
+    auto_swapper: {
+      colorKey: 'AUTO_SWAPPER',
+      strokeColor: 0x8a6ca2,
+      strokeAlpha: 0.5,
+      textColor: '#ffffff',
+      fontSize: '22px'
+    },
+    bomb: {
+      colorKey: 'BOMB',
+      strokeColor: 0xc05050,
+      strokeAlpha: 0.5,
+      textColor: '#ffffff',
+      fontSize: '22px'
+    }
   },
 
   // Game mode configurations

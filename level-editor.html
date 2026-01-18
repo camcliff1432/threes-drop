@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Threes Drop - Level Editor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #3d4f5f;
+      --bg-light: #4a5d6e;
+      --grid-bg: #2d3d4d;
+      --cell-bg: #3a4a5a;
+      --primary: #5a9fd4;
+      --primary-light: #7eb8e5;
+      --success: #7cc576;
+      --danger: #e07676;
+      --warning: #f5c26b;
+      --text-light: #ffffff;
+      --text-muted: #a0b0c0;
+      --border: #5a6a7a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-light) 100%);
+      min-height: 100vh;
+      color: var(--text-light);
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr 350px;
+      gap: 25px;
+    }
+
+    @media (max-width: 1200px) {
+      .editor-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .panel h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel h2 .icon {
+      font-size: 1.3rem;
+    }
+
+    /* Tile Palette */
+    .tile-palette {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .palette-section h3 {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .palette-tile {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 3px solid transparent;
+      position: relative;
+    }
+
+    .palette-tile:hover {
+      transform: scale(1.05);
+    }
+
+    .palette-tile.selected {
+      border-color: var(--text-light);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+    }
+
+    .palette-tile.eraser {
+      background: linear-gradient(135deg, #666 0%, #444 100%);
+      color: #999;
+      font-size: 1.5rem;
+    }
+
+    /* Special tile indicators */
+    .palette-tile .special-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 0.6rem;
+      background: var(--bg-dark);
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    /* Grid Editor */
+    .grid-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .grid-wrapper {
+      background: var(--grid-bg);
+      padding: 15px;
+      border-radius: 16px;
+      box-shadow: inset 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 70px);
+      grid-template-rows: repeat(6, 70px);
+      gap: 6px;
+    }
+
+    .grid-cell {
+      background: var(--cell-bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.3rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      border: 2px solid transparent;
+    }
+
+    .grid-cell:hover {
+      border-color: var(--primary);
+      background: rgba(90, 159, 212, 0.2);
+    }
+
+    .grid-cell.has-tile {
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .grid-cell .special-indicator {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 0.6rem;
+      opacity: 0.8;
+    }
+
+    .grid-cell .durability-indicator {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font-size: 0.55rem;
+      background: rgba(0,0,0,0.5);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .grid-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* Configuration Panel */
+    .config-section {
+      margin-bottom: 20px;
+    }
+
+    .config-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .config-section h3 {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-dark);
+      color: var(--text-light);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* Toggle switches */
+    .toggle-group {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-dark);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .toggle-item:hover {
+      border-color: var(--primary);
+    }
+
+    .toggle-item.active {
+      background: rgba(90, 159, 212, 0.2);
+      border-color: var(--primary);
+    }
+
+    .toggle-item input {
+      display: none;
+    }
+
+    .toggle-checkbox {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .toggle-item.active .toggle-checkbox {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .toggle-item.active .toggle-checkbox::after {
+      content: "✓";
+      color: #fff;
+      font-size: 12px;
+    }
+
+    .toggle-label {
+      font-size: 0.85rem;
+    }
+
+    /* Tile weights */
+    .weight-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .weight-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-dark);
+      border-radius: 6px;
+    }
+
+    .weight-item .tile-preview {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .weight-item input {
+      width: 50px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--cell-bg);
+      color: var(--text-light);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    .weight-item span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Special tile config modal/inline */
+    .special-config {
+      background: var(--bg-dark);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .special-config h4 {
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      color: var(--primary-light);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-light);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-success:hover {
+      background: #8dd687;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: #e88888;
+    }
+
+    .btn-secondary {
+      background: var(--bg-dark);
+      color: var(--text-light);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--cell-bg);
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+
+    /* Output section */
+    .output-section {
+      margin-top: 30px;
+    }
+
+    .output-section textarea {
+      width: 100%;
+      min-height: 300px;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #1a2530;
+      color: #7ec699;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+    }
+
+    .output-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    /* Collapsible sections */
+    .collapsible {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .collapsible::after {
+      content: " ▼";
+      font-size: 0.7rem;
+    }
+
+    .collapsible.collapsed::after {
+      content: " ▶";
+    }
+
+    .collapsible-content {
+      display: block;
+    }
+
+    .collapsible.collapsed + .collapsible-content {
+      display: none;
+    }
+
+    /* Notification toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: var(--success);
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.error {
+      background: var(--danger);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-light);
+      border-radius: 16px;
+      padding: 25px;
+      max-width: 450px;
+      width: 90%;
+      border: 1px solid var(--border);
+    }
+
+    .modal h3 {
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    /* Level list for import */
+    .level-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+
+    .level-list-item {
+      padding: 10px;
+      background: var(--bg-dark);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .level-list-item:hover {
+      background: var(--cell-bg);
+    }
+
+    .level-list-item.selected {
+      border: 2px solid var(--primary);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 15px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: var(--bg-dark);
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      background: var(--cell-bg);
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Quick actions bar */
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px;
+      background: var(--bg-dark);
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+
+    .quick-actions .btn {
+      padding: 8px 14px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Threes Drop Level Editor</h1>
+      <p>Create and customize game levels with visual editing</p>
+    </header>
+
+    <div class="editor-layout">
+      <!-- Left Panel: Tile Palette -->
+      <div class="panel tile-palette">
+        <h2><span class="icon">🎨</span> Tile Palette</h2>
+
+        <div class="palette-section">
+          <h3>Tools</h3>
+          <div class="palette-grid">
+            <div class="palette-tile eraser selected" data-tool="eraser" title="Eraser">✕</div>
+          </div>
+        </div>
+
+        <div class="palette-section">
+          <h3>Number Tiles</h3>
+          <div class="palette-grid" id="numberTiles">
+            <!-- Generated by JS -->
+          </div>
+        </div>
+
+        <div class="palette-section">
+          <h3>Special Tiles</h3>
+          <div class="palette-grid" id="specialTiles">
+            <!-- Generated by JS -->
+          </div>
+
+          <!-- Special tile config when selected -->
+          <div class="special-config" id="specialTileConfig" style="display: none;">
+            <h4 id="specialConfigTitle">Configure Special Tile</h4>
+            <div id="specialConfigFields">
+              <!-- Dynamic fields -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Grid Editor -->
+      <div class="panel">
+        <h2><span class="icon">🎮</span> Game Board</h2>
+
+        <div class="grid-container">
+          <div class="grid-wrapper">
+            <div class="game-grid" id="gameGrid">
+              <!-- 4x6 grid generated by JS -->
+            </div>
+          </div>
+
+          <div class="grid-actions">
+            <button class="btn btn-secondary" onclick="clearGrid()">Clear Board</button>
+            <button class="btn btn-secondary" onclick="rotateGrid()">Rotate 90°</button>
+            <button class="btn btn-secondary" onclick="flipGridH()">Flip H</button>
+            <button class="btn btn-secondary" onclick="flipGridV()">Flip V</button>
+            <button class="btn btn-primary" onclick="applyGravity()">Apply Gravity</button>
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div class="output-section">
+          <h2><span class="icon">📋</span> Level Output</h2>
+          <textarea id="levelOutput" readonly placeholder="Level JSON will appear here..."></textarea>
+          <div class="output-actions">
+            <button class="btn btn-success" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+            <button class="btn btn-primary" onclick="downloadLevel()">💾 Download JSON</button>
+            <button class="btn btn-secondary" onclick="showImportModal()">📂 Import Level</button>
+            <button class="btn btn-secondary" onclick="showLoadExisting()">📚 Load Existing</button>
+            <button class="btn btn-warning" onclick="saveToGame()" style="background: var(--warning); color: #333;">🎮 Save to Game</button>
+            <button class="btn btn-primary" onclick="testLevel()">▶ Test Level</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Configuration -->
+      <div class="panel">
+        <h2><span class="icon">⚙️</span> Level Configuration</h2>
+
+        <!-- Basic Info -->
+        <div class="config-section">
+          <h3>Basic Info</h3>
+          <div class="form-group">
+            <label>Level ID</label>
+            <input type="number" id="levelId" value="100" min="1">
+          </div>
+          <div class="form-group">
+            <label>Level Name</label>
+            <input type="text" id="levelName" value="Custom Level" placeholder="e.g., Tutorial 1">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="levelDescription" placeholder="Brief description of the level objective"></textarea>
+          </div>
+        </div>
+
+        <!-- Objective -->
+        <div class="config-section">
+          <h3>Objective</h3>
+          <div class="form-group">
+            <label>Objective Type</label>
+            <select id="objectiveType" onchange="updateObjectiveFields()">
+              <option value="create_tile">Create Tile</option>
+              <option value="score">Reach Score</option>
+              <option value="clear_glass">Clear Glass Tiles</option>
+              <option value="clear_lead">Clear Lead Tiles</option>
+              <option value="survival">Survival</option>
+            </select>
+          </div>
+          <div id="objectiveFields">
+            <!-- Dynamic fields based on type -->
+          </div>
+        </div>
+
+        <!-- Game Rules -->
+        <div class="config-section">
+          <h3>Game Rules</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max Moves</label>
+              <input type="number" id="maxMoves" value="20" min="1">
+            </div>
+            <div class="form-group">
+              <label>Starting Points</label>
+              <input type="number" id="startingPoints" value="0" min="0">
+            </div>
+          </div>
+        </div>
+
+        <!-- Allowed Tiles -->
+        <div class="config-section">
+          <h3 class="collapsible" onclick="toggleSection(this)">Allowed Spawn Tiles</h3>
+          <div class="collapsible-content">
+            <div class="toggle-group" id="allowedTilesGroup">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tile Weights -->
+        <div class="config-section">
+          <h3 class="collapsible" onclick="toggleSection(this)">Spawn Weights (Optional)</h3>
+          <div class="collapsible-content">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">
+              Leave empty for default weights. Values are relative (e.g., 2 = twice as likely).
+            </p>
+            <div class="weight-grid" id="tileWeights">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Power-ups -->
+        <div class="config-section">
+          <h3>Power-ups</h3>
+          <div class="toggle-group">
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="powerSwipe">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Swipe</span>
+            </label>
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="powerSwapper">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Swapper</span>
+            </label>
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="powerMerger">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Merger</span>
+            </label>
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="powerWildcard">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Wildcard</span>
+            </label>
+          </div>
+          <label class="toggle-item" style="margin-top: 10px;" onclick="toggleItem(this)">
+            <input type="checkbox" id="frenzyEnabled">
+            <div class="toggle-checkbox"></div>
+            <span class="toggle-label">Frenzy Mode Enabled</span>
+          </label>
+        </div>
+
+        <!-- Special Tiles Spawning -->
+        <div class="config-section">
+          <h3>Special Tile Spawning</h3>
+          <div class="toggle-group">
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="spawnSteel">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Steel</span>
+            </label>
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="spawnLead">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Lead</span>
+            </label>
+            <label class="toggle-item" onclick="toggleItem(this)">
+              <input type="checkbox" id="spawnGlass">
+              <div class="toggle-checkbox"></div>
+              <span class="toggle-label">Glass</span>
+            </label>
+          </div>
+
+          <!-- Spawn rates -->
+          <div class="form-row" style="margin-top: 10px;">
+            <div class="form-group">
+              <label>Glass Spawn Rate</label>
+              <input type="number" id="glassSpawnRate" value="" step="0.01" min="0" max="1" placeholder="Default">
+            </div>
+            <div class="form-group">
+              <label>Lead Spawn Rate</label>
+              <input type="number" id="leadSpawnRate" value="" step="0.01" min="0" max="1" placeholder="Default">
+            </div>
+          </div>
+        </div>
+
+        <!-- Modifiers -->
+        <div class="config-section">
+          <h3 class="collapsible" onclick="toggleSection(this)">Level Modifier (Optional)</h3>
+          <div class="collapsible-content">
+            <div class="form-group">
+              <label>Modifier Type</label>
+              <select id="modifierType" onchange="updateModifierFields()">
+                <option value="">None</option>
+                <option value="more_1s">Heavy 1s</option>
+                <option value="more_2s">Heavy 2s</option>
+                <option value="glass_chaos">Glass Chaos</option>
+                <option value="steel_maze">Steel Maze</option>
+                <option value="frenzy_boost">Frenzy Boost</option>
+                <option value="narrow_board">Narrow Board</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div id="modifierFields">
+              <!-- Dynamic fields -->
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-success" style="width: 100%; margin-top: 15px;" onclick="generateLevel()">
+          Generate Level JSON
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal">
+      <h3>Import Level JSON</h3>
+      <div class="form-group">
+        <label>Paste level JSON:</label>
+        <textarea id="importJson" style="min-height: 150px;" placeholder='{"id": 1, "name": "Level Name", ...}'></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="importLevel()">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Existing Modal -->
+  <div class="modal-overlay" id="loadModal">
+    <div class="modal">
+      <h3>Load Existing Level</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+        Select a level from the game to edit:
+      </p>
+      <div class="level-list" id="levelList">
+        <!-- Generated by JS -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('loadModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="loadSelectedLevel()">Load</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===========================================
+    // TILE COLORS (matching config.js)
+    // ===========================================
+    const COLORS = {
+      1: '#66c3d5',
+      2: '#e88a8a',
+      3: '#f5f5f5',
+      6: '#f5c26b',
+      12: '#7cc576',
+      24: '#5fb3d4',
+      48: '#c49cde',
+      96: '#f2a477',
+      192: '#7dd3c0',
+      384: '#e8b4cb',
+      768: '#a8c5e2',
+      1536: '#f0d264',
+      3072: '#d4a5a5',
+      STEEL: '#8899a6',
+      LEAD: '#4a4a4a',
+      GLASS: '#b8d4e8'
+    };
+
+    const TILE_VALUES = [1, 2, 3, 6, 12, 24, 48, 96, 192, 384, 768, 1536, 3072];
+    const SPECIAL_TYPES = ['steel', 'lead', 'glass'];
+
+    // ===========================================
+    // STATE
+    // ===========================================
+    let board = Array(4).fill(null).map(() => Array(6).fill(null));
+    let specialTiles = []; // {type, col, row, ...props}
+    let selectedTool = { type: 'eraser' };
+    let selectedExistingLevel = null;
+
+    // Special tile defaults
+    const SPECIAL_DEFAULTS = {
+      steel: { duration: 8 },
+      lead: { countdown: 6 },
+      glass: { value: 3, durability: 2 }
+    };
+
+    // Current special tile config
+    let currentSpecialConfig = { ...SPECIAL_DEFAULTS.steel };
+
+    // ===========================================
+    // INITIALIZATION
+    // ===========================================
+    function init() {
+      generateGrid();
+      generatePalette();
+      generateAllowedTiles();
+      generateTileWeights();
+      updateObjectiveFields();
+      generateLevel();
+    }
+
+    function generateGrid() {
+      const grid = document.getElementById('gameGrid');
+      grid.innerHTML = '';
+
+      // Grid is col-major but display row-major
+      for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 4; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          cell.dataset.col = col;
+          cell.dataset.row = row;
+          cell.onclick = () => handleCellClick(col, row);
+          grid.appendChild(cell);
+        }
+      }
+      renderBoard();
+    }
+
+    function generatePalette() {
+      // Number tiles
+      const numberContainer = document.getElementById('numberTiles');
+      numberContainer.innerHTML = '';
+
+      TILE_VALUES.forEach(value => {
+        const tile = document.createElement('div');
+        tile.className = 'palette-tile';
+        tile.style.background = COLORS[value];
+        tile.style.color = value === 3 ? '#000' : '#fff';
+        tile.textContent = value;
+        tile.dataset.tool = 'number';
+        tile.dataset.value = value;
+        tile.onclick = () => selectTool({ type: 'number', value });
+        numberContainer.appendChild(tile);
+      });
+
+      // Special tiles
+      const specialContainer = document.getElementById('specialTiles');
+      specialContainer.innerHTML = '';
+
+      SPECIAL_TYPES.forEach(type => {
+        const tile = document.createElement('div');
+        tile.className = 'palette-tile';
+        tile.style.background = COLORS[type.toUpperCase()];
+        tile.style.color = type === 'lead' ? '#fff' : '#333';
+        tile.innerHTML = type.charAt(0).toUpperCase() + '<span class="special-badge">' + type + '</span>';
+        tile.dataset.tool = 'special';
+        tile.dataset.specialType = type;
+        tile.onclick = () => selectTool({ type: 'special', specialType: type });
+        specialContainer.appendChild(tile);
+      });
+    }
+
+    function generateAllowedTiles() {
+      const container = document.getElementById('allowedTilesGroup');
+      container.innerHTML = '';
+
+      [1, 2, 3, 6, 12, 24, 48, 96].forEach(value => {
+        const checked = [1, 2, 3].includes(value) ? 'checked' : '';
+        const label = document.createElement('label');
+        label.className = 'toggle-item' + (checked ? ' active' : '');
+        label.onclick = function() { toggleItem(this); };
+        label.innerHTML = `
+          <input type="checkbox" id="allowed${value}" ${checked}>
+          <div class="toggle-checkbox"></div>
+          <span class="toggle-label" style="color: ${COLORS[value]}; font-weight: 700;">${value}</span>
+        `;
+        container.appendChild(label);
+      });
+    }
+
+    function generateTileWeights() {
+      const container = document.getElementById('tileWeights');
+      container.innerHTML = '';
+
+      [1, 2].forEach(value => {
+        const item = document.createElement('div');
+        item.className = 'weight-item';
+        item.innerHTML = `
+          <div class="tile-preview" style="background: ${COLORS[value]}; color: ${value === 3 ? '#000' : '#fff'};">${value}</div>
+          <input type="number" id="weight${value}" placeholder="1" min="0" step="0.1">
+          <span>weight</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // ===========================================
+    // TOOL SELECTION
+    // ===========================================
+    function selectTool(tool) {
+      selectedTool = tool;
+
+      // Update UI
+      document.querySelectorAll('.palette-tile').forEach(el => el.classList.remove('selected'));
+
+      if (tool.type === 'eraser') {
+        document.querySelector('[data-tool="eraser"]').classList.add('selected');
+        hideSpecialConfig();
+      } else if (tool.type === 'number') {
+        document.querySelector(`[data-tool="number"][data-value="${tool.value}"]`).classList.add('selected');
+        hideSpecialConfig();
+      } else if (tool.type === 'special') {
+        document.querySelector(`[data-tool="special"][data-special-type="${tool.specialType}"]`).classList.add('selected');
+        showSpecialConfig(tool.specialType);
+      }
+    }
+
+    function showSpecialConfig(type) {
+      const container = document.getElementById('specialTileConfig');
+      const title = document.getElementById('specialConfigTitle');
+      const fields = document.getElementById('specialConfigFields');
+
+      currentSpecialConfig = { ...SPECIAL_DEFAULTS[type] };
+
+      title.textContent = `Configure ${type.charAt(0).toUpperCase() + type.slice(1)} Tile`;
+
+      let html = '';
+      if (type === 'steel') {
+        html = `
+          <div class="form-group">
+            <label>Duration (turns)</label>
+            <input type="number" id="steelDuration" value="8" min="1" max="999"
+                   onchange="currentSpecialConfig.duration = parseInt(this.value)">
+          </div>
+        `;
+      } else if (type === 'lead') {
+        html = `
+          <div class="form-group">
+            <label>Countdown</label>
+            <input type="number" id="leadCountdown" value="6" min="1" max="20"
+                   onchange="currentSpecialConfig.countdown = parseInt(this.value)">
+          </div>
+        `;
+      } else if (type === 'glass') {
+        html = `
+          <div class="form-row">
+            <div class="form-group">
+              <label>Value</label>
+              <select id="glassValue" onchange="currentSpecialConfig.value = parseInt(this.value)">
+                ${[3, 6, 12, 24, 48, 96].map(v => `<option value="${v}">${v}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Durability</label>
+              <select id="glassDurability" onchange="currentSpecialConfig.durability = parseInt(this.value)">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+          </div>
+        `;
+      }
+
+      fields.innerHTML = html;
+      container.style.display = 'block';
+    }
+
+    function hideSpecialConfig() {
+      document.getElementById('specialTileConfig').style.display = 'none';
+    }
+
+    // ===========================================
+    // GRID INTERACTION
+    // ===========================================
+    function handleCellClick(col, row) {
+      if (selectedTool.type === 'eraser') {
+        board[col][row] = null;
+        // Remove any special tile at this position
+        specialTiles = specialTiles.filter(t => !(t.col === col && t.row === row));
+      } else if (selectedTool.type === 'number') {
+        // Remove any special tile first
+        specialTiles = specialTiles.filter(t => !(t.col === col && t.row === row));
+        board[col][row] = selectedTool.value;
+      } else if (selectedTool.type === 'special') {
+        // Remove existing at this position
+        specialTiles = specialTiles.filter(t => !(t.col === col && t.row === row));
+        board[col][row] = null; // Special tiles don't use board array
+
+        // Add new special tile
+        const tile = {
+          type: selectedTool.specialType,
+          col,
+          row,
+          ...currentSpecialConfig
+        };
+        specialTiles.push(tile);
+      }
+
+      renderBoard();
+      generateLevel();
+    }
+
+    function renderBoard() {
+      for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 4; col++) {
+          const cell = document.querySelector(`.grid-cell[data-col="${col}"][data-row="${row}"]`);
+          const value = board[col][row];
+          const special = specialTiles.find(t => t.col === col && t.row === row);
+
+          cell.className = 'grid-cell';
+          cell.style.background = '';
+          cell.innerHTML = '';
+
+          if (special) {
+            cell.classList.add('has-tile');
+            cell.style.background = COLORS[special.type.toUpperCase()];
+
+            if (special.type === 'steel') {
+              cell.innerHTML = `<span style="color: #fff;">S</span><span class="special-indicator">${special.duration}t</span>`;
+            } else if (special.type === 'lead') {
+              cell.innerHTML = `<span style="color: #fff;">${special.countdown}</span><span class="special-indicator">lead</span>`;
+            } else if (special.type === 'glass') {
+              cell.innerHTML = `
+                <span style="color: #333;">${special.value}</span>
+                <span class="durability-indicator">×${special.durability}</span>
+                <span class="special-indicator">glass</span>
+              `;
+            }
+          } else if (value !== null) {
+            cell.classList.add('has-tile');
+            cell.style.background = COLORS[value] || '#666';
+            cell.style.color = value === 3 ? '#000' : '#fff';
+            cell.textContent = value;
+          }
+        }
+      }
+    }
+
+    // ===========================================
+    // GRID OPERATIONS
+    // ===========================================
+    function clearGrid() {
+      board = Array(4).fill(null).map(() => Array(6).fill(null));
+      specialTiles = [];
+      renderBoard();
+      generateLevel();
+      showToast('Board cleared');
+    }
+
+    function applyGravity() {
+      // Process each column - combine normal tiles and special tiles, then drop them down
+      // Row 0 is displayed at TOP, row 5 is at BOTTOM - so gravity pulls toward row 5
+      for (let col = 0; col < 4; col++) {
+        // Collect all items in this column (both normal and special) with their current row
+        const items = [];
+
+        // Get normal tiles
+        for (let row = 0; row < 6; row++) {
+          if (board[col][row] !== null) {
+            items.push({ type: 'normal', value: board[col][row], originalRow: row });
+          }
+        }
+
+        // Get special tiles in this column
+        const colSpecialTiles = specialTiles.filter(t => t.col === col);
+        colSpecialTiles.forEach(tile => {
+          items.push({ type: 'special', tile: tile, originalRow: tile.row });
+        });
+
+        // Sort by original row (preserve relative order, top to bottom)
+        items.sort((a, b) => a.originalRow - b.originalRow);
+
+        // Clear the column's normal tiles
+        board[col] = Array(6).fill(null);
+
+        // Place items from bottom (row 5) going up
+        let nextRow = 5;
+        // Process in reverse order (items that were lower stay lower)
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          if (item.type === 'normal') {
+            board[col][nextRow] = item.value;
+          } else {
+            item.tile.row = nextRow;
+          }
+          nextRow--;
+        }
+      }
+
+      renderBoard();
+      generateLevel();
+      showToast('Gravity applied');
+    }
+
+    function rotateGrid() {
+      // Rotate 90° clockwise: new[col][row] = old[row][3-col]
+      const newBoard = Array(4).fill(null).map(() => Array(6).fill(null));
+
+      // This is a simplified rotation - full 90° would change dimensions
+      // Instead, we'll do a transpose-like operation within bounds
+      for (let col = 0; col < 4; col++) {
+        for (let row = 0; row < 4; row++) { // Only rotate the 4x4 portion
+          if (row < 6 && col < 4) {
+            newBoard[row][3 - col] = board[col][row];
+          }
+        }
+      }
+
+      board = newBoard;
+      renderBoard();
+      generateLevel();
+      showToast('Rotated 90°');
+    }
+
+    function flipGridH() {
+      // Flip horizontally
+      for (let row = 0; row < 6; row++) {
+        const temp = board[0][row];
+        board[0][row] = board[3][row];
+        board[3][row] = temp;
+        const temp2 = board[1][row];
+        board[1][row] = board[2][row];
+        board[2][row] = temp2;
+      }
+
+      // Flip special tiles
+      specialTiles.forEach(tile => {
+        tile.col = 3 - tile.col;
+      });
+
+      renderBoard();
+      generateLevel();
+      showToast('Flipped horizontally');
+    }
+
+    function flipGridV() {
+      // Flip vertically
+      for (let col = 0; col < 4; col++) {
+        board[col].reverse();
+      }
+
+      // Flip special tiles
+      specialTiles.forEach(tile => {
+        tile.row = 5 - tile.row;
+      });
+
+      renderBoard();
+      generateLevel();
+      showToast('Flipped vertically');
+    }
+
+    // ===========================================
+    // OBJECTIVE CONFIGURATION
+    // ===========================================
+    function updateObjectiveFields() {
+      const type = document.getElementById('objectiveType').value;
+      const container = document.getElementById('objectiveFields');
+
+      let html = '';
+      switch (type) {
+        case 'create_tile':
+          html = `
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tile Value</label>
+                <select id="objValue">
+                  ${[3, 6, 12, 24, 48, 96, 192, 384, 768, 1536, 3072].map(v =>
+                    `<option value="${v}">${v}</option>`
+                  ).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Count</label>
+                <input type="number" id="objCount" value="1" min="1">
+              </div>
+            </div>
+          `;
+          break;
+        case 'score':
+          html = `
+            <div class="form-group">
+              <label>Target Score</label>
+              <input type="number" id="objTarget" value="100" min="1">
+            </div>
+          `;
+          break;
+        case 'clear_glass':
+        case 'clear_lead':
+          html = `
+            <div class="form-group">
+              <label>Count to Clear</label>
+              <input type="number" id="objCount" value="2" min="1">
+            </div>
+          `;
+          break;
+        case 'survival':
+          html = `
+            <div class="form-group">
+              <label>Moves to Survive</label>
+              <input type="number" id="objMoves" value="15" min="1">
+            </div>
+          `;
+          break;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function updateModifierFields() {
+      const type = document.getElementById('modifierType').value;
+      const container = document.getElementById('modifierFields');
+
+      if (!type) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = '<div class="form-group">';
+      switch (type) {
+        case 'more_1s':
+          html += `<label>1s Weight</label><input type="number" id="modWeight1" value="0.75" step="0.05" min="0" max="1">`;
+          html += `</div><div class="form-group"><label>2s Weight</label><input type="number" id="modWeight2" value="0.25" step="0.05" min="0" max="1">`;
+          break;
+        case 'more_2s':
+          html += `<label>1s Weight</label><input type="number" id="modWeight1" value="0.25" step="0.05" min="0" max="1">`;
+          html += `</div><div class="form-group"><label>2s Weight</label><input type="number" id="modWeight2" value="0.75" step="0.05" min="0" max="1">`;
+          break;
+        case 'glass_chaos':
+          html += `<label>Glass Spawn Rate</label><input type="number" id="modGlassRate" value="0.4" step="0.05" min="0" max="1">`;
+          break;
+        case 'frenzy_boost':
+          html += `<label>Frenzy Multiplier</label><input type="number" id="modFrenzyMult" value="2.0" step="0.5" min="1">`;
+          break;
+        case 'custom':
+          html += `<label>Custom Modifier ID</label><input type="text" id="modCustomId" placeholder="my_modifier">`;
+          break;
+        default:
+          html = '<p style="font-size: 0.8rem; color: var(--text-muted);">This modifier uses pre-placed tiles.</p>';
+      }
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+
+    // ===========================================
+    // TOGGLE HELPERS
+    // ===========================================
+    function toggleItem(element) {
+      const input = element.querySelector('input');
+      if (input) {
+        input.checked = !input.checked;
+        element.classList.toggle('active', input.checked);
+      }
+    }
+
+    function toggleSection(element) {
+      element.classList.toggle('collapsed');
+    }
+
+    // ===========================================
+    // LEVEL GENERATION
+    // ===========================================
+    function generateLevel() {
+      const level = {
+        id: parseInt(document.getElementById('levelId').value) || 100,
+        name: document.getElementById('levelName').value || 'Custom Level',
+        description: document.getElementById('levelDescription').value || ''
+      };
+
+      // Objective
+      const objType = document.getElementById('objectiveType').value;
+      level.objective = { type: objType };
+
+      switch (objType) {
+        case 'create_tile':
+          level.objective.value = parseInt(document.getElementById('objValue')?.value) || 3;
+          level.objective.count = parseInt(document.getElementById('objCount')?.value) || 1;
+          break;
+        case 'score':
+          level.objective.target = parseInt(document.getElementById('objTarget')?.value) || 100;
+          break;
+        case 'clear_glass':
+        case 'clear_lead':
+          level.objective.count = parseInt(document.getElementById('objCount')?.value) || 2;
+          break;
+        case 'survival':
+          level.objective.moves = parseInt(document.getElementById('objMoves')?.value) || 15;
+          break;
+      }
+
+      // Allowed tiles
+      level.allowedTiles = [];
+      [1, 2, 3, 6, 12, 24, 48, 96].forEach(value => {
+        const checkbox = document.getElementById(`allowed${value}`);
+        if (checkbox && checkbox.checked) {
+          level.allowedTiles.push(value);
+        }
+      });
+      if (level.allowedTiles.length === 0) {
+        level.allowedTiles = [1, 2, 3];
+      }
+
+      // Game rules
+      level.maxMoves = parseInt(document.getElementById('maxMoves').value) || 20;
+
+      // Starting board
+      const hasBoard = board.some(col => col.some(cell => cell !== null));
+      level.startingBoard = hasBoard ? board.map(col => [...col]) : null;
+
+      // Power-ups
+      level.powerUps = {
+        swipe: document.getElementById('powerSwipe')?.checked || false,
+        swapper: document.getElementById('powerSwapper')?.checked || false,
+        merger: document.getElementById('powerMerger')?.checked || false,
+        wildcard: document.getElementById('powerWildcard')?.checked || false
+      };
+
+      level.frenzyEnabled = document.getElementById('frenzyEnabled')?.checked || false;
+      level.startingPoints = parseInt(document.getElementById('startingPoints').value) || 0;
+
+      // Special tiles
+      level.specialTiles = {
+        steel: document.getElementById('spawnSteel')?.checked || false,
+        lead: document.getElementById('spawnLead')?.checked || false,
+        glass: document.getElementById('spawnGlass')?.checked || false
+      };
+
+      // Starting special tiles
+      if (specialTiles.length > 0) {
+        level.startingSpecialTiles = specialTiles.map(t => ({ ...t }));
+      }
+
+      // Spawn rates
+      const glassRate = document.getElementById('glassSpawnRate')?.value;
+      const leadRate = document.getElementById('leadSpawnRate')?.value;
+      if (glassRate) level.glassSpawnRate = parseFloat(glassRate);
+      if (leadRate) level.leadSpawnRate = parseFloat(leadRate);
+
+      // Tile weights
+      const weight1 = document.getElementById('weight1')?.value;
+      const weight2 = document.getElementById('weight2')?.value;
+      if (weight1 || weight2) {
+        level.tileWeights = {};
+        if (weight1) level.tileWeights[1] = parseFloat(weight1);
+        if (weight2) level.tileWeights[2] = parseFloat(weight2);
+      }
+
+      // Modifier
+      const modType = document.getElementById('modifierType')?.value;
+      if (modType) {
+        level.modifier = { id: modType };
+
+        switch (modType) {
+          case 'more_1s':
+          case 'more_2s':
+            const w1 = document.getElementById('modWeight1')?.value;
+            const w2 = document.getElementById('modWeight2')?.value;
+            if (w1 && w2) {
+              level.modifier.tileWeights = {
+                1: parseFloat(w1),
+                2: parseFloat(w2)
+              };
+            }
+            break;
+          case 'glass_chaos':
+            const gRate = document.getElementById('modGlassRate')?.value;
+            if (gRate) level.modifier.glassSpawnRate = parseFloat(gRate);
+            break;
+          case 'frenzy_boost':
+            const fMult = document.getElementById('modFrenzyMult')?.value;
+            if (fMult) level.modifier.frenzyChargeMultiplier = parseFloat(fMult);
+            break;
+          case 'custom':
+            level.modifier.id = document.getElementById('modCustomId')?.value || 'custom';
+            break;
+        }
+      }
+
+      // Format output
+      const output = JSON.stringify(level, null, 2);
+      document.getElementById('levelOutput').value = output;
+
+      return level;
+    }
+
+    // ===========================================
+    // IMPORT/EXPORT
+    // ===========================================
+    function copyToClipboard() {
+      const output = document.getElementById('levelOutput');
+      output.select();
+      document.execCommand('copy');
+      showToast('Copied to clipboard!');
+    }
+
+    function downloadLevel() {
+      const level = generateLevel();
+      const blob = new Blob([JSON.stringify(level, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `level_${level.id}_${level.name.replace(/\s+/g, '_').toLowerCase()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Level downloaded!');
+    }
+
+    function showImportModal() {
+      document.getElementById('importJson').value = '';
+      document.getElementById('importModal').classList.add('show');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    function importLevel() {
+      try {
+        const json = document.getElementById('importJson').value;
+        const level = JSON.parse(json);
+        loadLevelData(level);
+        closeModal('importModal');
+        showToast('Level imported!');
+      } catch (e) {
+        showToast('Invalid JSON: ' + e.message, true);
+      }
+    }
+
+    function loadLevelData(level) {
+      // Basic info
+      document.getElementById('levelId').value = level.id || 100;
+      document.getElementById('levelName').value = level.name || '';
+      document.getElementById('levelDescription').value = level.description || '';
+
+      // Objective
+      if (level.objective) {
+        document.getElementById('objectiveType').value = level.objective.type || 'score';
+        updateObjectiveFields();
+
+        setTimeout(() => {
+          if (level.objective.value) {
+            const objValue = document.getElementById('objValue');
+            if (objValue) objValue.value = level.objective.value;
+          }
+          if (level.objective.count) {
+            const objCount = document.getElementById('objCount');
+            if (objCount) objCount.value = level.objective.count;
+          }
+          if (level.objective.target) {
+            const objTarget = document.getElementById('objTarget');
+            if (objTarget) objTarget.value = level.objective.target;
+          }
+          if (level.objective.moves) {
+            const objMoves = document.getElementById('objMoves');
+            if (objMoves) objMoves.value = level.objective.moves;
+          }
+        }, 0);
+      }
+
+      // Game rules
+      document.getElementById('maxMoves').value = level.maxMoves || 20;
+      document.getElementById('startingPoints').value = level.startingPoints || 0;
+
+      // Allowed tiles
+      [1, 2, 3, 6, 12, 24, 48, 96].forEach(value => {
+        const checkbox = document.getElementById(`allowed${value}`);
+        const container = checkbox?.closest('.toggle-item');
+        if (checkbox && container) {
+          const isAllowed = level.allowedTiles?.includes(value) || false;
+          checkbox.checked = isAllowed;
+          container.classList.toggle('active', isAllowed);
+        }
+      });
+
+      // Power-ups
+      ['Swipe', 'Swapper', 'Merger', 'Wildcard'].forEach(power => {
+        const checkbox = document.getElementById(`power${power}`);
+        const container = checkbox?.closest('.toggle-item');
+        if (checkbox && container) {
+          const isEnabled = level.powerUps?.[power.toLowerCase()] || false;
+          checkbox.checked = isEnabled;
+          container.classList.toggle('active', isEnabled);
+        }
+      });
+
+      // Frenzy
+      const frenzyCheck = document.getElementById('frenzyEnabled');
+      const frenzyContainer = frenzyCheck?.closest('.toggle-item');
+      if (frenzyCheck && frenzyContainer) {
+        frenzyCheck.checked = level.frenzyEnabled || false;
+        frenzyContainer.classList.toggle('active', level.frenzyEnabled || false);
+      }
+
+      // Special tiles spawning
+      ['Steel', 'Lead', 'Glass'].forEach(type => {
+        const checkbox = document.getElementById(`spawn${type}`);
+        const container = checkbox?.closest('.toggle-item');
+        if (checkbox && container) {
+          const isEnabled = level.specialTiles?.[type.toLowerCase()] || false;
+          checkbox.checked = isEnabled;
+          container.classList.toggle('active', isEnabled);
+        }
+      });
+
+      // Spawn rates
+      if (level.glassSpawnRate) {
+        document.getElementById('glassSpawnRate').value = level.glassSpawnRate;
+      }
+      if (level.leadSpawnRate) {
+        document.getElementById('leadSpawnRate').value = level.leadSpawnRate;
+      }
+
+      // Starting board
+      if (level.startingBoard) {
+        board = level.startingBoard.map(col => [...col]);
+      } else {
+        board = Array(4).fill(null).map(() => Array(6).fill(null));
+      }
+
+      // Starting special tiles
+      if (level.startingSpecialTiles) {
+        specialTiles = level.startingSpecialTiles.map(t => ({ ...t }));
+      } else {
+        specialTiles = [];
+      }
+
+      // Modifier
+      if (level.modifier) {
+        document.getElementById('modifierType').value = level.modifier.id || '';
+        updateModifierFields();
+      }
+
+      renderBoard();
+      generateLevel();
+    }
+
+    // ===========================================
+    // LOAD EXISTING LEVELS
+    // ===========================================
+    // Level data is now loaded from levels.json
+    let EXISTING_LEVELS = [];
+    let levelsLoaded = false;
+
+    // Load levels from JSON file
+    // Note: This may fail on file:// protocol due to CORS. Use a local server for full functionality.
+    async function loadLevelsFromJSON() {
+      try {
+        // Check if we're on file:// protocol (CORS will block fetch)
+        if (window.location.protocol === 'file:') {
+          console.info('Running on file:// protocol. Level loading from JSON disabled.');
+          console.info('To load built-in levels, use a local HTTP server:');
+          console.info('  npx serve .  OR  python -m http.server 8000');
+          levelsLoaded = true; // Mark as loaded with empty array
+          return;
+        }
+
+        const response = await fetch('levels.json');
+        if (!response.ok) {
+          console.warn('Could not load levels.json');
+          levelsLoaded = true;
+          return;
+        }
+        const data = await response.json();
+        if (data.levels && Array.isArray(data.levels)) {
+          EXISTING_LEVELS = data.levels;
+          levelsLoaded = true;
+          console.log(`Loaded ${EXISTING_LEVELS.length} levels from JSON`);
+        }
+      } catch (e) {
+        console.warn('Error loading levels.json:', e.message);
+        levelsLoaded = true; // Prevent infinite retry loop
+      }
+    }
+
+    // Load levels on page load
+    loadLevelsFromJSON();
+
+    function showLoadExisting() {
+      const container = document.getElementById('levelList');
+      container.innerHTML = '';
+
+      // Add custom levels section first
+      const customLevels = getCustomLevels();
+      if (customLevels.length > 0) {
+        const customHeader = document.createElement('div');
+        customHeader.style.cssText = 'padding: 8px; background: var(--primary); border-radius: 6px; margin-bottom: 8px; font-weight: 600;';
+        customHeader.textContent = `Custom Levels (${customLevels.length})`;
+        container.appendChild(customHeader);
+
+        customLevels.forEach(level => {
+          const item = document.createElement('div');
+          item.className = 'level-list-item';
+          item.innerHTML = `
+            <div style="flex: 1;">
+              <strong>Level ${level.id}: ${level.name}</strong>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">${level.description || 'Custom level'}</div>
+            </div>
+            <div style="display: flex; gap: 5px;">
+              <button class="btn btn-small btn-primary" onclick="event.stopPropagation(); loadCustomLevel(${level.id})">Edit</button>
+              <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); deleteCustomLevel(${level.id})">Del</button>
+            </div>
+          `;
+          item.onclick = () => {
+            container.querySelectorAll('.level-list-item').forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            selectedExistingLevel = { type: 'custom', id: level.id };
+          };
+          container.appendChild(item);
+        });
+
+        // Separator
+        const separator = document.createElement('div');
+        separator.style.cssText = 'height: 1px; background: var(--border); margin: 10px 0;';
+        container.appendChild(separator);
+      }
+
+      // Built-in levels header
+      const builtInHeader = document.createElement('div');
+      builtInHeader.style.cssText = 'padding: 8px; background: var(--cell-bg); border-radius: 6px; margin-bottom: 8px; font-weight: 600;';
+      builtInHeader.textContent = levelsLoaded
+        ? `Built-in Levels (${EXISTING_LEVELS.length} loaded from JSON)`
+        : 'Built-in Levels (loading...)';
+      container.appendChild(builtInHeader);
+
+      if (!levelsLoaded) {
+        const loadingMsg = document.createElement('div');
+        loadingMsg.style.cssText = 'padding: 10px; color: var(--text-muted); text-align: center;';
+        loadingMsg.textContent = 'Loading levels from JSON...';
+        container.appendChild(loadingMsg);
+
+        // Retry loading
+        loadLevelsFromJSON().then(() => {
+          if (levelsLoaded) {
+            showLoadExisting(); // Refresh the list
+          }
+        });
+        document.getElementById('loadModal').classList.add('show');
+        return;
+      }
+
+      EXISTING_LEVELS.forEach(level => {
+        const item = document.createElement('div');
+        item.className = 'level-list-item';
+        item.innerHTML = `
+          <div style="flex: 1;">
+            <strong>Level ${level.id}: ${level.name}</strong>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">${level.description || ''}</div>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="event.stopPropagation(); loadBuiltinLevel(${level.id})">Load</button>
+        `;
+        item.onclick = () => {
+          container.querySelectorAll('.level-list-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          selectedExistingLevel = { type: 'builtin', id: level.id };
+        };
+        container.appendChild(item);
+      });
+
+      document.getElementById('loadModal').classList.add('show');
+    }
+
+    function loadCustomLevel(id) {
+      const levels = getCustomLevels();
+      const level = levels.find(l => l.id === id);
+      if (level) {
+        loadLevelData(level);
+        closeModal('loadModal');
+        showToast(`Loaded custom level ${id}`);
+      }
+    }
+
+    function loadBuiltinLevel(id) {
+      const level = EXISTING_LEVELS.find(l => l.id === id);
+      if (level) {
+        loadLevelData(level);
+        closeModal('loadModal');
+        showToast(`Loaded level ${id}: ${level.name}`);
+      } else {
+        showToast('Level not found', true);
+      }
+    }
+
+    function loadSelectedLevel() {
+      if (!selectedExistingLevel) {
+        showToast('Please select a level', true);
+        return;
+      }
+
+      if (selectedExistingLevel.type === 'custom') {
+        loadCustomLevel(selectedExistingLevel.id);
+      } else {
+        loadBuiltinLevel(selectedExistingLevel.id);
+      }
+    }
+
+    // ===========================================
+    // GAME INTEGRATION
+    // ===========================================
+    const CUSTOM_LEVELS_KEY = 'threes_custom_levels';
+
+    /**
+     * Save level to game's localStorage for CustomLevelLoader to pick up
+     */
+    function saveToGame() {
+      try {
+        const level = generateLevel();
+
+        // Load existing custom levels
+        let customLevels = [];
+        try {
+          const saved = localStorage.getItem(CUSTOM_LEVELS_KEY);
+          if (saved) {
+            customLevels = JSON.parse(saved);
+          }
+        } catch (e) {
+          customLevels = [];
+        }
+
+        // Check for duplicate ID and replace or add
+        const existingIndex = customLevels.findIndex(l => l.id === level.id);
+        if (existingIndex >= 0) {
+          customLevels[existingIndex] = level;
+          showToast(`Updated level ${level.id} in game!`);
+        } else {
+          customLevels.push(level);
+          showToast(`Added level ${level.id} to game!`);
+        }
+
+        // Sort by ID and save
+        customLevels.sort((a, b) => a.id - b.id);
+        localStorage.setItem(CUSTOM_LEVELS_KEY, JSON.stringify(customLevels));
+
+      } catch (e) {
+        showToast('Failed to save: ' + e.message, true);
+      }
+    }
+
+    /**
+     * Test level by opening game with this level
+     */
+    function testLevel() {
+      try {
+        const level = generateLevel();
+
+        // Save to localStorage so game can load it
+        localStorage.setItem('threes_test_level', JSON.stringify(level));
+
+        // Open game in new tab with test parameter
+        const gameUrl = window.location.href.replace('level-editor.html', 'index.html') + '?testLevel=' + level.id;
+        window.open(gameUrl, '_blank');
+
+        showToast('Opening game to test level...');
+      } catch (e) {
+        showToast('Failed to test: ' + e.message, true);
+      }
+    }
+
+    /**
+     * Load saved custom levels for management
+     */
+    function getCustomLevels() {
+      try {
+        const saved = localStorage.getItem(CUSTOM_LEVELS_KEY);
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    /**
+     * Delete a custom level from storage
+     */
+    function deleteCustomLevel(id) {
+      const levels = getCustomLevels().filter(l => l.id !== id);
+      localStorage.setItem(CUSTOM_LEVELS_KEY, JSON.stringify(levels));
+      showToast(`Deleted level ${id}`);
+      showLoadExisting(); // Refresh list
+    }
+
+    // ===========================================
+    // UTILITIES
+    // ===========================================
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast' + (isError ? ' error' : '');
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // ===========================================
+    // INIT
+    // ===========================================
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

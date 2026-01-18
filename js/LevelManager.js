@@ -1,6 +1,9 @@
 /**
  * LevelManager - Manages level definitions and progression
  *
+ * Levels are loaded from levels.json for easier editing and maintenance.
+ * Falls back to inline definitions if JSON loading fails.
+ *
  * Level Config Schema:
  * {
  *   id: number,
@@ -27,11 +30,48 @@
  * - 'max_tiles': Have at most N tiles on board
  * - 'clear_lead': Clear N lead tiles (let countdown reach 0)
  * - 'clear_glass': Break N glass tiles
+ * - 'survival': Survive N moves without board filling
  */
 class LevelManager {
   constructor() {
     this.levels = this.defineLevels();
     this.currentLevel = null;
+    this.levelsLoaded = false;
+
+    // Try to load levels from JSON (async, will update when ready)
+    this.loadLevelsFromJSON();
+  }
+
+  /**
+   * Load levels from external JSON file
+   * Falls back to inline definitions if loading fails
+   * Note: Will silently fail on file:// protocol due to CORS
+   */
+  async loadLevelsFromJSON() {
+    try {
+      // Skip fetch attempt on file:// protocol (will fail due to CORS)
+      if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
+        this.levelsLoaded = true; // Using inline definitions
+        return;
+      }
+
+      const response = await fetch('levels.json');
+      if (!response.ok) {
+        console.warn('Could not load levels.json, using inline definitions');
+        this.levelsLoaded = true;
+        return;
+      }
+
+      const data = await response.json();
+      if (data.levels && Array.isArray(data.levels)) {
+        this.levels = data.levels;
+        this.levelsLoaded = true;
+        console.log(`Loaded ${this.levels.length} levels from JSON`);
+      }
+    } catch (e) {
+      // Silently fall back to inline definitions (already loaded in constructor)
+      this.levelsLoaded = true;
+    }
   }
 
   defineLevels() {

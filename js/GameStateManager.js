@@ -1,9 +1,54 @@
 /**
  * GameStateManager - Handles saving and loading game state for resume functionality
+ *
+ * Save state versioning (via GameConfig.SAVE_VERSION) allows for future migrations
+ * when the save format changes. Old saves are automatically migrated on load.
  */
 class GameStateManager {
   constructor() {
     this.STORAGE_KEY = 'threes_drop_saved_game';
+  }
+
+  /**
+   * Get current save version from config (with fallback)
+   * @returns {number} Current save version
+   */
+  getCurrentVersion() {
+    return (typeof GameConfig !== 'undefined' && GameConfig.SAVE_VERSION) || 1;
+  }
+
+  /**
+   * Migrate old save states to current format
+   * Each migration is a step from one version to the next.
+   * @param {Object} state - Saved state object
+   * @returns {Object} Migrated state object
+   */
+  migrateState(state) {
+    const currentVersion = this.getCurrentVersion();
+    let stateVersion = state.version || 0;
+
+    // Already current version
+    if (stateVersion >= currentVersion) {
+      return state;
+    }
+
+    // Migration from version 0 (no version field) to version 1
+    if (stateVersion < 1) {
+      console.log('Migrating save state from v0 to v1');
+      state.version = 1;
+      // v1 added version field - no structural changes needed
+      stateVersion = 1;
+    }
+
+    // Future migrations go here:
+    // if (stateVersion < 2) {
+    //   console.log('Migrating save state from v1 to v2');
+    //   // Apply v2 migrations...
+    //   state.version = 2;
+    //   stateVersion = 2;
+    // }
+
+    return state;
   }
 
   /**
@@ -12,6 +57,9 @@ class GameStateManager {
   saveGameState(gameScene) {
     try {
       const state = {
+        // Version for future migrations
+        version: this.getCurrentVersion(),
+
         // Game mode info
         gameMode: gameScene.gameMode,
         levelId: gameScene.levelId,
@@ -114,13 +162,20 @@ class GameStateManager {
   }
 
   /**
-   * Get saved game state
+   * Get saved game state (with automatic migration)
+   * @returns {Object|null} Migrated saved game state or null
    */
   getSavedGame() {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return null;
-      return JSON.parse(stored);
+
+      let state = JSON.parse(stored);
+
+      // Migrate old save states to current version
+      state = this.migrateState(state);
+
+      return state;
     } catch (e) {
       console.warn('Failed to load saved game:', e);
       return null;

@@ -75,6 +75,12 @@ class TutorialSelectScene extends Phaser.Scene {
   }
 
   createLevelButton(x, y, level) {
+    // Guard against null level (can happen if level IDs don't match indices)
+    if (!level) {
+      console.warn('Attempted to create button for null level');
+      return;
+    }
+
     const size = this.buttonSize || 60;
     const fontSize = Math.max(16, Math.floor(size * 0.4));
     const nameFontSize = Math.max(7, Math.floor(size * 0.12));

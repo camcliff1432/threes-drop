@@ -342,9 +342,19 @@ class GameScene extends Phaser.Scene {
 
     // Back button
     if (this.gameMode === 'level') {
-      this.add.text(15, 15, '< BACK', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
-      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
+      // For test levels, show option to close tab; otherwise go to level select
+      if (window.isTestLevelSession) {
+        this.add.text(15, 15, '< EDITOR', {
+          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5c26b'
+        }).setInteractive().on('pointerdown', () => {
+          window.isTestLevelSession = false;
+          window.close();
+        });
+      } else {
+        this.add.text(15, 15, '< BACK', {
+          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+        }).setInteractive().on('pointerdown', () => this.showExitConfirmation('LevelSelectScene'));
+      }
     } else if (this.gameMode === 'daily') {
       this.add.text(15, 15, '< MENU', {
         fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
@@ -2928,6 +2938,18 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1001).setInteractive();
 
     menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+
+    // Add "Back to Editor" button if this is a test level session
+    if (window.isTestLevelSession) {
+      const editorBtn = this.add.text(width / 2, height / 2 + 115, 'BACK TO EDITOR', {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5c26b'
+      }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+      editorBtn.on('pointerdown', () => {
+        window.isTestLevelSession = false;
+        window.close(); // Close the test tab and return to editor
+      });
+    }
   }
 
   showLevelFailed() {
@@ -2952,6 +2974,18 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1001).setInteractive();
 
     menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+
+    // Add "Back to Editor" button if this is a test level session
+    if (window.isTestLevelSession) {
+      const editorBtn = this.add.text(width / 2, height / 2 + 105, 'BACK TO EDITOR', {
+        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5c26b'
+      }).setOrigin(0.5).setDepth(1001).setInteractive();
+
+      editorBtn.on('pointerdown', () => {
+        window.isTestLevelSession = false;
+        window.close(); // Close the test tab and return to editor
+      });
+    }
   }
 
   showGameOver() {
@@ -3007,5 +3041,100 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1001).setInteractive();
 
     menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+  }
+
+  /**
+   * Clean up event listeners and resources when scene is destroyed
+   * Prevents memory leaks from lingering event handlers
+   */
+  shutdown() {
+    // Remove resize listener
+    this.scale.off('resize', this.onResize, this);
+
+    // Clean up frenzy timer if active
+    if (this.frenzyTimerEvent) {
+      this.frenzyTimerEvent.remove();
+      this.frenzyTimerEvent = null;
+    }
+
+    // Kill all tweens to prevent callbacks on destroyed objects
+    this.tweens.killAll();
+  }
+
+  /**
+   * Handle bomb merge logic - extracted to reduce code duplication
+   * Called from animateFrenzyOperations, animateOperations, and animateGravity
+   * @param {number} fromCol - Source column
+   * @param {number} fromRow - Source row
+   * @param {number} toCol - Target column
+   * @param {number} toRow - Target row
+   * @param {number} newValue - The merged tile value
+   * @returns {Object|null} Bomb merge result or null if no bomb involved
+   */
+  handleBombMergeCheck(fromCol, fromRow, toCol, toRow, newValue) {
+    if (!this.specialTileManager) return null;
+
+    const specialTileFrom = this.specialTileManager.getSpecialTileAt(fromCol, fromRow);
+    const specialTileTo = this.specialTileManager.getSpecialTileAt(toCol, toRow);
+
+    // Two bombs merging = immediate explosion
+    if (specialTileFrom?.type === 'bomb' && specialTileTo?.type === 'bomb') {
+      return this.specialTileManager.onBombBombMerge(fromCol, fromRow, toCol, toRow);
+    }
+
+    // Target is a bomb
+    if (specialTileTo?.type === 'bomb') {
+      return this.specialTileManager.onBombMerge(toCol, toRow, newValue);
+    }
+
+    // Source is a bomb - update position first then merge
+    if (specialTileFrom?.type === 'bomb') {
+      this.specialTileManager.updateTilePosition(fromCol, fromRow, toCol, toRow);
+      return this.specialTileManager.onBombMerge(toCol, toRow, newValue);
+    }
+
+    return null;
+  }
+
+  /**
+   * Clean up special tiles after bomb merge check
+   * @param {number} fromCol - Source column
+   * @param {number} fromRow - Source row
+   * @param {number} toCol - Target column
+   * @param {number} toRow - Target row
+   * @param {Object|null} bombMergeResult - Result from handleBombMergeCheck
+   */
+  cleanupSpecialTilesAfterMerge(fromCol, fromRow, toCol, toRow, bombMergeResult) {
+    if (!this.specialTileManager) return;
+
+    const specialTileFrom = this.specialTileManager.getSpecialTileAt(fromCol, fromRow);
+
+    // Remove non-bomb special tiles at source position
+    if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
+      this.specialTileManager.removeTileAt(fromCol, fromRow);
+    }
+
+    // Remove special tile at target if bomb exploded
+    if (!bombMergeResult || bombMergeResult.exploded) {
+      this.specialTileManager.removeTileAt(toCol, toRow);
+    }
+  }
+
+  /**
+   * Create merged tile after animation - handles both bomb and normal tiles
+   * @param {number} col - Column position
+   * @param {number} row - Row position
+   * @param {number} value - Tile value
+   * @param {Object|null} bombMergeResult - Result from handleBombMergeCheck
+   * @returns {Tile} The newly created tile
+   */
+  createMergedTile(col, row, value, bombMergeResult) {
+    if (bombMergeResult && !bombMergeResult.exploded) {
+      return new Tile(this, col, row, value, this.boardLogic.nextTileId++, 'bomb', {
+        mergesRemaining: bombMergeResult.mergesRemaining,
+        value: value
+      });
+    }
+    return new Tile(this, col, row, value, this.boardLogic.nextTileId++);
   }
 }
