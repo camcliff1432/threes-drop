@@ -356,7 +356,7 @@ class GameScene extends Phaser.Scene {
       } else {
         this.add.text(15, 15, '< BACK', {
           fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
-        }).setInteractive().on('pointerdown', () => this.showExitConfirmation('LevelSelectScene'));
+        }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
       }
     } else if (this.gameMode === 'daily') {
       this.add.text(15, 15, '< MENU', {
