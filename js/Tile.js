@@ -27,15 +27,7 @@ class Tile extends Phaser.GameObjects.Container {
     // Main tile background
     this.bg = this.scene.add.graphics();
 
-    // === BIRTHDAY MODE START ===
-    // Use birthday colors if in birthday mode
-    let color;
-    if (this.scene.gameMode === 'birthday' && GameConfig.BIRTHDAY_COLORS[this.value]) {
-      color = GameConfig.BIRTHDAY_COLORS[this.value];
-    } else {
-      color = getTileColor(this.value);
-    }
-    // === BIRTHDAY MODE END ===
+    let color = getTileColor(this.value);
     let strokeColor = 0x000000;
     let strokeAlpha = 0.15;
 
@@ -422,15 +414,7 @@ class Tile extends Phaser.GameObjects.Container {
     const size = this.TILE_SIZE - 8;
     this.bg.clear();
 
-    // === BIRTHDAY MODE START ===
-    // Use birthday colors if in birthday mode
-    let color;
-    if (this.scene.gameMode === 'birthday' && GameConfig.BIRTHDAY_COLORS[this.value]) {
-      color = GameConfig.BIRTHDAY_COLORS[this.value];
-    } else {
-      color = getTileColor(this.value);
-    }
-    // === BIRTHDAY MODE END ===
+    let color = getTileColor(this.value);
     let strokeColor = 0xffffff;
     let strokeAlpha = 0.3;
 

@@ -65,16 +65,6 @@ class GameScene extends Phaser.Scene {
     // Track if player has used ad continue (only allowed once per game)
     this.hasUsedAdContinue = false;
 
-    // === BIRTHDAY MODE START ===
-    // Apply birthday mode custom merge rules and tile spawning
-    if (this.gameMode === 'birthday') {
-      const birthdayConfig = GameConfig.GAME_MODES.birthday;
-      boardConfig.customMergeRules = birthdayConfig.customMergeRules;
-      boardConfig.tileSpawnValues = birthdayConfig.tileSpawnValues;
-      boardConfig.useScoreUnlocks = false;
-    }
-    // === BIRTHDAY MODE END ===
-
     this.boardLogic = new BoardLogic(boardConfig);
 
     // Initialize PowerUpManager based on mode
@@ -1634,14 +1624,6 @@ class GameScene extends Phaser.Scene {
             achievementManager.recordTile(op.value);
             this.updateUI();
 
-            // === BIRTHDAY MODE START ===
-            if (this.gameMode === 'birthday' && op.value === 65) {
-              this.tiles[toKey] = merged;
-              this.time.delayedCall(300, () => this.showBirthdayWin());
-              return;
-            }
-            // === BIRTHDAY MODE END ===
-
             this.tweens.add({
               targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
               duration: GameConfig.ANIM.MERGE, ease: 'Back.easeOut',
@@ -1793,15 +1775,6 @@ class GameScene extends Phaser.Scene {
       tileCollectionManager.recordTile(newValue);
       achievementManager.recordTile(newValue);
       this.updateUI();
-
-      // === BIRTHDAY MODE START ===
-      // Check for birthday win condition (created a 65 tile)
-      if (this.gameMode === 'birthday' && newValue === 65) {
-        this.tiles[key] = merged;
-        this.time.delayedCall(300, () => this.showBirthdayWin());
-        return;
-      }
-      // === BIRTHDAY MODE END ===
 
       this.tweens.add({
         targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -2456,14 +2429,6 @@ class GameScene extends Phaser.Scene {
             achievementManager.recordTile(op.value);
             this.updateUI();
 
-            // === BIRTHDAY MODE START ===
-            if (this.gameMode === 'birthday' && op.value === 65) {
-              this.tiles[toKey] = merged;
-              this.time.delayedCall(300, () => this.showBirthdayWin());
-              return;
-            }
-            // === BIRTHDAY MODE END ===
-
             this.tweens.add({
               targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
               duration: GameConfig.ANIM.MERGE, ease: 'Back.easeOut',
@@ -2612,14 +2577,6 @@ class GameScene extends Phaser.Scene {
               tileCollectionManager.recordTile(op.value);
               achievementManager.recordTile(op.value);
               this.updateUI();
-
-              // === BIRTHDAY MODE START ===
-              if (this.gameMode === 'birthday' && op.value === 65) {
-                this.tiles[toKey] = merged;
-                this.time.delayedCall(300, () => this.showBirthdayWin());
-                return;
-              }
-              // === BIRTHDAY MODE END ===
 
               this.tweens.add({
                 targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
@@ -3053,98 +3010,6 @@ class GameScene extends Phaser.Scene {
       });
     }
   }
-
-  // === BIRTHDAY MODE START ===
-  /**
-   * Show birthday win celebration when player creates a 65 tile
-   */
-  showBirthdayWin() {
-    const { width, height } = this.cameras.main;
-
-    // Stop input
-    this.inputEnabled = false;
-
-    // Clear any saved game state
-    gameStateManager.clearSavedGame();
-
-    // Dark overlay
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.85);
-    overlay.fillRect(0, 0, width, height);
-    overlay.setDepth(2000);
-
-    // Big golden "65"
-    const bigNumber = this.add.text(width / 2, height / 2 - 100, '65', {
-      fontSize: '140px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#FFD700'
-    }).setOrigin(0.5).setDepth(2001);
-
-    // Add glow effect with pulsing
-    this.tweens.add({
-      targets: bigNumber,
-      scale: 1.1,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    // Birthday message
-    this.add.text(width / 2, height / 2 + 20, 'Happy 65th Birthday Dad!', {
-      fontSize: '28px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#FFFFFF'
-    }).setOrigin(0.5).setDepth(2001);
-
-    // Custom sub-message (customize this!)
-    this.add.text(width / 2, height / 2 + 60, 'With love from your family', {
-      fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#AAAAAA'
-    }).setOrigin(0.5).setDepth(2001);
-
-    // Create confetti particles
-    this.createBirthdayConfetti();
-
-    // Back to menu button
-    const menuBtn = UIHelpers.createButton(this, width / 2, height / 2 + 140, 'BACK TO MENU', () => {
-      this.scene.start('MenuScene');
-    }, { width: 180, height: 50, fontSize: '18px' });
-    // Set depth on button components
-    menuBtn.bg.setDepth(2001);
-    menuBtn.label.setDepth(2001);
-    menuBtn.hitArea.setDepth(2001);
-  }
-
-  /**
-   * Create celebratory confetti for birthday win
-   */
-  createBirthdayConfetti() {
-    const { width, height } = this.cameras.main;
-    const colors = [0xFFD700, 0xFF69B4, 0x9370DB, 0x00CED1, 0xFF6347, 0x7FFF00];
-
-    // Create multiple confetti pieces
-    for (let i = 0; i < 50; i++) {
-      const x = Math.random() * width;
-      const y = -20 - Math.random() * 100;
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const size = 8 + Math.random() * 8;
-
-      const confetti = this.add.graphics();
-      confetti.fillStyle(color, 1);
-      confetti.fillRect(-size / 2, -size / 2, size, size);
-      confetti.setPosition(x, y);
-      confetti.setDepth(2002);
-
-      // Animate falling with rotation
-      this.tweens.add({
-        targets: confetti,
-        y: height + 50,
-        x: x + (Math.random() - 0.5) * 200,
-        rotation: Math.random() * 10,
-        duration: 2000 + Math.random() * 2000,
-        delay: Math.random() * 1000,
-        ease: 'Sine.easeIn',
-        onComplete: () => confetti.destroy()
-      });
-    }
-  }
-  // === BIRTHDAY MODE END ===
 
   showGameOver() {
     const { width, height } = this.cameras.main;

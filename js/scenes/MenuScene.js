@@ -28,16 +28,6 @@ class MenuScene extends Phaser.Scene {
     const dailyChallenge = dailyChallengeManager.generateChallenge();
 
     this.gameModes = [
-      // === BIRTHDAY MODE START ===
-      {
-        mode: 'birthday',
-        title: "DAD'S 65TH",
-        subtitle: 'Birthday Special',
-        description: 'Create a 65 tile!\n5+5=10, 20+40=60, 60+5=65',
-        color: 0xFFD700,
-        tiles: ['birthday_5', 'birthday_60', 'birthday_65']
-      },
-      // === BIRTHDAY MODE END ===
       {
         mode: 'daily',
         title: 'DAILY',
@@ -91,11 +81,8 @@ class MenuScene extends Phaser.Scene {
       }
     ];
 
-    // === BIRTHDAY MODE START ===
-    // Carousel state - start on birthday mode (index 0)
-    // Original: this.currentIndex = 1; // 'original' mode
-    this.currentIndex = 0;
-    // === BIRTHDAY MODE END ===
+    // Carousel state - start on 'original' mode (index 1)
+    this.currentIndex = 1;
     this.cardWidth = 260;
     this.cardHeight = 280;
     this.cardGap = 20;
@@ -231,32 +218,6 @@ class MenuScene extends Phaser.Scene {
               fontSize: '20px', color: '#ffffff'
             }).setOrigin(0.5));
             break;
-
-          // === BIRTHDAY MODE START ===
-          case 'birthday_5':
-            drawTileBase(GameConfig.BIRTHDAY_COLORS[5]);
-            container.add(tileBg);
-            container.add(this.add.text(tileX, tileY, '5', {
-              fontSize: '18px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#ffffff'
-            }).setOrigin(0.5));
-            break;
-
-          case 'birthday_60':
-            drawTileBase(GameConfig.BIRTHDAY_COLORS[60]);
-            container.add(tileBg);
-            container.add(this.add.text(tileX, tileY, '60', {
-              fontSize: '16px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#ffffff'
-            }).setOrigin(0.5));
-            break;
-
-          case 'birthday_65':
-            drawTileBase(GameConfig.BIRTHDAY_COLORS[65]);
-            container.add(tileBg);
-            container.add(this.add.text(tileX, tileY, '65', {
-              fontSize: '16px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#ffffff'
-            }).setOrigin(0.5));
-            break;
-          // === BIRTHDAY MODE END ===
         }
       } else {
         // Regular numeric tile - clean flat style
@@ -288,10 +249,6 @@ class MenuScene extends Phaser.Scene {
       goalLabel = modeData.dailyStats?.todayCompleted ? 'Completed Today' : 'Goal: Complete Challenge';
     } else if (modeData.mode === 'levels') {
       goalLabel = 'Goal: Complete All Levels';
-    // === BIRTHDAY MODE START ===
-    } else if (modeData.mode === 'birthday') {
-      goalLabel = 'Goal: Create 65 Tile';
-    // === BIRTHDAY MODE END ===
     } else {
       goalLabel = 'Goal: Highest Tile';
     }
@@ -601,11 +558,6 @@ class MenuScene extends Phaser.Scene {
       this.scene.start('DailyChallengeScene');
     } else if (mode === 'levels') {
       this.scene.start('TutorialSelectScene');
-    // === BIRTHDAY MODE START ===
-    } else if (mode === 'birthday') {
-      // Birthday mode - no save/resume, just start fresh
-      this.scene.start('GameScene', { mode: 'birthday' });
-    // === BIRTHDAY MODE END ===
     } else {
       // Check for saved game
       if (gameStateManager.hasSavedGame(mode)) {
