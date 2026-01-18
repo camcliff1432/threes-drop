@@ -2171,7 +2171,7 @@ class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Sync visual tiles with board state - removes ghost tiles
+   * Sync visual tiles with board state - removes ghost tiles and fixes scale
    * Called after explosions and gravity to ensure consistency
    */
   syncTilesWithBoard() {
@@ -2184,6 +2184,12 @@ class GameScene extends Phaser.Scene {
 
       if (boardValue === null || boardValue === undefined) {
         keysToRemove.push(key);
+      } else {
+        // Ensure tile has correct scale (fix interrupted animations)
+        const tile = this.tiles[key];
+        if (tile && (tile.scaleX !== 1 || tile.scaleY !== 1)) {
+          tile.setScale(1);
+        }
       }
     }
 
