@@ -655,7 +655,7 @@ class MenuScene extends Phaser.Scene {
 
     newBtnZone.on('pointerdown', () => {
       cleanup();
-      gameStateManager.clearSavedGame();
+      gameStateManager.clearSavedGame(mode);
       this.scene.start('GameScene', { mode });
     });
 

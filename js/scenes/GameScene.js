@@ -180,8 +180,8 @@ class GameScene extends Phaser.Scene {
 
     // Check if resuming from saved state
     if (this.resumeFromSave) {
-      const savedState = gameStateManager.getSavedGame();
-      if (savedState && savedState.gameMode === this.gameMode) {
+      const savedState = gameStateManager.getSavedGame(this.gameMode);
+      if (savedState) {
         this.loadSavedState(savedState);
         return; // Don't generate new next tile, use saved one
       }
@@ -507,7 +507,7 @@ class GameScene extends Phaser.Scene {
       quitBtnZone.on('pointerdown', () => {
         cleanup();
         // Clear any saved game for this mode
-        gameStateManager.clearSavedGame();
+        gameStateManager.clearSavedGame(this.gameMode);
         this.scene.start(targetScene);
       });
     }
@@ -3025,7 +3025,7 @@ class GameScene extends Phaser.Scene {
     const canContinue = this.gameMode === 'endless' && !this.hasUsedAdContinue;
 
     // Clear any saved game state since game is over
-    gameStateManager.clearSavedGame();
+    gameStateManager.clearSavedGame(this.gameMode);
 
     // Track achievements
     achievementManager.recordScore(finalScore);

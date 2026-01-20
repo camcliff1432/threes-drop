@@ -6,7 +6,14 @@
  */
 class GameStateManager {
   constructor() {
-    this.STORAGE_KEY = 'threes_drop_saved_game';
+    this.STORAGE_KEY_PREFIX = 'threes_drop_saved_game_';
+  }
+
+  /**
+   * Get storage key for a specific mode
+   */
+  getStorageKey(mode) {
+    return this.STORAGE_KEY_PREFIX + (mode || 'default');
   }
 
   /**
@@ -104,7 +111,7 @@ class GameStateManager {
         savedAt: Date.now()
       };
 
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(this.getStorageKey(gameScene.gameMode), JSON.stringify(state));
       return true;
     } catch (e) {
       console.warn('Failed to save game state:', e);
@@ -140,18 +147,14 @@ class GameStateManager {
    */
   hasSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = localStorage.getItem(this.getStorageKey(mode));
       if (!stored) return false;
 
-      const state = JSON.parse(stored);
-
-      // Check if saved game matches the requested mode
-      if (state.gameMode !== mode) return false;
-
       // Optional: expire saved games after 24 hours
+      // const state = JSON.parse(stored);
       // const dayMs = 24 * 60 * 60 * 1000;
       // if (Date.now() - state.savedAt > dayMs) {
-      //   this.clearSavedGame();
+      //   this.clearSavedGame(mode);
       //   return false;
       // }
 
@@ -163,11 +166,12 @@ class GameStateManager {
 
   /**
    * Get saved game state (with automatic migration)
+   * @param {string} mode - Game mode to get saved game for
    * @returns {Object|null} Migrated saved game state or null
    */
-  getSavedGame() {
+  getSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = localStorage.getItem(this.getStorageKey(mode));
       if (!stored) return null;
 
       let state = JSON.parse(stored);
@@ -183,11 +187,12 @@ class GameStateManager {
   }
 
   /**
-   * Clear saved game
+   * Clear saved game for a specific mode
+   * @param {string} mode - Game mode to clear saved game for
    */
-  clearSavedGame() {
+  clearSavedGame(mode) {
     try {
-      localStorage.removeItem(this.STORAGE_KEY);
+      localStorage.removeItem(this.getStorageKey(mode));
     } catch (e) {
       console.warn('Failed to clear saved game:', e);
     }
