@@ -362,11 +362,23 @@ class BoardLogic {
    * Get current game state for objective checking
    */
   getGameState() {
+    // Find highest tile value on the board
+    let highestTile = 0;
+    for (let col = 0; col < this.COLS; col++) {
+      for (let row = 0; row < this.ROWS; row++) {
+        const val = this.board[col][row];
+        if (typeof val === 'number' && val > highestTile) {
+          highestTile = val;
+        }
+      }
+    }
+
     return {
       score: this.score,
       tilesCreated: this.tilesCreated,
       tileCount: this.getTotalTileCount(),
-      movesUsed: this.movesUsed
+      movesUsed: this.movesUsed,
+      highestTile
     };
   }
 

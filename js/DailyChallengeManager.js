@@ -46,27 +46,24 @@ class DailyChallengeManager {
 
   /**
    * Challenge types that can be generated
-   * Add new types here to expand variety
    */
   CHALLENGE_TYPES = [
     'score_target',      // Reach a target score
     'tile_target',       // Create a specific tile value
-    'limited_moves',     // Score as high as possible in N moves
-    'no_power_ups',      // Play without power-ups
-    'speed_run',         // Reach score in time limit
-    'survival',          // Survive N moves without game over
+    'limited_moves',     // Reach target score within N moves
+    'no_power_ups',      // Reach score without power-ups
+    'survival',          // Survive N moves without filling the board
   ];
 
   /**
    * Difficulty configurations
-   * Edit these to tune challenge difficulty
    */
   DIFFICULTY_CONFIG = {
     easy: {
       scoreTargets: [500, 750, 1000, 1250],
       tileTargets: [24, 48],
       moveLimits: [50, 60, 70],
-      timeLimits: [180, 240], // seconds
+      limitedMoveScoreTargets: [300, 400, 500],
       survivalMoves: [30, 40, 50],
       multiplier: 1.0
     },
@@ -74,7 +71,7 @@ class DailyChallengeManager {
       scoreTargets: [1500, 2000, 2500, 3000],
       tileTargets: [48, 96],
       moveLimits: [40, 50, 60],
-      timeLimits: [150, 180],
+      limitedMoveScoreTargets: [600, 800, 1000],
       survivalMoves: [50, 60, 70],
       multiplier: 1.5
     },
@@ -82,7 +79,7 @@ class DailyChallengeManager {
       scoreTargets: [4000, 5000, 6000, 8000],
       tileTargets: [96, 192],
       moveLimits: [30, 40, 50],
-      timeLimits: [120, 150],
+      limitedMoveScoreTargets: [1000, 1500, 2000],
       survivalMoves: [70, 80, 100],
       multiplier: 2.0
     }
@@ -90,7 +87,6 @@ class DailyChallengeManager {
 
   /**
    * Special modifiers that can be applied to challenges
-   * Edit to add new gameplay modifiers
    */
   MODIFIERS = [
     { id: 'none', name: 'Standard', description: 'No special rules' },
@@ -101,6 +97,20 @@ class DailyChallengeManager {
     { id: 'frenzy_boost', name: 'Frenzy Boost', description: 'Frenzy charges faster' },
     { id: 'narrow_board', name: 'Narrow Board', description: 'Less columns available' },
   ];
+
+  /**
+   * Modifier compatibility rules.
+   * Maps challenge type -> set of modifier IDs that are incompatible.
+   */
+  INCOMPATIBLE_MODIFIERS = {
+    // no_power_ups disables frenzy, so frenzy_boost is wasted.
+    // narrow_board with no power-ups is near-impossible.
+    no_power_ups: ['frenzy_boost', 'narrow_board'],
+    // tile_target requires balanced tile distribution; weighted drops make it much harder.
+    tile_target: ['more_1s', 'more_2s'],
+    // survival on a narrow board is too punishing.
+    survival: ['narrow_board'],
+  };
 
   // ============================================
   // CHALLENGE GENERATION
@@ -141,11 +151,14 @@ class DailyChallengeManager {
     const typeIndex = Math.floor(random() * this.CHALLENGE_TYPES.length);
     const challengeType = this.CHALLENGE_TYPES[typeIndex];
 
-    // Pick modifier (30% chance of having one)
+    // Pick modifier (30% chance of having one), filtering incompatible combos
     let modifier = this.MODIFIERS[0]; // 'none' by default
     if (random() < 0.3) {
-      const modIndex = 1 + Math.floor(random() * (this.MODIFIERS.length - 1));
-      modifier = this.MODIFIERS[modIndex];
+      const incompatible = this.INCOMPATIBLE_MODIFIERS[challengeType] || [];
+      const compatible = this.MODIFIERS.filter(m => m.id !== 'none' && !incompatible.includes(m.id));
+      if (compatible.length > 0) {
+        modifier = compatible[Math.floor(random() * compatible.length)];
+      }
     }
 
     // Generate challenge based on type
@@ -188,11 +201,14 @@ class DailyChallengeManager {
         };
 
       case 'limited_moves':
+        const moveLimit = pick(config.moveLimits);
+        const moveTarget = pick(config.limitedMoveScoreTargets);
         return {
           type: 'limited_moves',
           name: 'Limited Moves',
-          description: 'Score as high as possible with limited moves',
-          moveLimit: pick(config.moveLimits),
+          description: `Score ${moveTarget} in ${moveLimit} moves`,
+          moveLimit,
+          target: moveTarget,
           icon: '👆'
         };
 
@@ -203,16 +219,6 @@ class DailyChallengeManager {
           description: 'Reach the score without using power-ups',
           target: pick(config.scoreTargets) * 0.7 | 0,
           icon: '🚫'
-        };
-
-      case 'speed_run':
-        return {
-          type: 'speed_run',
-          name: 'Speed Run',
-          description: 'Reach the target score before time runs out',
-          target: pick(config.scoreTargets) * 0.8 | 0,
-          timeLimit: pick(config.timeLimits),
-          icon: '⏱️'
         };
 
       case 'survival':
@@ -250,7 +256,6 @@ class DailyChallengeManager {
       tile_target: 1.2,
       limited_moves: 1.3,
       no_power_ups: 1.4,
-      speed_run: 1.5,
       survival: 1.1
     };
 

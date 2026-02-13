@@ -1906,12 +1906,13 @@ class GameScene extends Phaser.Scene {
         const modifier = this.dailyChallenge?.modifier;
 
         if (modifier?.id === 'glass_chaos') {
-          const glassSpawnRate = 0.35; // 35% chance per drop
-          if (Math.random() < glassSpawnRate) {
+          // Use move count for deterministic spawning (every ~3 moves)
+          const moves = this.boardLogic.getGameState().movesUsed;
+          if (moves % 3 === 1) {
             const emptyCell = this.specialTileManager.findRandomEmptyCell();
             if (emptyCell) {
               const glassValues = [3, 6, 12];
-              const glassValue = glassValues[Math.floor(Math.random() * glassValues.length)];
+              const glassValue = glassValues[moves % glassValues.length];
               const glassTile = this.specialTileManager.spawnGlassTile(emptyCell.col, emptyCell.row, glassValue);
               this.createSpecialTile(emptyCell.col, emptyCell.row, 'glass', { durability: glassTile.durability, value: glassValue });
             }
@@ -2896,8 +2897,7 @@ class GameScene extends Phaser.Scene {
         return state.highestTile >= challenge.target;
 
       case 'limited_moves':
-        // Limited moves: game ends when moves run out, success is based on score
-        return false; // Check is handled in fail condition
+        return state.score >= challenge.target;
 
       case 'survival':
         return state.movesUsed >= challenge.survivalMoves;
@@ -2918,8 +2918,8 @@ class GameScene extends Phaser.Scene {
       return true;
     }
 
-    // Limited moves: out of moves
-    if (challenge.type === 'limited_moves' && state.movesUsed >= challenge.moveLimit) {
+    // Limited moves: out of moves AND didn't reach target score
+    if (challenge.type === 'limited_moves' && state.movesUsed >= challenge.moveLimit && state.score < challenge.target) {
       return true;
     }
 

@@ -81,12 +81,10 @@ class DailyChallengeScene extends Phaser.Scene {
 
     // Target/details
     let detailText = '';
-    if (challenge.target) {
+    if (challenge.type === 'limited_moves') {
+      detailText = `Score ${challenge.target} in ${challenge.moveLimit} moves`;
+    } else if (challenge.target) {
       detailText = `Target: ${challenge.target}`;
-    } else if (challenge.moveLimit) {
-      detailText = `Moves: ${challenge.moveLimit}`;
-    } else if (challenge.timeLimit) {
-      detailText = `Time: ${Math.floor(challenge.timeLimit / 60)}:${String(challenge.timeLimit % 60).padStart(2, '0')}`;
     } else if (challenge.survivalMoves) {
       detailText = `Survive: ${challenge.survivalMoves} moves`;
     }
