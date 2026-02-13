@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#5a9fd4">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
   <title>Threes-Drop</title>
 
   <!-- Google Fonts - Clean, friendly typography -->
@@ -61,6 +64,7 @@
   <!-- Game modules (order matters - dependencies first) -->
   <script src="js/types.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/SoundManager.js"></script>
   <script src="js/HighScoreManager.js"></script>
   <script src="js/LevelManager.js"></script>
   <script src="js/CustomLevelLoader.js"></script>
@@ -82,7 +86,17 @@
   <script src="js/scenes/TutorialSelectScene.js"></script>
   <script src="js/scenes/LeaderboardScene.js"></script>
   <script src="js/scenes/AchievementScene.js"></script>
+  <script src="js/scenes/StatsScene.js"></script>
   <script src="js/scenes/GameScene.js"></script>
   <script src="js/main.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

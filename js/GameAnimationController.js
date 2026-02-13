@@ -241,4 +241,59 @@ class GameAnimationController {
       onComplete: () => floatText.destroy()
     });
   }
+
+  /**
+   * Create particle burst on merge
+   * @param {number} x - Center X
+   * @param {number} y - Center Y
+   * @param {number} color - Hex color of the tile
+   * @param {number} count - Number of particles
+   */
+  animateMergeParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.5);
+      const dist = 30 + Math.random() * 25;
+      const size = 2 + Math.random() * 3;
+
+      const particle = this.scene.add.graphics();
+      particle.fillStyle(color, 1);
+      particle.fillCircle(0, 0, size);
+      particle.setPosition(x, y);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: 300 + Math.random() * 150,
+        ease: 'Cubic.easeOut',
+        onComplete: () => particle.destroy()
+      });
+    }
+  }
+
+  /**
+   * Create pulsing frenzy border
+   * @param {number} width - Screen width
+   * @param {number} height - Screen height
+   * @returns {Phaser.GameObjects.Graphics} The border graphics (for cleanup)
+   */
+  createFrenzyBorder(width, height) {
+    const border = this.scene.add.graphics();
+    border.lineStyle(4, 0xff4444, 0.6);
+    border.strokeRect(2, 2, width - 4, height - 4);
+    border.setDepth(51);
+
+    this.scene.tweens.add({
+      targets: border,
+      alpha: 0.15,
+      duration: 400,
+      yoyo: true,
+      repeat: -1
+    });
+
+    return border;
+  }
 }

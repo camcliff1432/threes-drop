@@ -52,7 +52,10 @@ const UIHelpers = {
         bg.fillStyle(fillColor, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
       });
-      hitArea.on('pointerdown', callback);
+      hitArea.on('pointerdown', () => {
+        if (typeof soundManager !== 'undefined') soundManager.play('click');
+        callback();
+      });
     }
 
     return { bg, label, hitArea };

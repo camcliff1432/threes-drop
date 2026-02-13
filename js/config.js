@@ -6,6 +6,18 @@ const GameConfig = {
   // Save state version - increment when save format changes
   SAVE_VERSION: 1,
 
+  // Sound settings
+  SOUND: {
+    MASTER_VOLUME: 0.3
+  },
+
+  // Visual juice settings
+  JUICE: {
+    MERGE_PARTICLE_COUNT: 6,
+    SHAKE_MIN_VALUE: 48,
+    COMBO_MIN_COUNT: 2
+  },
+
   // Typography - Clean, friendly fonts
   FONTS: {
     DISPLAY: '"Nunito", "Helvetica Neue", sans-serif',  // Titles, headers

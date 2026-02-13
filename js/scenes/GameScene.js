@@ -139,6 +139,12 @@ class GameScene extends Phaser.Scene {
     this.isFrenzyMode = false;
     this.frenzyTimerEvent = null;
 
+    // Animation controller
+    this.animationController = new GameAnimationController(this);
+
+    // Cascade merge counter for combo tracking
+    this.cascadeMergeCount = 0;
+
     // Modal state - blocks game input when help menu is open
     this.modalOpen = false;
 
@@ -330,6 +336,16 @@ class GameScene extends Phaser.Scene {
         fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
       }).setOrigin(0.5);
     }
+
+    // Mute button
+    this.muteBtn = this.add.text(width - 60, 15, soundManager.muted ? '🔇' : '🔊', {
+      fontSize: '22px', padding: { x: 6, y: 6 }
+    }).setOrigin(1, 0).setInteractive();
+    this.muteBtn.on('pointerdown', () => {
+      soundManager.init();
+      const muted = soundManager.toggleMute();
+      this.muteBtn.setText(muted ? '🔇' : '🔊');
+    });
 
     // Help button
     const helpBtn = this.add.text(width - 15, 15, '?', {
@@ -1148,6 +1164,7 @@ class GameScene extends Phaser.Scene {
 
       if (result.success) {
         this.powerUpManager.spend('swapper');
+        soundManager.play('swap');
         // Clear selection and null out selectedTile1 BEFORE animating
         // so exitSelectionMode doesn't call setSelected(false) again and kill the tween
         const tile1Data = this.selectedTile1;
@@ -1180,6 +1197,7 @@ class GameScene extends Phaser.Scene {
 
       if (result.success) {
         this.powerUpManager.spend('merger');
+        soundManager.play('merger');
         // Clear selection and null out selectedTile1 BEFORE animating
         // so exitSelectionMode doesn't call setSelected(false) again and kill the tween
         const tile1Data = this.selectedTile1;
@@ -1390,6 +1408,7 @@ class GameScene extends Phaser.Scene {
 
       case 'wildcard':
         if (this.powerUpManager.spend('wildcard')) {
+          soundManager.play('wildcard');
           this.nextTileValue = 'wildcard';
           this.nextTileType = 'wildcard';
           this.updateNextTilePreview();
@@ -1406,6 +1425,7 @@ class GameScene extends Phaser.Scene {
   activateFrenzy() {
     if (this.powerUpManager.activateFrenzy()) {
       this.isFrenzyMode = true;
+      soundManager.play('frenzy');
       this.showFrenzyOverlay();
       this.updatePowerUpUI();
       achievementManager.recordFrenzy();
@@ -1429,6 +1449,9 @@ class GameScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1
     });
+
+    // Pulsing border
+    this.frenzyBorder = this.animationController.createFrenzyBorder(width, height);
 
     // Timer display
     this.frenzyTimerText = this.add.text(width / 2, 95, '10.0s', {
@@ -1468,6 +1491,11 @@ class GameScene extends Phaser.Scene {
     if (this.frenzyOverlay) {
       this.frenzyOverlay.destroy();
       this.frenzyOverlay = null;
+    }
+
+    if (this.frenzyBorder) {
+      this.frenzyBorder.destroy();
+      this.frenzyBorder = null;
     }
 
     if (this.frenzyTimerText) {
@@ -1695,11 +1723,15 @@ class GameScene extends Phaser.Scene {
 
     const tileType = this.nextTileType;
 
+    // Reset cascade merge counter for combo tracking
+    this.cascadeMergeCount = 0;
+
     if (result.merged) {
       // For merges: create tile but DON'T add to tiles dict yet
       // handleMerge will handle both the existing tile and create the merged result
       const tile = new Tile(this, col, result.row, this.nextTileValue, result.tileId, tileType);
       tile.dropFromTop(result.finalRow, GameConfig.ANIM.DROP);
+      soundManager.play('drop');
       this.time.delayedCall(GameConfig.ANIM.DROP, () => {
         this.handleMerge(col, result.finalRow, result.finalValue, tile);
       });
@@ -1708,6 +1740,7 @@ class GameScene extends Phaser.Scene {
       const tile = new Tile(this, col, result.finalRow, this.nextTileValue, result.tileId, tileType);
       this.tiles[`${col},${result.finalRow}`] = tile;
       tile.dropFromTop(result.finalRow, GameConfig.ANIM.DROP);
+      soundManager.play('drop');
       this.time.delayedCall(GameConfig.ANIM.DROP + 20, () => {
         this.onDropComplete();
       });
@@ -1768,7 +1801,21 @@ class GameScene extends Phaser.Scene {
         merged = new Tile(this, col, row, newValue, this.boardLogic.nextTileId++);
       }
       merged.updatePosition(col, row, false);
-      merged.setScale(0.5).setAlpha(0.5);
+      merged.setScale(0.3).setAlpha(0.5);
+
+      soundManager.play('merge', newValue);
+
+      // Merge particles
+      const layout = GameConfig.getLayout(this.cameras.main.width, this.cameras.main.height);
+      const px = layout.offsetX + col * layout.tileSize + layout.tileSize / 2;
+      const py = layout.offsetY + row * layout.tileSize + layout.tileSize / 2;
+      this.animationController.animateMergeParticles(px, py, getTileColor(newValue), GameConfig.JUICE.MERGE_PARTICLE_COUNT);
+
+      // Screen shake for high-value merges
+      if (newValue >= GameConfig.JUICE.SHAKE_MIN_VALUE) {
+        const intensity = Math.min(newValue / 96, 1.5);
+        this.cameras.main.shake(150, 0.005 * intensity);
+      }
 
       this.boardLogic.addScore(newValue);
       this.powerUpManager.addMergePoint();
@@ -1781,6 +1828,13 @@ class GameScene extends Phaser.Scene {
         duration: GameConfig.ANIM.DROP, ease: 'Back.easeOut',
         onComplete: () => {
           this.tiles[key] = merged;
+          // Secondary pulse for high-value tiles
+          if (newValue >= GameConfig.JUICE.SHAKE_MIN_VALUE) {
+            this.tweens.add({
+              targets: merged, scaleX: 1.08, scaleY: 1.08,
+              duration: 120, yoyo: true, ease: 'Sine.easeInOut'
+            });
+          }
           this.updatePowerUpUI();
           // Call onDropComplete to update special tiles (steel countdown, etc.)
           this.onDropComplete();
@@ -2038,6 +2092,7 @@ class GameScene extends Phaser.Scene {
    */
   executeBombExplosion(col, row, explosionData) {
     const { affectedTiles, totalPoints } = explosionData;
+    soundManager.play('explosion');
 
     // Track bomb explosion for achievements
     achievementManager.recordBombExploded();
@@ -2303,12 +2358,15 @@ class GameScene extends Phaser.Scene {
   handleSwipe(direction) {
     if (this.isAnimating || !this.swipeEnabled) return;
     this.isAnimating = true;
+    this.cascadeMergeCount = 0;
 
     const ops = this.boardLogic.shiftBoard(direction);
     if (ops.length === 0) {
       this.isAnimating = false;
       return;
     }
+
+    soundManager.play('swipe');
 
     this.animateOperations(ops, () => {
       const gravOps = this.boardLogic.applyGravity();
@@ -2577,7 +2635,34 @@ class GameScene extends Phaser.Scene {
                 merged = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++);
               }
               merged.updatePosition(op.col, op.toRow, false);
-              merged.setScale(0.5).setAlpha(0.5);
+              merged.setScale(0.3).setAlpha(0.5);
+
+              soundManager.play('merge', op.value);
+
+              // Cascade merge tracking for combos
+              if (typeof this.cascadeMergeCount === 'number') {
+                this.cascadeMergeCount++;
+                if (this.cascadeMergeCount >= GameConfig.JUICE.COMBO_MIN_COUNT) {
+                  const comboLayout = GameConfig.getLayout(this.cameras.main.width, this.cameras.main.height);
+                  const cx = comboLayout.offsetX + op.col * comboLayout.tileSize + comboLayout.tileSize / 2;
+                  const cy = comboLayout.offsetY + op.toRow * comboLayout.tileSize - 10;
+                  this.animationController.showFloatingText(cx, cy, `${this.cascadeMergeCount}x COMBO!`, '#ffdd44');
+                  soundManager.play('combo', this.cascadeMergeCount);
+                }
+              }
+
+              // Merge particles
+              const gLayout = GameConfig.getLayout(this.cameras.main.width, this.cameras.main.height);
+              const gpx = gLayout.offsetX + op.col * gLayout.tileSize + gLayout.tileSize / 2;
+              const gpy = gLayout.offsetY + op.toRow * gLayout.tileSize + gLayout.tileSize / 2;
+              this.animationController.animateMergeParticles(gpx, gpy, getTileColor(op.value), GameConfig.JUICE.MERGE_PARTICLE_COUNT);
+
+              // Screen shake for high-value merges
+              if (op.value >= GameConfig.JUICE.SHAKE_MIN_VALUE) {
+                const intensity = Math.min(op.value / 96, 1.5);
+                this.cameras.main.shake(150, 0.005 * intensity);
+              }
+
               this.boardLogic.addScore(op.value);
               this.powerUpManager.addMergePoint();
               tileCollectionManager.recordTile(op.value);
@@ -2587,7 +2672,17 @@ class GameScene extends Phaser.Scene {
               this.tweens.add({
                 targets: merged, scaleX: 1, scaleY: 1, alpha: 1,
                 duration: GameConfig.ANIM.FALL, ease: 'Back.easeOut',
-                onComplete: () => { this.tiles[toKey] = merged; processNext(); }
+                onComplete: () => {
+                  this.tiles[toKey] = merged;
+                  // Secondary pulse for high-value tiles
+                  if (op.value >= GameConfig.JUICE.SHAKE_MIN_VALUE) {
+                    this.tweens.add({
+                      targets: merged, scaleX: 1.08, scaleY: 1.08,
+                      duration: 120, yoyo: true, ease: 'Sine.easeInOut'
+                    });
+                  }
+                  processNext();
+                }
               });
             });
           });
@@ -3020,6 +3115,7 @@ class GameScene extends Phaser.Scene {
   showGameOver() {
     const { width, height } = this.cameras.main;
     const finalScore = this.boardLogic.getScore();
+    soundManager.play('gameOver');
 
     // Track if we can offer continue (endless mode only, once per game)
     const canContinue = this.gameMode === 'endless' && !this.hasUsedAdContinue;

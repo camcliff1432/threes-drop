@@ -114,6 +114,11 @@ class MenuScene extends Phaser.Scene {
     // Initial positioning
     this.updateCarousel(false);
 
+    // Initialize sound on first interaction
+    this.input.once('pointerdown', () => {
+      if (typeof soundManager !== 'undefined') soundManager.init();
+    });
+
     // Enable drag on cards
     this.setupDragNavigation();
   }
@@ -432,10 +437,14 @@ class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     }, { width: buttonWidth, height: 40, fontSize: '12px' });
 
-    // Row 2: How to Play
-    UIHelpers.createButton(this, width / 2, startY + spacing, 'HOW TO PLAY', () => {
+    // Row 2: Stats and How to Play
+    UIHelpers.createButton(this, width / 2 - buttonWidth / 2 - buttonGap / 2, startY + spacing, 'STATS', () => {
+      this.scene.start('StatsScene');
+    }, { width: buttonWidth, height: 40, fontSize: '12px' });
+
+    UIHelpers.createButton(this, width / 2 + buttonWidth / 2 + buttonGap / 2, startY + spacing, 'HOW TO PLAY', () => {
       UIHelpers.showHowToPlay(this);
-    }, { width: buttonWidth + 60, height: 40, fontSize: '14px' });
+    }, { width: buttonWidth, height: 40, fontSize: '12px' });
   }
 
   navigateCarousel(direction) {
