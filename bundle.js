@@ -596,7 +596,7 @@ class StorageBatcher {
    * Queue a value to be written
    */
   set(key, value) {
-    this.pending.set(key, { action: 'set', value });
+    this.pending.set(key, { action: 'set', value: String(value) });
     this._scheduleFlush();
   }
 
@@ -749,6 +749,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.08);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -773,6 +774,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.15);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
 
     this.haptic(15);
   }
@@ -798,6 +800,7 @@ class SoundManager {
       osc.connect(gain).connect(this.ctx.destination);
       osc.start(noteTime);
       osc.stop(noteTime + 0.1);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     }
   }
 
@@ -817,6 +820,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.4);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
 
     this.haptic([20, 10, 20, 10, 40]);
   }
@@ -836,6 +840,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.5);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -859,6 +864,7 @@ class SoundManager {
     filter.frequency.setValueAtTime(2000, t);
     source.connect(filter).connect(gain).connect(this.ctx.destination);
     source.start(t);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -884,6 +890,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
     source.connect(filter).connect(gain).connect(this.ctx.destination);
     source.start(t);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -902,6 +909,7 @@ class SoundManager {
     osc1.connect(gain1).connect(this.ctx.destination);
     osc1.start(t);
     osc1.stop(t + 0.08);
+    osc1.onended = () => { osc1.disconnect(); gain1.disconnect(); };
 
     // Second tone (ascending) - offset by 90ms
     const osc2 = this.ctx.createOscillator();
@@ -915,6 +923,7 @@ class SoundManager {
     osc2.connect(gain2).connect(this.ctx.destination);
     osc2.start(t + 0.09);
     osc2.stop(t + 0.18);
+    osc2.onended = () => { osc2.disconnect(); gain2.disconnect(); };
   }
 
   /**
@@ -933,6 +942,7 @@ class SoundManager {
     osc1.connect(gain1).connect(this.ctx.destination);
     osc1.start(t);
     osc1.stop(t + 0.2);
+    osc1.onended = () => { osc1.disconnect(); gain1.disconnect(); };
 
     // High tone falling to meet it
     const osc2 = this.ctx.createOscillator();
@@ -945,6 +955,7 @@ class SoundManager {
     osc2.connect(gain2).connect(this.ctx.destination);
     osc2.start(t);
     osc2.stop(t + 0.2);
+    osc2.onended = () => { osc2.disconnect(); gain2.disconnect(); };
   }
 
   /**
@@ -964,6 +975,7 @@ class SoundManager {
       osc.connect(gain).connect(this.ctx.destination);
       osc.start(noteTime);
       osc.stop(noteTime + 0.1);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     });
   }
 
@@ -986,6 +998,7 @@ class SoundManager {
     noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
     noiseSource.connect(noiseGain).connect(this.ctx.destination);
     noiseSource.start(t);
+    noiseSource.onended = () => { noiseSource.disconnect(); noiseGain.disconnect(); };
 
     // Low thud
     const osc = this.ctx.createOscillator();
@@ -998,6 +1011,7 @@ class SoundManager {
     osc.connect(oscGain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.2);
+    osc.onended = () => { osc.disconnect(); oscGain.disconnect(); };
 
     this.haptic([30, 20, 50]);
   }
@@ -1895,6 +1909,15 @@ class CustomLevelLoader {
   }
 
   /**
+   * Strip HTML tags from a string
+   * @param {string} str - Input string
+   * @returns {string} Sanitized string
+   */
+  _stripHTML(str) {
+    return typeof str === 'string' ? str.replace(/<[^>]*>/g, '') : str;
+  }
+
+  /**
    * Add a new custom level from JSON
    * @param {Object|string} levelData - Level object or JSON string
    * @returns {Object} The added level
@@ -1905,6 +1928,26 @@ class CustomLevelLoader {
     // Validate required fields
     if (!level.id || !level.name || !level.objective) {
       throw new Error('Level must have id, name, and objective');
+    }
+
+    // Validate types
+    if (typeof level.id !== 'string' && typeof level.id !== 'number') {
+      throw new Error('Level id must be a string or number');
+    }
+    if (typeof level.name !== 'string') {
+      throw new Error('Level name must be a string');
+    }
+    if (typeof level.objective !== 'string' && typeof level.objective !== 'object') {
+      throw new Error('Level objective must be a string or object');
+    }
+
+    // Enforce length limits and strip HTML from string fields
+    level.name = this._stripHTML(level.name).slice(0, 50);
+    if (typeof level.description === 'string') {
+      level.description = this._stripHTML(level.description).slice(0, 200);
+    }
+    if (typeof level.objective === 'string') {
+      level.objective = this._stripHTML(level.objective).slice(0, 200);
     }
 
     // Check for duplicate ID
@@ -2012,12 +2055,33 @@ class CustomLevelLoader {
   /**
    * Import levels from JSON string (replaces all)
    * @param {string} json - JSON string of levels array
+   * @returns {{ success: boolean, imported: number, errors: string[] }}
    */
   importAll(json) {
-    const levels = JSON.parse(json);
-    this.customLevels = Array.isArray(levels) ? levels : [levels];
-    this.customLevels.sort((a, b) => a.id - b.id);
-    this.saveToStorage();
+    let parsed;
+    try {
+      parsed = JSON.parse(json);
+    } catch (e) {
+      return { success: false, imported: 0, errors: ['Invalid JSON: ' + e.message] };
+    }
+
+    const levels = Array.isArray(parsed) ? parsed : [parsed];
+    const errors = [];
+    let imported = 0;
+
+    // Clear existing levels before importing
+    this.customLevels = [];
+
+    levels.forEach((level, i) => {
+      try {
+        this.addLevel(level);
+        imported++;
+      } catch (e) {
+        errors.push(`Level ${i}: ${e.message}`);
+      }
+    });
+
+    return { success: errors.length === 0, imported, errors };
   }
 
   /**
@@ -2768,14 +2832,6 @@ class SpecialTileManager {
   }
 
   /**
-   * Get count of cleared lead tiles (for objectives)
-   */
-  getClearedLeadCount() {
-    // This could be tracked separately if needed for objectives
-    return 0;
-  }
-
-  /**
    * Reconcile tracking arrays with actual board state.
    * Removes entries whose position no longer matches the board.
    */
@@ -3066,7 +3122,8 @@ class BoardLogic {
     let count = 0;
     for (let col = 0; col < this.COLS; col++) {
       for (let row = 0; row < this.ROWS; row++) {
-        if (this.board[col][row] === value) {
+        const cell = this.board[col][row];
+        if (cell === value || (cell && typeof cell === 'object' && cell.value === value)) {
           count++;
         }
       }
@@ -3174,7 +3231,7 @@ class BoardLogic {
 
   isBoardFull() {
     for (let col = 0; col < this.COLS; col++) {
-      if (this.board[col][0] === null) return false;
+      if (this.getLowestEmptyRow(col) !== -1) return false;
     }
     return true;
   }
@@ -3487,10 +3544,492 @@ class BoardLogic {
 }
 
 
+// === js/TileRenderer.js ===
+/**
+ * TileRenderer - Generates polished tile textures with gradients, shadows, and highlights
+ * Uses Canvas 2D API to create Phaser textures for each tile type/value
+ */
+class TileRenderer {
+  constructor(scene) {
+    this.scene = scene;
+    this.generatedSize = 0;
+  }
+
+  /**
+   * Generate all tile textures at the given size
+   * Call this in GameScene.create() and on resize
+   */
+  generateTextures(tileSize) {
+    if (this.generatedSize === tileSize) return;
+    this.generatedSize = tileSize;
+
+    // Normal tile values
+    const values = [1, 2, 3, 6, 12, 24, 48, 96, 192, 384, 768, 1536, 3072];
+    values.forEach(v => {
+      this._generateNormalTile(v, tileSize);
+    });
+
+    // Special tiles
+    this._generateSteelTile(tileSize);
+    this._generateLeadTile(tileSize);
+    this._generateGlassTile(tileSize, 2); // durability 2
+    this._generateGlassTile(tileSize, 1); // durability 1 (cracked)
+    this._generateWildcardTile(tileSize);
+    this._generateAutoSwapperTile(tileSize);
+    this._generateBombTile(tileSize);
+  }
+
+  /**
+   * Get the texture key for a tile
+   */
+  getKey(value, tileType = 'normal', specialData = {}) {
+    switch (tileType) {
+      case 'steel': return 'tile_steel';
+      case 'lead': return 'tile_lead';
+      case 'glass': return specialData.durability === 1 ? 'tile_glass_1' : 'tile_glass_2';
+      case 'wildcard': return 'tile_wildcard';
+      case 'auto_swapper': return 'tile_auto_swapper';
+      case 'bomb': return 'tile_bomb';
+      default: return `tile_${value}`;
+    }
+  }
+
+  // ---- Helper drawing functions ----
+
+  _getCanvas(key, size) {
+    // Remove old texture if it exists
+    if (this.scene.textures.exists(key)) {
+      this.scene.textures.remove(key);
+    }
+    const canvasTexture = this.scene.textures.createCanvas(key, size, size);
+    const ctx = canvasTexture.getContext();
+    return { canvasTexture, ctx };
+  }
+
+  _roundRectPath(ctx, x, y, w, h, r) {
+    if (typeof r === 'number') r = { tl: r, tr: r, bl: r, br: r };
+    ctx.beginPath();
+    ctx.moveTo(x + r.tl, y);
+    ctx.lineTo(x + w - r.tr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+    ctx.lineTo(x + w, y + h - r.br);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+    ctx.lineTo(x + r.bl, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+    ctx.lineTo(x, y + r.tl);
+    ctx.quadraticCurveTo(x, y, x + r.tl, y);
+    ctx.closePath();
+  }
+
+  _roundRect(ctx, x, y, w, h, r, fill, stroke) {
+    this._roundRectPath(ctx, x, y, w, h, r);
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  _hexToRgb(hex) {
+    if (typeof hex === 'number') {
+      return {
+        r: (hex >> 16) & 0xff,
+        g: (hex >> 8) & 0xff,
+        b: hex & 0xff
+      };
+    }
+    hex = hex.replace('#', '');
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16)
+    };
+  }
+
+  _colorToCSS(color) {
+    if (typeof color === 'string') return color;
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+    return `rgb(${r},${g},${b})`;
+  }
+
+  _darken(color, amt) {
+    const c = this._hexToRgb(color);
+    return `rgb(${Math.max(0,c.r-amt)},${Math.max(0,c.g-amt)},${Math.max(0,c.b-amt)})`;
+  }
+
+  _lighten(color, amt) {
+    const c = this._hexToRgb(color);
+    return `rgb(${Math.min(255,c.r+amt)},${Math.min(255,c.g+amt)},${Math.min(255,c.b+amt)})`;
+  }
+
+  // ---- Normal Tile ----
+  _generateNormalTile(value, tileSize) {
+    const key = `tile_${value}`;
+    const pad = 8; // padding for shadow
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+    const color = getTileColor(value);
+    const colorCSS = this._colorToCSS(color);
+
+    // Drop shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = colorCSS;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Gradient overlay for depth
+    const grad = ctx.createLinearGradient(cx - h, cy - h, cx - h, cy + h);
+    grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+    grad.addColorStop(0.45, 'rgba(255,255,255,0.03)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.12)');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+
+    // Inner highlight (top edge)
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - h + r + 2, cy - h + 1.5);
+    ctx.lineTo(cx + h - r - 2, cy - h + 1.5);
+    ctx.stroke();
+
+    // Bottom edge shadow
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - h + r + 2, cy + h - 1);
+    ctx.lineTo(cx + h - r - 2, cy + h - 1);
+    ctx.stroke();
+
+    // Border
+    ctx.strokeStyle = this._darken(color, 30);
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, false, true);
+    ctx.globalAlpha = 1;
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Steel Tile ----
+  _generateSteelTile(tileSize) {
+    const key = 'tile_steel';
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    // Shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 3;
+    const grad = ctx.createLinearGradient(cx - h, cy - h, cx - h, cy + h);
+    grad.addColorStop(0, '#b0bec5');
+    grad.addColorStop(0.3, '#8899a6');
+    grad.addColorStop(0.7, '#6d7a85');
+    grad.addColorStop(1, '#546570');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Crosshatch
+    ctx.save();
+    ctx.beginPath();
+    this._roundRectPath(ctx, cx - h, cy - h, s, s, r);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    for (let i = -s; i < s * 2; i += 8) {
+      ctx.beginPath();
+      ctx.moveTo(cx - h + i, cy - h);
+      ctx.lineTo(cx - h + i - s, cy + h);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Top highlight
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - h + r + 2, cy - h + 1.5);
+    ctx.lineTo(cx + h - r - 2, cy - h + 1.5);
+    ctx.stroke();
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Lead Tile ----
+  _generateLeadTile(tileSize) {
+    const key = 'tile_lead';
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 3;
+    const grad = ctx.createRadialGradient(cx - 8, cy - 8, 5, cx, cy, h * 1.2);
+    grad.addColorStop(0, '#5a5a5a');
+    grad.addColorStop(1, '#2a2a2a');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Inner glow
+    const glow = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, h);
+    glow.addColorStop(0, 'rgba(255,255,255,0.12)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Glass Tile ----
+  _generateGlassTile(tileSize, durability) {
+    const key = `tile_glass_${durability}`;
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    ctx.shadowColor = 'rgba(100,180,220,0.3)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    const grad = ctx.createLinearGradient(cx - h, cy - h, cx + h, cy + h);
+    grad.addColorStop(0, '#d4eaf5');
+    grad.addColorStop(0.5, '#b8d4e8');
+    grad.addColorStop(1, '#9cc0da');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Shine streak
+    ctx.save();
+    ctx.beginPath();
+    this._roundRectPath(ctx, cx - h, cy - h, s, s, r);
+    ctx.clip();
+    const shine = ctx.createLinearGradient(cx - h - 10, cy - h, cx + h - 10, cy + h);
+    shine.addColorStop(0, 'rgba(255,255,255,0)');
+    shine.addColorStop(0.35, 'rgba(255,255,255,0)');
+    shine.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+    shine.addColorStop(0.65, 'rgba(255,255,255,0)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.fillRect(cx - h, cy - h, s, s);
+
+    // Crack lines for durability 1
+    if (durability === 1) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 15, cy - 15);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + 10, cy - 5);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + 5, cy + 12);
+      ctx.moveTo(cx - 8, cy + 10);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Border
+    ctx.strokeStyle = 'rgba(100,180,220,0.5)';
+    ctx.lineWidth = 1.5;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, false, true);
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Wildcard Tile ----
+  _generateWildcardTile(tileSize) {
+    const key = 'tile_wildcard';
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    ctx.shadowColor = 'rgba(200,140,240,0.4)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 2;
+    const grad = ctx.createLinearGradient(cx - h, cy - h, cx + h, cy + h);
+    grad.addColorStop(0, '#e8bcf8');
+    grad.addColorStop(0.5, '#dba4eb');
+    grad.addColorStop(1, '#c88de0');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Sparkles
+    ctx.save();
+    ctx.beginPath();
+    this._roundRectPath(ctx, cx - h, cy - h, s, s, r);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    [[cx-12,cy-14,2.5],[cx+15,cy-8,2],[cx-8,cy+12,1.5],[cx+10,cy+15,2],[cx+5,cy-5,1.5]].forEach(([sx,sy,sr]) => {
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+
+    // Star text
+    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `800 ${Math.round(tileSize * 0.43)}px Nunito, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2605', cx, cy + 2);
+    ctx.shadowColor = 'transparent';
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Auto-Swapper Tile ----
+  _generateAutoSwapperTile(tileSize) {
+    const key = 'tile_auto_swapper';
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    ctx.shadowColor = 'rgba(140,100,180,0.35)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    const grad = ctx.createLinearGradient(cx - h, cy - h, cx + h, cy + h);
+    grad.addColorStop(0, '#bfa0d8');
+    grad.addColorStop(0.5, '#a78dc2');
+    grad.addColorStop(1, '#9078aa');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Top highlight
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - h + r + 2, cy - h + 1.5);
+    ctx.lineTo(cx + h - r - 2, cy - h + 1.5);
+    ctx.stroke();
+
+    // Swap arrows (positioned in top portion so number can sit below)
+    const arrowY = cy - h * 0.35;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx - 7, arrowY, 7, Math.PI * 0.3, Math.PI * 1.2, false);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx + 7, arrowY, 7, Math.PI * 1.3, Math.PI * 2.2, false);
+    ctx.stroke();
+
+    // Arrowheads
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 11, arrowY - 5);
+    ctx.lineTo(cx - 7, arrowY - 9);
+    ctx.lineTo(cx - 5, arrowY - 3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + 11, arrowY + 5);
+    ctx.lineTo(cx + 7, arrowY + 9);
+    ctx.lineTo(cx + 5, arrowY + 3);
+    ctx.fill();
+
+    canvasTexture.refresh();
+  }
+
+  // ---- Bomb Tile ----
+  _generateBombTile(tileSize) {
+    const key = 'tile_bomb';
+    const pad = 8;
+    const totalSize = tileSize + pad * 2;
+    const { canvasTexture, ctx } = this._getCanvas(key, totalSize);
+
+    const s = tileSize - 4;
+    const h = s / 2;
+    const r = 10;
+    const cx = totalSize / 2;
+    const cy = totalSize / 2;
+
+    ctx.shadowColor = 'rgba(200,60,60,0.4)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    const grad = ctx.createRadialGradient(cx - 5, cy - 5, 5, cx, cy, h * 1.2);
+    grad.addColorStop(0, '#f08080');
+    grad.addColorStop(1, '#c04040');
+    ctx.fillStyle = grad;
+    this._roundRect(ctx, cx - h, cy - h, s, s, r, true, false);
+    ctx.shadowColor = 'transparent';
+
+    // Fuse
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + 2, cy - h + 8);
+    ctx.quadraticCurveTo(cx + 12, cy - h - 2, cx + 16, cy - h + 4);
+    ctx.stroke();
+
+    // Spark glow
+    const sparkGrad = ctx.createRadialGradient(cx + 16, cy - h + 3, 0, cx + 16, cy - h + 3, 6);
+    sparkGrad.addColorStop(0, 'rgba(255,255,0,0.9)');
+    sparkGrad.addColorStop(0.5, 'rgba(255,140,0,0.6)');
+    sparkGrad.addColorStop(1, 'rgba(255,80,0,0)');
+    ctx.fillStyle = sparkGrad;
+    ctx.beginPath();
+    ctx.arc(cx + 16, cy - h + 3, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    canvasTexture.refresh();
+  }
+}
+
+// Global instance - initialized per scene
+let tileRenderer = null;
+
+
 // === js/Tile.js ===
 /**
  * Tile - Visual representation of a game tile
  * Supports normal tiles, special tiles (steel, lead, glass), and wildcard
+ * Uses pre-rendered canvas textures from TileRenderer for polished graphics
  */
 class Tile extends Phaser.GameObjects.Container {
   constructor(scene, gridX, gridY, value, tileId, tileType = 'normal', specialData = {}) {
@@ -3510,133 +4049,78 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   createGraphics() {
-    const size = this.TILE_SIZE - 6;
-    const halfSize = size / 2;
-    const radius = 8;
-
-    // Main tile background
-    this.bg = this.scene.add.graphics();
-
-    let color = getTileColor(this.value);
-    let strokeColor = 0x000000;
-    let strokeAlpha = 0.15;
-
-    switch (this.tileType) {
-      case 'steel':
-        color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x6a7a8a;
-        strokeAlpha = 0.4;
-        break;
-      case 'lead':
-        color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x333333;
-        strokeAlpha = 0.3;
-        break;
-      case 'glass':
-        color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x8ab4d4;
-        strokeAlpha = 0.5;
-        break;
-      case 'wildcard':
-        color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xc090d0;
-        strokeAlpha = 0.5;
-        break;
-      case 'auto_swapper':
-        color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0x8a6ca2;
-        strokeAlpha = 0.5;
-        break;
-      case 'bomb':
-        color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xc05050;
-        strokeAlpha = 0.5;
-        break;
-      default:
-        break;
-    }
-
-    // Main fill - clean, flat color
-    this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
-
-    // Subtle border
-    this.bg.lineStyle(1, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-halfSize, -halfSize, size, size, radius);
-
+    // Use pre-rendered texture from TileRenderer
+    const textureKey = tileRenderer.getKey(this.value, this.tileType, this.specialData);
+    this.bg = this.scene.add.image(0, 0, textureKey).setOrigin(0.5);
     this.add(this.bg);
 
-    // Add special visual effects based on type
-    if (this.tileType === 'steel') {
-      this.addSteelPattern();
-    } else if (this.tileType === 'lead') {
-      this.addLeadKettlebellPattern();
-    } else if (this.tileType === 'glass' && this.specialData.durability === 1) {
-      this.addCrackOverlay();
-    } else if (this.tileType === 'auto_swapper') {
-      this.addAutoSwapperPattern();
-    } else if (this.tileType === 'bomb') {
-      this.addBombPattern();
-    }
-
-    // Text content - clean styling
+    // Text content - clean styling (displayed on top of texture)
     let displayText = this.value?.toString() || '';
     let textColor = getTileTextColor(this.value);
-    let fontSize = '26px';
+    let fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
     let fontFamily = GameConfig.FONTS.NUMBERS;
     let fontWeight = '800';
 
     switch (this.tileType) {
       case 'steel':
         displayText = this.specialData.turnsRemaining?.toString() || '';
-        textColor = '#4a5a6a';
-        fontSize = '22px';
+        textColor = '#3d4d5d';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       case 'lead':
         displayText = this.specialData.countdown?.toString() || '';
-        textColor = '#888888';
-        fontSize = '26px';
+        textColor = '#999999';
+        fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
         break;
       case 'glass':
         displayText = this.value?.toString() || '';
-        textColor = '#2a5080';
-        fontSize = '26px';
+        textColor = '#1a4a70';
+        fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
         break;
       case 'wildcard':
-        displayText = '★';
-        textColor = '#ffffff';
-        fontSize = '32px';
+        displayText = ''; // Star is baked into texture
         break;
       case 'auto_swapper':
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '22px';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       case 'bomb':
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '22px';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       default:
         break;
     }
 
-    this.text = this.scene.add.text(0, 0, displayText, {
-      fontSize: fontSize,
-      fontFamily: fontFamily,
-      fontStyle: fontWeight,
-      color: textColor
-    }).setOrigin(0.5);
-    this.add(this.text);
+    // Only add text if there's something to display
+    const textY = this.tileType === 'auto_swapper' ? Math.round(this.TILE_SIZE * 0.18) : 0;
+    if (displayText || this.tileType === 'normal') {
+      this.text = this.scene.add.text(0, textY, displayText, {
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        fontStyle: fontWeight,
+        color: textColor,
+        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 2, fill: true }
+      }).setOrigin(0.5);
+      this.add(this.text);
+    }
 
-    // Add durability indicator for glass tiles
+    // Dynamic badges for special tiles
     if (this.tileType === 'glass') {
       this.addDurabilityIndicator();
+    }
+    if (this.tileType === 'auto_swapper' && this.specialData.swapsRemaining !== undefined) {
+      this.addSwapsBadge();
+    }
+    if (this.tileType === 'bomb' && this.specialData.mergesRemaining !== undefined) {
+      this.addMergesBadge();
     }
   }
 
   /**
-   * Add durability indicator (hearts/dots) for glass tiles
+   * Add durability indicator (badge) for glass tiles
    */
   addDurabilityIndicator() {
     const durability = this.specialData.durability || 2;
@@ -3666,200 +4150,45 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Add metallic crosshatch pattern for steel plates
+   * Add swaps remaining badge for auto-swapper tiles
    */
-  addSteelPattern() {
-    const size = this.TILE_SIZE - 8;
-    const pattern = this.scene.add.graphics();
+  addSwapsBadge() {
+    const lifeBadge = this.scene.add.graphics();
+    lifeBadge.fillStyle(0x000000, 0.5);
+    lifeBadge.fillCircle(18, 18, 9);
+    this.add(lifeBadge);
+    this.swapsBadge = lifeBadge;
 
-    // Crosshatch lines - diagonal pattern
-    pattern.lineStyle(1, 0x9090a0, 0.4);
-
-    // Lines going one direction (top-left to bottom-right)
-    const spacing = 8;
-    for (let i = -size; i < size; i += spacing) {
-      const x1 = Math.max(-size / 2, i - size / 2);
-      const y1 = Math.max(-size / 2, -i - size / 2);
-      const x2 = Math.min(size / 2, i + size / 2);
-      const y2 = Math.min(size / 2, -i + size / 2);
-      pattern.lineBetween(x1, y1, x2, y2);
-    }
-
-    // Lines going other direction (top-right to bottom-left)
-    for (let i = -size; i < size; i += spacing) {
-      const x1 = Math.max(-size / 2, -i - size / 2);
-      const y1 = Math.max(-size / 2, -i - size / 2);
-      const x2 = Math.min(size / 2, -i + size / 2);
-      const y2 = Math.min(size / 2, -i + size / 2);
-      pattern.lineBetween(x1, y1, x2, y2);
-    }
-
-    // Add subtle metallic highlight on top edge
-    pattern.lineStyle(2, 0xc0c0d0, 0.5);
-    pattern.lineBetween(-size / 2 + 4, -size / 2 + 4, size / 2 - 4, -size / 2 + 4);
-
-    // Add subtle shadow on bottom edge
-    pattern.lineStyle(2, 0x505060, 0.5);
-    pattern.lineBetween(-size / 2 + 4, size / 2 - 4, size / 2 - 4, size / 2 - 4);
-
-    this.add(pattern);
-    this.steelPattern = pattern;
+    const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
+      fontSize: '11px',
+      fontFamily: GameConfig.FONTS.NUMBERS,
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    this.add(lifeText);
+    this.lifeText = lifeText;
   }
 
   /**
-   * Add kettlebell shape for lead tiles
+   * Add merges remaining badge for bomb tiles
    */
-  addLeadKettlebellPattern() {
-    const pattern = this.scene.add.graphics();
+  addMergesBadge() {
+    const mergesBadge = this.scene.add.graphics();
+    mergesBadge.fillStyle(0x000000, 0.6);
+    mergesBadge.fillCircle(18, 18, 10);
+    mergesBadge.lineStyle(2, 0xffe600, 0.8);
+    mergesBadge.strokeCircle(18, 18, 10);
+    this.add(mergesBadge);
+    this.mergesBadgeGraphic = mergesBadge;
 
-    // Kettlebell body (main ball) - dark gray with metallic sheen
-    const bodyRadius = 16;
-    const bodyY = 6;
-
-    // Body shadow/depth
-    pattern.fillStyle(0x0a0a0a, 1);
-    pattern.fillCircle(2, bodyY + 2, bodyRadius);
-
-    // Main body
-    pattern.fillStyle(0x2a2a2a, 1);
-    pattern.fillCircle(0, bodyY, bodyRadius);
-
-    // Body highlight (top-left shine)
-    pattern.fillStyle(0x4a4a4a, 0.6);
-    pattern.fillCircle(-5, bodyY - 5, 6);
-
-    // Handle - curved arc at top
-    pattern.lineStyle(5, 0x2a2a2a, 1);
-    pattern.beginPath();
-    pattern.arc(0, -6, 12, Math.PI * 0.15, Math.PI * 0.85, false);
-    pattern.strokePath();
-
-    // Handle highlight
-    pattern.lineStyle(2, 0x4a4a4a, 0.5);
-    pattern.beginPath();
-    pattern.arc(0, -6, 12, Math.PI * 0.2, Math.PI * 0.5, false);
-    pattern.strokePath();
-
-    // Handle inner shadow
-    pattern.lineStyle(2, 0x1a1a1a, 0.8);
-    pattern.beginPath();
-    pattern.arc(0, -6, 9, Math.PI * 0.2, Math.PI * 0.8, false);
-    pattern.strokePath();
-
-    this.add(pattern);
-    this.leadPattern = pattern;
-  }
-
-  /**
-   * Add crack overlay for damaged glass tiles
-   */
-  addCrackOverlay() {
-    if (this.crackOverlay) {
-      this.crackOverlay.destroy();
-    }
-
-    this.crackOverlay = this.scene.add.graphics();
-    this.crackOverlay.lineStyle(2, 0x000000, 0.6);
-
-    // Draw crack lines
-    this.crackOverlay.lineBetween(-15, -15, 0, 0);
-    this.crackOverlay.lineBetween(0, 0, 10, -5);
-    this.crackOverlay.lineBetween(0, 0, 5, 12);
-    this.crackOverlay.lineBetween(-8, 10, 0, 0);
-
-    this.add(this.crackOverlay);
-  }
-
-  /**
-   * Add swirl pattern for auto-swapper tiles
-   */
-  addAutoSwapperPattern() {
-    const pattern = this.scene.add.graphics();
-
-    // Circular arrows / swirl to indicate swap behavior
-    pattern.lineStyle(2, 0xffffff, 0.4);
-
-    // Draw curved arrow (left arc)
-    pattern.beginPath();
-    pattern.arc(-8, 0, 8, Math.PI * 0.3, Math.PI * 1.2, false);
-    pattern.strokePath();
-
-    // Draw curved arrow (right arc)
-    pattern.beginPath();
-    pattern.arc(8, 0, 8, Math.PI * 1.3, Math.PI * 2.2, false);
-    pattern.strokePath();
-
-    // Arrowheads
-    pattern.fillStyle(0xffffff, 0.4);
-    pattern.fillTriangle(-12, -6, -8, -10, -6, -4);
-    pattern.fillTriangle(12, 6, 8, 10, 6, 4);
-
-    // Swaps remaining indicator in bottom corner
-    if (this.specialData.swapsRemaining !== undefined) {
-      const lifeBadge = this.scene.add.graphics();
-      lifeBadge.fillStyle(0x000000, 0.5);
-      lifeBadge.fillCircle(18, 18, 9);
-      this.add(lifeBadge);
-
-      const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
-        fontSize: '11px',
-        fontFamily: GameConfig.FONTS.NUMBERS,
-        fontStyle: 'bold',
-        color: '#ffffff'
-      }).setOrigin(0.5);
-      this.add(lifeText);
-      this.lifeText = lifeText;
-    }
-
-    this.add(pattern);
-    this.swapperPattern = pattern;
-  }
-
-  /**
-   * Add bomb icon pattern for bomb tiles
-   */
-  addBombPattern() {
-    const pattern = this.scene.add.graphics();
-
-    // Bomb body (circle) - behind the value
-    pattern.fillStyle(0x000000, 0.3);
-    pattern.fillCircle(0, 3, 14);
-
-    // Fuse
-    pattern.lineStyle(3, 0x444444, 1);
-    pattern.beginPath();
-    pattern.moveTo(0, -11);
-    pattern.lineTo(4, -18);
-    pattern.lineTo(8, -16);
-    pattern.strokePath();
-
-    // Fuse spark
-    pattern.fillStyle(0xff8800, 0.9);
-    pattern.fillCircle(8, -16, 4);
-    pattern.fillStyle(0xffff00, 1);
-    pattern.fillCircle(8, -16, 2);
-
-    // Merges remaining indicator in corner
-    if (this.specialData.mergesRemaining !== undefined) {
-      const mergesBadge = this.scene.add.graphics();
-      mergesBadge.fillStyle(0x000000, 0.6);
-      mergesBadge.fillCircle(18, 18, 10);
-      mergesBadge.lineStyle(2, 0xffe600, 0.8);
-      mergesBadge.strokeCircle(18, 18, 10);
-      this.add(mergesBadge);
-
-      const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
-        fontSize: '12px',
-        fontFamily: GameConfig.FONTS.NUMBERS,
-        fontStyle: 'bold',
-        color: '#ffe600'
-      }).setOrigin(0.5);
-      this.add(mergesText);
-      this.mergesText = mergesText;
-    }
-
-    this.add(pattern);
-    this.bombPattern = pattern;
+    const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
+      fontSize: '12px',
+      fontFamily: GameConfig.FONTS.NUMBERS,
+      fontStyle: 'bold',
+      color: '#ffe600'
+    }).setOrigin(0.5);
+    this.add(mergesText);
+    this.mergesText = mergesText;
   }
 
   /**
@@ -3904,60 +4233,19 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   updateGraphics() {
-    const size = this.TILE_SIZE - 8;
-    this.bg.clear();
-
-    let color = getTileColor(this.value);
-    let strokeColor = 0xffffff;
-    let strokeAlpha = 0.3;
-
-    switch (this.tileType) {
-      case 'steel':
-        color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x4a4a4a;
-        strokeAlpha = 0.8;
-        break;
-      case 'lead':
-        color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x444444;
-        strokeAlpha = 0.3;
-        break;
-      case 'glass':
-        color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x87ceeb;
-        strokeAlpha = 0.6;
-        break;
-      case 'wildcard':
-        color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xff66ff;
-        strokeAlpha = 0.8;
-        break;
-      case 'auto_swapper':
-        color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0xb366e0;
-        strokeAlpha = 0.8;
-        break;
-      case 'bomb':
-        color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xcc0000;
-        strokeAlpha = 0.9;
-        break;
-      default:
-        break;
+    // Swap the texture on the background image
+    const textureKey = tileRenderer.getKey(this.value, this.tileType, this.specialData);
+    if (this.bg && this.bg.texture) {
+      this.bg.setTexture(textureKey);
     }
-
-    this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-size / 2, -size / 2, size, size, 8);
-    this.bg.lineStyle(2, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 8);
 
     // Update text based on tile type
     if (this.tileType === 'lead') {
-      this.text.setText(this.specialData.countdown?.toString() || '');
+      if (this.text) this.text.setText(this.specialData.countdown?.toString() || '');
     } else if (this.tileType === 'steel') {
-      this.text.setText(this.specialData.turnsRemaining?.toString() || '');
+      if (this.text) this.text.setText(this.specialData.turnsRemaining?.toString() || '');
     } else if (this.tileType === 'glass') {
-      this.text.setText(this.value?.toString() || '');
+      if (this.text) this.text.setText(this.value?.toString() || '');
       // Update durability indicator
       if (this.durabilityText) {
         const durability = this.specialData.durability || 2;
@@ -3965,15 +4253,12 @@ class Tile extends Phaser.GameObjects.Container {
         this.durabilityText.setColor(durability === 1 ? '#ff0000' : '#0066cc');
       }
     } else if (this.tileType !== 'wildcard') {
-      this.text.setText(this.value?.toString() || '');
-      if (this.tileType === 'normal') {
-        this.text.setColor(getTileTextColor(this.value));
+      if (this.text) {
+        this.text.setText(this.value?.toString() || '');
+        if (this.tileType === 'normal') {
+          this.text.setColor(getTileTextColor(this.value));
+        }
       }
-    }
-
-    // Update crack overlay for glass
-    if (this.tileType === 'glass' && this.specialData.durability === 1) {
-      this.addCrackOverlay();
     }
 
     // Update auto-swapper swaps remaining indicator
@@ -4209,6 +4494,10 @@ const UIHelpers = {
     g.fillStyle(GameConfig.UI.BACKGROUND_DARK, 1);
     g.fillRect(0, 0, width, height);
 
+    // Subtle lighter overlay on top portion for gradient effect
+    g.fillStyle(0x4a5d6e, 0.25);
+    g.fillRect(0, 0, width, height * 0.35);
+
     return g;
   },
 
@@ -4224,15 +4513,26 @@ const UIHelpers = {
     const bg = scene.add.graphics();
     const fillColor = disabled ? GameConfig.UI.DISABLED : GameConfig.UI.PRIMARY;
 
-    // Clean button fill
+    // Button shadow
+    bg.fillStyle(0x000000, 0.2);
+    bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
+
+    // Main button fill
     bg.fillStyle(fillColor, disabled ? 0.5 : 1);
     bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+
+    // Top highlight (light overlay on top half)
+    if (!disabled) {
+      bg.fillStyle(0xffffff, 0.1);
+      bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
+    }
 
     const label = scene.add.text(x, y, text, {
       fontSize,
       fontFamily: GameConfig.FONTS.UI,
       fontStyle: '700',
-      color: disabled ? '#888888' : '#ffffff'
+      color: disabled ? '#888888' : '#ffffff',
+      shadow: disabled ? undefined : { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 1, fill: true }
     }).setOrigin(0.5);
 
     const hitArea = scene.add.rectangle(x, y, width, height, 0x000000, 0).setInteractive();
@@ -4240,13 +4540,24 @@ const UIHelpers = {
     if (!disabled) {
       hitArea.on('pointerover', () => {
         bg.clear();
+        // Shadow
+        bg.fillStyle(0x000000, 0.2);
+        bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
+        // Hover color
         bg.fillStyle(GameConfig.UI.PRIMARY_LIGHT, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+        // Highlight
+        bg.fillStyle(0xffffff, 0.12);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
       });
       hitArea.on('pointerout', () => {
         bg.clear();
+        bg.fillStyle(0x000000, 0.2);
+        bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
         bg.fillStyle(fillColor, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+        bg.fillStyle(0xffffff, 0.1);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
       });
       hitArea.on('pointerdown', () => {
         if (typeof soundManager !== 'undefined') soundManager.play('click');
@@ -5623,11 +5934,12 @@ class TileCollectionManager {
       this.collection.discoveredTiles.sort((a, b) => a - b);
     }
 
-    if (value > this.collection.highestTile) {
+    const isNewHighest = value > this.collection.highestTile;
+    if (isNewHighest) {
       this.collection.highestTile = value;
     }
 
-    if (isNewDiscovery || value > this.collection.highestTile) {
+    if (isNewDiscovery || isNewHighest) {
       this.saveCollection();
     }
 
@@ -5694,6 +6006,7 @@ class DailyChallengeManager {
   constructor() {
     this.STORAGE_KEY = 'threes_drop_daily';
     this.history = this.loadHistory();
+    this.pruneCompletedDates();
   }
 
   // ============================================
@@ -5973,6 +6286,16 @@ class DailyChallengeManager {
     };
   }
 
+  /**
+   * Prune completedDates to keep only the last 90 days
+   */
+  pruneCompletedDates() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    this.history.completedDates = this.history.completedDates.filter(d => d >= cutoffStr);
+  }
+
   saveHistory() {
     try {
       storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.history));
@@ -6001,6 +6324,7 @@ class DailyChallengeManager {
 
     this.history.completedDates.push(today);
     this.history.totalCompleted++;
+    this.pruneCompletedDates();
 
     // Calculate streak
     const yesterday = this.getYesterdayString();
@@ -6279,92 +6603,91 @@ class AchievementManager {
     this.checkLevelAchievements();
   }
 
-  // Achievement checking methods
-  checkTileAchievements(value) {
-    const tileAchievements = [
-      { id: 'first_3', value: 3 },
-      { id: 'first_6', value: 6 },
-      { id: 'first_12', value: 12 },
-      { id: 'first_24', value: 24 },
-      { id: 'first_48', value: 48 },
-      { id: 'first_96', value: 96 },
-      { id: 'first_192', value: 192 },
-      { id: 'first_384', value: 384 },
-      { id: 'first_768', value: 768 }
-    ];
+  /**
+   * Get the current stat value for a given requirement type
+   * @param {string} type - The requirement type from the ACHIEVEMENTS definition
+   * @param {*} currentValue - Optional context value (e.g. tile value, score, mode)
+   * @returns {number|string|null} The current stat value
+   */
+  getStatForRequirement(type, currentValue) {
+    switch (type) {
+      case 'tile': return currentValue;
+      case 'score': return currentValue;
+      case 'frenzy_count': return this.stats.frenzyCount;
+      case 'glass_broken': return this.stats.glassBroken;
+      case 'lead_cleared': return this.stats.leadCleared;
+      case 'bombs_exploded': return this.stats.bombsExploded;
+      case 'games_played': return this.stats.gamesPlayed;
+      case 'levels_completed': return this.stats.levelsCompleted;
+      case 'mode_played': return currentValue;
+      default: return null;
+    }
+  }
 
-    tileAchievements.forEach(a => {
-      if (value >= a.value) {
-        this.unlock(a.id);
+  /**
+   * Generic achievement checker - evaluates requirement from ACHIEVEMENTS data
+   * @param {Object} achievement - Achievement definition from ACHIEVEMENTS array
+   * @param {*} currentValue - Optional context value (e.g. tile value, score, mode)
+   */
+  checkAchievement(achievement, currentValue) {
+    if (this.isUnlocked(achievement.id)) return;
+    const req = achievement.requirement;
+    const stat = this.getStatForRequirement(req.type, currentValue);
+    if (stat === null) return;
+
+    if (req.type === 'mode_played') {
+      // Mode achievements: unlock if the current mode matches the required value
+      if (stat === req.value) {
+        this.unlock(achievement.id);
       }
-    });
+    } else {
+      // Numeric threshold achievements: unlock if stat >= required value
+      if (stat >= req.value) {
+        this.unlock(achievement.id);
+      }
+    }
+  }
+
+  /**
+   * Check all achievements matching the given requirement types
+   * @param {string|string[]} types - Requirement type(s) to check
+   * @param {*} currentValue - Optional context value
+   */
+  checkAchievementsByType(types, currentValue) {
+    const typeArr = Array.isArray(types) ? types : [types];
+    this.ACHIEVEMENTS
+      .filter(a => typeArr.includes(a.requirement.type))
+      .forEach(a => this.checkAchievement(a, currentValue));
+  }
+
+  // Achievement checking methods - delegate to generic checker
+  checkTileAchievements(value) {
+    this.checkAchievementsByType('tile', value);
   }
 
   checkScoreAchievements(score) {
-    const scoreAchievements = [
-      { id: 'score_100', value: 100 },
-      { id: 'score_500', value: 500 },
-      { id: 'score_1000', value: 1000 },
-      { id: 'score_2500', value: 2500 },
-      { id: 'score_5000', value: 5000 },
-      { id: 'score_10000', value: 10000 }
-    ];
-
-    scoreAchievements.forEach(a => {
-      if (score >= a.value) {
-        this.unlock(a.id);
-      }
-    });
+    this.checkAchievementsByType('score', score);
   }
 
   checkFrenzyAchievements() {
-    const frenzyAchievements = [
-      { id: 'frenzy_1', value: 1 },
-      { id: 'frenzy_5', value: 5 },
-      { id: 'frenzy_10', value: 10 },
-      { id: 'frenzy_25', value: 25 }
-    ];
-
-    frenzyAchievements.forEach(a => {
-      if (this.stats.frenzyCount >= a.value) {
-        this.unlock(a.id);
-      }
-    });
+    this.checkAchievementsByType('frenzy_count');
   }
 
   checkSpecialTileAchievements() {
-    // Glass achievements
-    if (this.stats.glassBroken >= 5) this.unlock('glass_5');
-    if (this.stats.glassBroken >= 25) this.unlock('glass_25');
-    if (this.stats.glassBroken >= 100) this.unlock('glass_100');
-
-    // Lead achievements
-    if (this.stats.leadCleared >= 5) this.unlock('lead_5');
-    if (this.stats.leadCleared >= 25) this.unlock('lead_25');
+    this.checkAchievementsByType(['glass_broken', 'lead_cleared']);
   }
 
   checkBombAchievements() {
-    if (this.stats.bombsExploded >= 1) this.unlock('bomb_1');
-    if (this.stats.bombsExploded >= 5) this.unlock('bomb_5');
-    if (this.stats.bombsExploded >= 25) this.unlock('bomb_25');
+    this.checkAchievementsByType('bombs_exploded');
   }
 
   checkGameAchievements(mode) {
-    // Game count achievements
-    if (this.stats.gamesPlayed >= 10) this.unlock('games_10');
-    if (this.stats.gamesPlayed >= 50) this.unlock('games_50');
-    if (this.stats.gamesPlayed >= 100) this.unlock('games_100');
-
-    // Mode achievements
-    if (mode === 'original') this.unlock('original_play');
-    if (mode === 'crazy') this.unlock('crazy_play');
-    if (mode === 'endless') this.unlock('endless_play');
+    this.checkAchievementsByType('games_played');
+    this.checkAchievementsByType('mode_played', mode);
   }
 
   checkLevelAchievements() {
-    if (this.stats.levelsCompleted >= 1) this.unlock('tutorial_1');
-    if (this.stats.levelsCompleted >= 10) this.unlock('tutorial_10');
-    if (this.stats.levelsCompleted >= 20) this.unlock('tutorial_complete');
+    this.checkAchievementsByType('levels_completed');
   }
 
   /**
@@ -6813,10 +7136,17 @@ class MenuScene extends Phaser.Scene {
       const halfSize = tileSize / 2;
       const radius = 6;
 
-      // Helper to draw clean flat tile
+      // Helper to draw tile with depth effect
       const drawTileBase = (color) => {
+        // Drop shadow
+        tileBg.fillStyle(0x000000, 0.15);
+        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize + 2, tileSize, tileSize, radius);
+        // Main fill
         tileBg.fillStyle(color, 1);
         tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, radius);
+        // Top highlight
+        tileBg.fillStyle(0xffffff, 0.12);
+        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize / 2, { tl: radius, tr: radius, bl: 0, br: 0 });
       };
 
       if (typeof val === 'string') {
@@ -7247,6 +7577,10 @@ class MenuScene extends Phaser.Scene {
     const boxY = height / 2 - boxHeight / 2;
 
     const box = this.add.graphics();
+    // Drop shadow for popup
+    box.fillStyle(0x000000, 0.3);
+    box.fillRoundedRect(boxX + 2, boxY + 3, boxWidth, boxHeight, 12);
+    // Main popup fill
     box.fillStyle(0x1a1a2e, 1);
     box.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
     box.lineStyle(2, 0x4a90e2, 1);
@@ -7255,12 +7589,12 @@ class MenuScene extends Phaser.Scene {
 
     // Title
     const title = this.add.text(width / 2, boxY + 30, 'CONTINUE GAME?', {
-      fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '22px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#ffffff'
     }).setOrigin(0.5).setDepth(902);
 
     // Message
     const message = this.add.text(width / 2, boxY + 60, 'You have a saved game in progress.', {
-      fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      fontSize: '13px', fontFamily: GameConfig.FONTS.UI, color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(902);
 
     // Button dimensions for consistent sizing
@@ -7276,7 +7610,7 @@ class MenuScene extends Phaser.Scene {
     resumeBtnBg.setDepth(902);
 
     const resumeBtn = this.add.text(width / 2, resumeBtnY, 'RESUME GAME', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#7ed321'
     }).setOrigin(0.5).setDepth(903);
 
     const resumeBtnZone = this.add.rectangle(width / 2, resumeBtnY, btnWidth, btnHeight, 0x000000, 0)
@@ -7290,7 +7624,7 @@ class MenuScene extends Phaser.Scene {
     newBtnBg.setDepth(902);
 
     const newBtn = this.add.text(width / 2, newBtnY, 'START NEW GAME', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#e24a4a'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#e24a4a'
     }).setOrigin(0.5).setDepth(903);
 
     const newBtnZone = this.add.rectangle(width / 2, newBtnY, btnWidth, btnHeight, 0x000000, 0)
@@ -8730,8 +9064,15 @@ class GameScene extends Phaser.Scene {
     this.GRID_OFFSET_X = this.layout.offsetX;
     this.GRID_OFFSET_Y = this.layout.offsetY;
 
+
+    // Initialize tile renderer and generate textures
+    tileRenderer = new TileRenderer(this);
+    tileRenderer.generateTextures(this.TILE_SIZE);
     // Listen for resize events
     this.scale.on('resize', this.onResize, this);
+
+    // Register shutdown handler to clean up event listeners
+    this.events.on('shutdown', this.shutdown, this);
 
     // Initialize board logic with appropriate config
     const boardConfig = {
@@ -8987,6 +9328,9 @@ class GameScene extends Phaser.Scene {
     this.GRID_OFFSET_X = this.layout.offsetX;
     this.GRID_OFFSET_Y = this.layout.offsetY;
 
+    // Regenerate tile textures at new size
+    tileRenderer.generateTextures(this.TILE_SIZE);
+
     // Update tile positions
     Object.values(this.tiles).forEach(tile => {
       if (tile && tile.updateLayoutPosition) {
@@ -9002,6 +9346,11 @@ class GameScene extends Phaser.Scene {
     const { width } = this.cameras.main;
     UIHelpers.drawBackground(this);
 
+    // Subtle gradient overlay on background
+    const bgOverlay = this.add.graphics();
+    bgOverlay.fillStyle(0x3a4f62, 0.3);
+    bgOverlay.fillRect(0, 0, width, this.cameras.main.height * 0.3);
+
     // Title based on mode
     let titleText = 'THREES-DROP';
     if (this.gameMode === 'crazy') {
@@ -9013,26 +9362,27 @@ class GameScene extends Phaser.Scene {
     }
 
     this.add.text(width / 2, 30, titleText, {
-      fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '32px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     // Score or objective
     if (this.gameMode === 'level' && this.levelConfig) {
       this.objectiveText = this.add.text(width / 2, 55, this.levelConfig.description, {
-        fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#f5a623'
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#f5c26b'
       }).setOrigin(0.5);
 
       this.progressText = this.add.text(width / 2, 75, '', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#7ed321'
       }).setOrigin(0.5);
 
       // Moves remaining - positioned on the right side
       this.movesText = this.add.text(width - 15, 55, `Moves: 0/${this.levelConfig.maxMoves}`, {
-        fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
       }).setOrigin(1, 0);
     } else {
       this.scoreText = this.add.text(width / 2, 60, 'SCORE: 0', {
-        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+        fontSize: '18px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b',
+        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(245,194,107,0.3)', blur: 4, fill: true }
       }).setOrigin(0.5);
     }
 
@@ -9048,7 +9398,7 @@ class GameScene extends Phaser.Scene {
 
     // Help button
     const helpBtn = this.add.text(width - 15, 15, '?', {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      fontSize: '24px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold',
       color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 12, y: 6 }
     }).setOrigin(1, 0).setInteractive();
     helpBtn.on('pointerdown', () => {
@@ -9063,23 +9413,23 @@ class GameScene extends Phaser.Scene {
       // For test levels, show option to close tab; otherwise go to level select
       if (window.isTestLevelSession) {
         this.add.text(15, 15, '< EDITOR', {
-          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5c26b'
+          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b'
         }).setInteractive().on('pointerdown', () => {
           window.isTestLevelSession = false;
           window.close();
         });
       } else {
         this.add.text(15, 15, '< BACK', {
-          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
         }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
       }
     } else if (this.gameMode === 'daily') {
       this.add.text(15, 15, '< MENU', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
       }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     } else {
       this.add.text(15, 15, '< MENU', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
       }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     }
   }
@@ -9235,27 +9585,47 @@ class GameScene extends Phaser.Scene {
   setupGrid() {
     const gridWidth = this.GRID_COLS * this.TILE_SIZE;
     const gridHeight = this.GRID_ROWS * this.TILE_SIZE;
+    const ox = this.GRID_OFFSET_X;
+    const oy = this.GRID_OFFSET_Y;
 
+    // Grid background with shadow effect (darker inset)
     const gridBg = this.add.graphics();
-    gridBg.fillStyle(GameConfig.UI.GRID_BG, 0.5);
-    gridBg.fillRoundedRect(this.GRID_OFFSET_X - 10, this.GRID_OFFSET_Y - 10, gridWidth + 20, gridHeight + 20, 10);
 
+    // Outer shadow (slightly larger, darker rectangle behind)
+    gridBg.fillStyle(0x1a2530, 0.8);
+    gridBg.fillRoundedRect(ox - 10, oy - 8, gridWidth + 20, gridHeight + 22, 12);
+
+    // Main grid background
+    gridBg.fillStyle(0x222d38, 1);
+    gridBg.fillRoundedRect(ox - 8, oy - 8, gridWidth + 16, gridHeight + 16, 12);
+
+    // Subtle border glow
+    gridBg.lineStyle(1, 0x64a0c8, 0.15);
+    gridBg.strokeRoundedRect(ox - 8, oy - 8, gridWidth + 16, gridHeight + 16, 12);
+
+    // Individual cells with inset appearance
     for (let col = 0; col < this.GRID_COLS; col++) {
       for (let row = 0; row < this.GRID_ROWS; row++) {
-        const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
-        const y = this.GRID_OFFSET_Y + row * this.TILE_SIZE;
+        const x = ox + col * this.TILE_SIZE;
+        const y = oy + row * this.TILE_SIZE;
+        const cellSize = this.TILE_SIZE - 8;
         const cell = this.add.graphics();
-        cell.fillStyle(GameConfig.UI.CELL_BG, 0.8);
-        cell.fillRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
-        cell.lineStyle(1, 0x533483, 0.5);
-        cell.strokeRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
+
+        // Dark inset cell
+        cell.fillStyle(0x1a2530, 1);
+        cell.fillRoundedRect(x + 4, y + 4, cellSize, cellSize, 8);
+
+        // Thin subtle border
+        cell.lineStyle(0.5, 0x507898, 0.12);
+        cell.strokeRoundedRect(x + 4, y + 4, cellSize, cellSize, 8);
       }
     }
 
+    // Column hit zones for tap-to-drop
     this.columnZones = [];
     for (let col = 0; col < this.GRID_COLS; col++) {
-      const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
-      const zone = this.add.rectangle(x, this.GRID_OFFSET_Y, this.TILE_SIZE, gridHeight, 0x000000, 0);
+      const x = ox + col * this.TILE_SIZE;
+      const zone = this.add.rectangle(x, oy, this.TILE_SIZE, gridHeight, 0x000000, 0);
       zone.setOrigin(0, 0).setInteractive().setData('column', col);
       this.columnZones.push(zone);
     }
@@ -9471,16 +9841,16 @@ class GameScene extends Phaser.Scene {
     const barY = this.GRID_OFFSET_Y + this.GRID_ROWS * this.TILE_SIZE + 40;
 
     this.add.text(barX, barY - 25, 'SWIPE POWER-UP', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#ffffff'
     });
 
     this.comboBarBg = this.add.graphics();
-    this.comboBarBg.fillStyle(GameConfig.UI.GRID_BG, 1);
+    this.comboBarBg.fillStyle(0x1a2530, 1);
     this.comboBarBg.fillRoundedRect(barX, barY, barWidth, barHeight, 5);
 
     this.comboBarFill = this.add.graphics();
     this.comboText = this.add.text(barX + barWidth / 2, barY + barHeight / 2, '0/5', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.comboBarX = barX;
@@ -9498,16 +9868,16 @@ class GameScene extends Phaser.Scene {
     const barHalf = this.comboBarWidth / 2;
     const bw = 50, bh = 30, gap = 10;
 
-    this.leftButton = this.add.rectangle(centerX - barHalf - gap - bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 0.3);
+    this.leftButton = this.add.rectangle(centerX - barHalf - gap - bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 1);
     this.leftButton.setStrokeStyle(2, GameConfig.UI.PRIMARY).setInteractive();
     this.leftButtonText = this.add.text(centerX - barHalf - gap - bw / 2, buttonY, '←', {
-      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      fontSize: '20px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
     }).setOrigin(0.5);
 
-    this.rightButton = this.add.rectangle(centerX + barHalf + gap + bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 0.3);
+    this.rightButton = this.add.rectangle(centerX + barHalf + gap + bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 1);
     this.rightButton.setStrokeStyle(2, GameConfig.UI.PRIMARY).setInteractive();
     this.rightButtonText = this.add.text(centerX + barHalf + gap + bw / 2, buttonY, '→', {
-      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      fontSize: '20px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
     }).setOrigin(0.5);
 
     this.leftButton.on('pointerdown', () => {
@@ -9532,7 +9902,7 @@ class GameScene extends Phaser.Scene {
 
     // Resource points display
     this.resourceText = this.add.text(width / 2, barY, 'POWER: 0', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5a623'
     }).setOrigin(0.5);
 
     // Power-up buttons
@@ -9577,17 +9947,17 @@ class GameScene extends Phaser.Scene {
     const bw = 55, bh = 28;
 
     // Left swipe button
-    this.crazyLeftButton = this.add.rectangle(width / 2 - 60, y, bw, bh, GameConfig.UI.SUCCESS, 0.8);
+    this.crazyLeftButton = this.add.rectangle(width / 2 - 60, y, bw, bh, GameConfig.UI.SUCCESS, 1);
     this.crazyLeftButton.setStrokeStyle(2, GameConfig.UI.SUCCESS).setInteractive();
     this.crazyLeftText = this.add.text(width / 2 - 60, y, '← SWIPE', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     // Right swipe button
-    this.crazyRightButton = this.add.rectangle(width / 2 + 60, y, bw, bh, GameConfig.UI.SUCCESS, 0.8);
+    this.crazyRightButton = this.add.rectangle(width / 2 + 60, y, bw, bh, GameConfig.UI.SUCCESS, 1);
     this.crazyRightButton.setStrokeStyle(2, GameConfig.UI.SUCCESS).setInteractive();
     this.crazyRightText = this.add.text(width / 2 + 60, y, 'SWIPE →', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.crazyLeftButton.on('pointerdown', () => {
@@ -9616,55 +9986,76 @@ class GameScene extends Phaser.Scene {
   }
 
   createPowerUpButton(x, y, type, icon, cost) {
+    const bw = 56, bh = 36;
     const bg = this.add.graphics();
-    bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-    bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
-    bg.fillRoundedRect(x - 28, y - 18, 56, 36, 6);
-    bg.strokeRoundedRect(x - 28, y - 18, 56, 36, 6);
+
+    // Button shadow
+    bg.fillStyle(0x000000, 0.2);
+    bg.fillRoundedRect(x - bw/2, y - bh/2 + 2, bw, bh, 8);
+
+    // Main button fill
+    bg.fillStyle(0x5a9fd4, 1);
+    bg.fillRoundedRect(x - bw/2, y - bh/2, bw, bh, 8);
+
+    // Highlight on top half
+    bg.fillStyle(0xffffff, 0.12);
+    bg.fillRoundedRect(x - bw/2, y - bh/2, bw, bh/2, { tl: 8, tr: 8, bl: 0, br: 0 });
+
+    // Border
+    bg.lineStyle(1, 0x7eb8e5, 0.3);
+    bg.strokeRoundedRect(x - bw/2, y - bh/2, bw, bh, 8);
 
     const label = this.add.text(x, y - 4, icon, {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800', color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 1, fill: true }
     }).setOrigin(0.5);
 
-    const costText = this.add.text(x, y + 10, cost.toString(), {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    // Cost badge below icon
+    const costBg = this.add.graphics();
+    costBg.fillStyle(0x000000, 0.35);
+    costBg.fillRoundedRect(x - 10, y + 7, 20, 13, 4);
+
+    const costText = this.add.text(x, y + 13, cost.toString(), {
+      fontSize: '9px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#dddddd'
     }).setOrigin(0.5);
 
-    const hitArea = this.add.rectangle(x, y, 56, 36, 0x000000, 0).setInteractive();
+    const hitArea = this.add.rectangle(x, y, bw, bh, 0x000000, 0).setInteractive();
     hitArea.on('pointerdown', (pointer) => {
-      // Mark that this click was handled by a button
       pointer.powerUpButtonClicked = true;
       this.activatePowerUp(type);
     });
 
-    return { bg, label, costText, hitArea, x, y, type };
+    return { bg, label, costText, costBg, hitArea, x, y, type };
   }
 
   setupFrenzyBar(y) {
     const { width } = this.cameras.main;
     const barWidth = 180;
+    const barHeight = 18;
 
-    this.add.text(width / 2 - barWidth / 2 - 5, y + 8, 'FRENZY', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff6b6b'
+    this.add.text(width / 2 - barWidth / 2 - 5, y + 9, 'FRENZY', {
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ff6b6b'
     }).setOrigin(1, 0.5);
 
+    // Inset bar background
     this.frenzyBarBg = this.add.graphics();
-    this.frenzyBarBg.fillStyle(GameConfig.UI.GRID_BG, 1);
-    this.frenzyBarBg.fillRoundedRect(width / 2 - barWidth / 2, y, barWidth, 16, 4);
+    this.frenzyBarBg.fillStyle(0x1a2530, 1);
+    this.frenzyBarBg.fillRoundedRect(width / 2 - barWidth / 2, y, barWidth, barHeight, 6);
 
     this.frenzyBarFill = this.add.graphics();
 
-    this.frenzyBarText = this.add.text(width / 2, y + 8, '0/50', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+    this.frenzyBarText = this.add.text(width / 2, y + 9, '0/50', {
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.frenzyBarX = width / 2 - barWidth / 2;
     this.frenzyBarY = y;
     this.frenzyBarWidth = barWidth;
+    this.frenzyBarHeight = barHeight;
 
     // Frenzy activate button (hidden until ready)
-    this.frenzyActivateBtn = this.add.text(width / 2, y + 28, 'ACTIVATE FRENZY!', {
-      fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+    this.frenzyActivateBtn = this.add.text(width / 2, y + 30, 'ACTIVATE FRENZY!', {
+      fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800',
       color: '#ffffff', backgroundColor: '#ff6b6b', padding: { x: 8, y: 4 }
     }).setOrigin(0.5).setInteractive().setVisible(false);
 
@@ -9935,9 +10326,11 @@ class GameScene extends Phaser.Scene {
     this.tiles[`${col1},${row1}`] = tile2;
 
     // Update special tile position tracking for both tiles
+    // Use temp coordinates to avoid collision: first move to sentinel, then swap
     if (this.specialTileManager) {
-      this.specialTileManager.updateTilePosition(col1, row1, col2, row2);
+      this.specialTileManager.updateTilePosition(col1, row1, -1, -1);
       this.specialTileManager.updateTilePosition(col2, row2, col1, row1);
+      this.specialTileManager.updateTilePosition(-1, -1, col2, row2);
     }
 
     this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
@@ -9954,40 +10347,17 @@ class GameScene extends Phaser.Scene {
     this.isAnimating = true;
 
     // Check if either tile is a bomb BEFORE removing them
-    let bombMergeResult = null;
-    if (this.specialTileManager) {
-      const specialTile1 = this.specialTileManager.getSpecialTileAt(col1, row1);
-      const specialTile2 = this.specialTileManager.getSpecialTileAt(col2, row2);
-
-      // Two bombs merging = immediate explosion
-      if (specialTile1 && specialTile1.type === 'bomb' && specialTile2 && specialTile2.type === 'bomb') {
-        bombMergeResult = this.specialTileManager.onBombBombMerge(col1, row1, col2, row2);
-      } else if (specialTile1 && specialTile1.type === 'bomb') {
-        // First tile is bomb - move it to merge position and check explosion
-        this.specialTileManager.updateTilePosition(col1, row1, mergedCol, mergedRow);
-        bombMergeResult = this.specialTileManager.onBombMerge(mergedCol, mergedRow, mergedValue);
-      } else if (specialTile2 && specialTile2.type === 'bomb') {
-        // Second tile is bomb - it's already at merge position
-        bombMergeResult = this.specialTileManager.onBombMerge(col2, row2, mergedValue);
-      }
-    }
+    const bombMergeResult = this.handleBombMergeCheck(col1, row1, col2, row2, mergedValue);
 
     // Remove both tiles from the map immediately
     delete this.tiles[`${col1},${row1}`];
     delete this.tiles[`${col2},${row2}`];
 
     // Remove non-bomb special tiles at both positions
-    if (this.specialTileManager) {
-      const specialTile1 = this.specialTileManager.getSpecialTileAt(col1, row1);
-      if (!specialTile1 || specialTile1.type !== 'bomb') {
-        this.specialTileManager.removeTileAt(col1, row1);
-      }
-      const specialTile2 = this.specialTileManager.getSpecialTileAt(col2, row2);
-      if (!specialTile2 || specialTile2.type !== 'bomb') {
-        this.specialTileManager.removeTileAt(col2, row2);
-      }
-      // If bomb exploded, remove it too
-      if (bombMergeResult && bombMergeResult.exploded) {
+    this.cleanupSpecialTilesAfterMerge(col1, row1, col2, row2, bombMergeResult);
+    // If bomb exploded, also remove at merged position
+    if (bombMergeResult && bombMergeResult.exploded) {
+      if (this.specialTileManager) {
         this.specialTileManager.removeTileAt(mergedCol, mergedRow);
       }
     }
@@ -10014,13 +10384,7 @@ class GameScene extends Phaser.Scene {
       // Now destroy both tiles and create merged tile
       tile1.mergeAnimation();
       tile2.mergeAnimation(() => {
-        let merged;
-        if (bombMergeResult && !bombMergeResult.exploded) {
-          // Bomb didn't explode yet - create new bomb tile with updated merge count
-          merged = new Tile(this, mergedCol, mergedRow, mergedValue, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: mergedValue });
-        } else {
-          merged = new Tile(this, mergedCol, mergedRow, mergedValue, this.boardLogic.nextTileId++);
-        }
+        const merged = this.createMergedTile(mergedCol, mergedRow, mergedValue, bombMergeResult);
         merged.updatePosition(mergedCol, mergedRow, false);
         merged.setScale(0.5).setAlpha(0.5);
 
@@ -10141,7 +10505,7 @@ class GameScene extends Phaser.Scene {
     this.frenzyOverlay.setDepth(50);
 
     // Pulsing effect
-    this.tweens.add({
+    this.frenzyOverlayTween = this.tweens.add({
       targets: this.frenzyOverlay,
       alpha: 0.2,
       duration: 300,
@@ -10185,6 +10549,11 @@ class GameScene extends Phaser.Scene {
     if (this.frenzyTimerEvent) {
       this.frenzyTimerEvent.remove();
       this.frenzyTimerEvent = null;
+    }
+
+    if (this.frenzyOverlayTween) {
+      this.frenzyOverlayTween.stop();
+      this.frenzyOverlayTween = null;
     }
 
     if (this.frenzyOverlay) {
@@ -10292,31 +10661,10 @@ class GameScene extends Phaser.Scene {
         tile.updatePosition(op.toCol, op.toRow, true, GameConfig.ANIM.SHIFT);
 
         // Check if either tile is a bomb BEFORE removing
-        let bombMergeResult = null;
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.fromRow);
-          const specialTileTo = this.specialTileManager.getSpecialTileAt(op.toCol, op.toRow);
-          // Two bombs merging = immediate explosion
-          if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombBombMerge(op.fromCol, op.fromRow, op.toCol, op.toRow);
-          } else if (specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.toRow, op.value);
-          } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-            this.specialTileManager.updateTilePosition(op.fromCol, op.fromRow, op.toCol, op.toRow);
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.toRow, op.value);
-          }
-        }
+        const bombMergeResult = this.handleBombMergeCheck(op.fromCol, op.fromRow, op.toCol, op.toRow, op.value);
 
         // Remove non-bomb special tiles at both positions
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.fromRow);
-          if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-            this.specialTileManager.removeTileAt(op.fromCol, op.fromRow);
-          }
-          if (!bombMergeResult || bombMergeResult.exploded) {
-            this.specialTileManager.removeTileAt(op.toCol, op.toRow);
-          }
-        }
+        this.cleanupSpecialTilesAfterMerge(op.fromCol, op.fromRow, op.toCol, op.toRow, bombMergeResult);
 
         this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
           if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -10338,12 +10686,7 @@ class GameScene extends Phaser.Scene {
           }
 
           tile.mergeAnimation(() => {
-            let merged;
-            if (bombMergeResult && !bombMergeResult.exploded) {
-              merged = new Tile(this, op.toCol, op.toRow, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-            } else {
-              merged = new Tile(this, op.toCol, op.toRow, op.value, this.boardLogic.nextTileId++);
-            }
+            const merged = this.createMergedTile(op.toCol, op.toRow, op.value, bombMergeResult);
             merged.updatePosition(op.toCol, op.toRow, false);
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
@@ -11132,32 +11475,10 @@ class GameScene extends Phaser.Scene {
         tile.updatePosition(op.toCol, op.row, true, GameConfig.ANIM.SHIFT);
 
         // Check if either tile is a bomb BEFORE removing
-        let bombMergeResult = null;
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.row);
-          const specialTileTo = this.specialTileManager.getSpecialTileAt(op.toCol, op.row);
-          // Two bombs merging = immediate explosion
-          if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombBombMerge(op.fromCol, op.row, op.toCol, op.row);
-          } else if (specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.row, op.value);
-          } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-            // Moving bomb merges with target - update bomb position first
-            this.specialTileManager.updateTilePosition(op.fromCol, op.row, op.toCol, op.row);
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.row, op.value);
-          }
-        }
+        const bombMergeResult = this.handleBombMergeCheck(op.fromCol, op.row, op.toCol, op.row, op.value);
 
         // Remove non-bomb special tiles at both positions
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.row);
-          if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-            this.specialTileManager.removeTileAt(op.fromCol, op.row);
-          }
-          if (!bombMergeResult || bombMergeResult.exploded) {
-            this.specialTileManager.removeTileAt(op.toCol, op.row);
-          }
-        }
+        this.cleanupSpecialTilesAfterMerge(op.fromCol, op.row, op.toCol, op.row, bombMergeResult);
 
         this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
           if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -11179,12 +11500,7 @@ class GameScene extends Phaser.Scene {
           }
 
           tile.mergeAnimation(() => {
-            let merged;
-            if (bombMergeResult && !bombMergeResult.exploded) {
-              merged = new Tile(this, op.toCol, op.row, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-            } else {
-              merged = new Tile(this, op.toCol, op.row, op.value, this.boardLogic.nextTileId++);
-            }
+            const merged = this.createMergedTile(op.toCol, op.row, op.value, bombMergeResult);
             merged.updatePosition(op.toCol, op.row, false);
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
@@ -11282,32 +11598,10 @@ class GameScene extends Phaser.Scene {
           tile.updatePosition(op.col, op.toRow, true, GameConfig.ANIM.FALL);
 
           // Check if either tile is a bomb BEFORE removing
-          let bombMergeResult = null;
-          if (this.specialTileManager) {
-            const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.col, op.fromRow);
-            const specialTileTo = this.specialTileManager.getSpecialTileAt(op.col, op.toRow);
-            // Two bombs merging = immediate explosion
-            if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-              bombMergeResult = this.specialTileManager.onBombBombMerge(op.col, op.fromRow, op.col, op.toRow);
-            } else if (specialTileTo && specialTileTo.type === 'bomb') {
-              bombMergeResult = this.specialTileManager.onBombMerge(op.col, op.toRow, op.value);
-            } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-              // Falling bomb merges with target - update bomb position first
-              this.specialTileManager.updateTilePosition(op.col, op.fromRow, op.col, op.toRow);
-              bombMergeResult = this.specialTileManager.onBombMerge(op.col, op.toRow, op.value);
-            }
-          }
+          const bombMergeResult = this.handleBombMergeCheck(op.col, op.fromRow, op.col, op.toRow, op.value);
 
           // Remove non-bomb special tiles at both positions
-          if (this.specialTileManager) {
-            const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.col, op.fromRow);
-            if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-              this.specialTileManager.removeTileAt(op.col, op.fromRow);
-            }
-            if (!bombMergeResult || bombMergeResult.exploded) {
-              this.specialTileManager.removeTileAt(op.col, op.toRow);
-            }
-          }
+          this.cleanupSpecialTilesAfterMerge(op.col, op.fromRow, op.col, op.toRow, bombMergeResult);
 
           this.time.delayedCall(GameConfig.ANIM.FALL, () => {
             if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -11328,12 +11622,7 @@ class GameScene extends Phaser.Scene {
             }
 
             tile.mergeAnimation(() => {
-              let merged;
-              if (bombMergeResult && !bombMergeResult.exploded) {
-                merged = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-              } else {
-                merged = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++);
-              }
+              const merged = this.createMergedTile(op.col, op.toRow, op.value, bombMergeResult);
               merged.updatePosition(op.col, op.toRow, false);
               merged.setScale(0.3).setAlpha(0.5);
 
@@ -11498,9 +11787,14 @@ class GameScene extends Phaser.Scene {
       // Cap ratio at 1 to prevent bar overflow
       const ratio = Math.min(state.frenzyMeter / state.frenzyThreshold, 1);
       this.frenzyBarFill.clear();
+      const fillWidth = this.frenzyBarWidth * ratio;
+      const fillHeight = this.frenzyBarHeight || 18;
       if (ratio > 0) {
         this.frenzyBarFill.fillStyle(GameConfig.UI.FRENZY, 1);
-        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, this.frenzyBarWidth * ratio, 16, 4);
+        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, fillWidth, fillHeight, 6);
+        // Shine on top half of fill
+        this.frenzyBarFill.fillStyle(0xffffff, 0.15);
+        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, fillWidth, fillHeight / 2, { tl: 6, tr: 6, bl: 0, br: 0 });
       }
       // Display actual meter value but capped display at threshold
       const displayMeter = Math.min(state.frenzyMeter, state.frenzyThreshold);

@@ -13,6 +13,10 @@ const UIHelpers = {
     g.fillStyle(GameConfig.UI.BACKGROUND_DARK, 1);
     g.fillRect(0, 0, width, height);
 
+    // Subtle lighter overlay on top portion for gradient effect
+    g.fillStyle(0x4a5d6e, 0.25);
+    g.fillRect(0, 0, width, height * 0.35);
+
     return g;
   },
 
@@ -28,15 +32,26 @@ const UIHelpers = {
     const bg = scene.add.graphics();
     const fillColor = disabled ? GameConfig.UI.DISABLED : GameConfig.UI.PRIMARY;
 
-    // Clean button fill
+    // Button shadow
+    bg.fillStyle(0x000000, 0.2);
+    bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
+
+    // Main button fill
     bg.fillStyle(fillColor, disabled ? 0.5 : 1);
     bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+
+    // Top highlight (light overlay on top half)
+    if (!disabled) {
+      bg.fillStyle(0xffffff, 0.1);
+      bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
+    }
 
     const label = scene.add.text(x, y, text, {
       fontSize,
       fontFamily: GameConfig.FONTS.UI,
       fontStyle: '700',
-      color: disabled ? '#888888' : '#ffffff'
+      color: disabled ? '#888888' : '#ffffff',
+      shadow: disabled ? undefined : { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 1, fill: true }
     }).setOrigin(0.5);
 
     const hitArea = scene.add.rectangle(x, y, width, height, 0x000000, 0).setInteractive();
@@ -44,13 +59,24 @@ const UIHelpers = {
     if (!disabled) {
       hitArea.on('pointerover', () => {
         bg.clear();
+        // Shadow
+        bg.fillStyle(0x000000, 0.2);
+        bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
+        // Hover color
         bg.fillStyle(GameConfig.UI.PRIMARY_LIGHT, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+        // Highlight
+        bg.fillStyle(0xffffff, 0.12);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
       });
       hitArea.on('pointerout', () => {
         bg.clear();
+        bg.fillStyle(0x000000, 0.2);
+        bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
         bg.fillStyle(fillColor, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
+        bg.fillStyle(0xffffff, 0.1);
+        bg.fillRoundedRect(x - width / 2, y - height / 2, width, height / 2, { tl: 8, tr: 8, bl: 0, br: 0 });
       });
       hitArea.on('pointerdown', () => {
         if (typeof soundManager !== 'undefined') soundManager.play('click');

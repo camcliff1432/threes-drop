@@ -1,6 +1,7 @@
 /**
  * Tile - Visual representation of a game tile
  * Supports normal tiles, special tiles (steel, lead, glass), and wildcard
+ * Uses pre-rendered canvas textures from TileRenderer for polished graphics
  */
 class Tile extends Phaser.GameObjects.Container {
   constructor(scene, gridX, gridY, value, tileId, tileType = 'normal', specialData = {}) {
@@ -20,133 +21,78 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   createGraphics() {
-    const size = this.TILE_SIZE - 6;
-    const halfSize = size / 2;
-    const radius = 8;
-
-    // Main tile background
-    this.bg = this.scene.add.graphics();
-
-    let color = getTileColor(this.value);
-    let strokeColor = 0x000000;
-    let strokeAlpha = 0.15;
-
-    switch (this.tileType) {
-      case 'steel':
-        color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x6a7a8a;
-        strokeAlpha = 0.4;
-        break;
-      case 'lead':
-        color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x333333;
-        strokeAlpha = 0.3;
-        break;
-      case 'glass':
-        color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x8ab4d4;
-        strokeAlpha = 0.5;
-        break;
-      case 'wildcard':
-        color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xc090d0;
-        strokeAlpha = 0.5;
-        break;
-      case 'auto_swapper':
-        color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0x8a6ca2;
-        strokeAlpha = 0.5;
-        break;
-      case 'bomb':
-        color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xc05050;
-        strokeAlpha = 0.5;
-        break;
-      default:
-        break;
-    }
-
-    // Main fill - clean, flat color
-    this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
-
-    // Subtle border
-    this.bg.lineStyle(1, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-halfSize, -halfSize, size, size, radius);
-
+    // Use pre-rendered texture from TileRenderer
+    const textureKey = tileRenderer.getKey(this.value, this.tileType, this.specialData);
+    this.bg = this.scene.add.image(0, 0, textureKey).setOrigin(0.5);
     this.add(this.bg);
 
-    // Add special visual effects based on type
-    if (this.tileType === 'steel') {
-      this.addSteelPattern();
-    } else if (this.tileType === 'lead') {
-      this.addLeadKettlebellPattern();
-    } else if (this.tileType === 'glass' && this.specialData.durability === 1) {
-      this.addCrackOverlay();
-    } else if (this.tileType === 'auto_swapper') {
-      this.addAutoSwapperPattern();
-    } else if (this.tileType === 'bomb') {
-      this.addBombPattern();
-    }
-
-    // Text content - clean styling
+    // Text content - clean styling (displayed on top of texture)
     let displayText = this.value?.toString() || '';
     let textColor = getTileTextColor(this.value);
-    let fontSize = '26px';
+    let fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
     let fontFamily = GameConfig.FONTS.NUMBERS;
     let fontWeight = '800';
 
     switch (this.tileType) {
       case 'steel':
         displayText = this.specialData.turnsRemaining?.toString() || '';
-        textColor = '#4a5a6a';
-        fontSize = '22px';
+        textColor = '#3d4d5d';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       case 'lead':
         displayText = this.specialData.countdown?.toString() || '';
-        textColor = '#888888';
-        fontSize = '26px';
+        textColor = '#999999';
+        fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
         break;
       case 'glass':
         displayText = this.value?.toString() || '';
-        textColor = '#2a5080';
-        fontSize = '26px';
+        textColor = '#1a4a70';
+        fontSize = Math.round(this.TILE_SIZE * 0.37) + 'px';
         break;
       case 'wildcard':
-        displayText = '★';
-        textColor = '#ffffff';
-        fontSize = '32px';
+        displayText = ''; // Star is baked into texture
         break;
       case 'auto_swapper':
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '22px';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       case 'bomb':
         displayText = this.value?.toString() || '';
         textColor = '#ffffff';
-        fontSize = '22px';
+        fontSize = Math.round(this.TILE_SIZE * 0.31) + 'px';
         break;
       default:
         break;
     }
 
-    this.text = this.scene.add.text(0, 0, displayText, {
-      fontSize: fontSize,
-      fontFamily: fontFamily,
-      fontStyle: fontWeight,
-      color: textColor
-    }).setOrigin(0.5);
-    this.add(this.text);
+    // Only add text if there's something to display
+    const textY = this.tileType === 'auto_swapper' ? Math.round(this.TILE_SIZE * 0.18) : 0;
+    if (displayText || this.tileType === 'normal') {
+      this.text = this.scene.add.text(0, textY, displayText, {
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        fontStyle: fontWeight,
+        color: textColor,
+        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 2, fill: true }
+      }).setOrigin(0.5);
+      this.add(this.text);
+    }
 
-    // Add durability indicator for glass tiles
+    // Dynamic badges for special tiles
     if (this.tileType === 'glass') {
       this.addDurabilityIndicator();
+    }
+    if (this.tileType === 'auto_swapper' && this.specialData.swapsRemaining !== undefined) {
+      this.addSwapsBadge();
+    }
+    if (this.tileType === 'bomb' && this.specialData.mergesRemaining !== undefined) {
+      this.addMergesBadge();
     }
   }
 
   /**
-   * Add durability indicator (hearts/dots) for glass tiles
+   * Add durability indicator (badge) for glass tiles
    */
   addDurabilityIndicator() {
     const durability = this.specialData.durability || 2;
@@ -176,200 +122,45 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Add metallic crosshatch pattern for steel plates
+   * Add swaps remaining badge for auto-swapper tiles
    */
-  addSteelPattern() {
-    const size = this.TILE_SIZE - 8;
-    const pattern = this.scene.add.graphics();
+  addSwapsBadge() {
+    const lifeBadge = this.scene.add.graphics();
+    lifeBadge.fillStyle(0x000000, 0.5);
+    lifeBadge.fillCircle(18, 18, 9);
+    this.add(lifeBadge);
+    this.swapsBadge = lifeBadge;
 
-    // Crosshatch lines - diagonal pattern
-    pattern.lineStyle(1, 0x9090a0, 0.4);
-
-    // Lines going one direction (top-left to bottom-right)
-    const spacing = 8;
-    for (let i = -size; i < size; i += spacing) {
-      const x1 = Math.max(-size / 2, i - size / 2);
-      const y1 = Math.max(-size / 2, -i - size / 2);
-      const x2 = Math.min(size / 2, i + size / 2);
-      const y2 = Math.min(size / 2, -i + size / 2);
-      pattern.lineBetween(x1, y1, x2, y2);
-    }
-
-    // Lines going other direction (top-right to bottom-left)
-    for (let i = -size; i < size; i += spacing) {
-      const x1 = Math.max(-size / 2, -i - size / 2);
-      const y1 = Math.max(-size / 2, -i - size / 2);
-      const x2 = Math.min(size / 2, -i + size / 2);
-      const y2 = Math.min(size / 2, -i + size / 2);
-      pattern.lineBetween(x1, y1, x2, y2);
-    }
-
-    // Add subtle metallic highlight on top edge
-    pattern.lineStyle(2, 0xc0c0d0, 0.5);
-    pattern.lineBetween(-size / 2 + 4, -size / 2 + 4, size / 2 - 4, -size / 2 + 4);
-
-    // Add subtle shadow on bottom edge
-    pattern.lineStyle(2, 0x505060, 0.5);
-    pattern.lineBetween(-size / 2 + 4, size / 2 - 4, size / 2 - 4, size / 2 - 4);
-
-    this.add(pattern);
-    this.steelPattern = pattern;
+    const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
+      fontSize: '11px',
+      fontFamily: GameConfig.FONTS.NUMBERS,
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    this.add(lifeText);
+    this.lifeText = lifeText;
   }
 
   /**
-   * Add kettlebell shape for lead tiles
+   * Add merges remaining badge for bomb tiles
    */
-  addLeadKettlebellPattern() {
-    const pattern = this.scene.add.graphics();
+  addMergesBadge() {
+    const mergesBadge = this.scene.add.graphics();
+    mergesBadge.fillStyle(0x000000, 0.6);
+    mergesBadge.fillCircle(18, 18, 10);
+    mergesBadge.lineStyle(2, 0xffe600, 0.8);
+    mergesBadge.strokeCircle(18, 18, 10);
+    this.add(mergesBadge);
+    this.mergesBadgeGraphic = mergesBadge;
 
-    // Kettlebell body (main ball) - dark gray with metallic sheen
-    const bodyRadius = 16;
-    const bodyY = 6;
-
-    // Body shadow/depth
-    pattern.fillStyle(0x0a0a0a, 1);
-    pattern.fillCircle(2, bodyY + 2, bodyRadius);
-
-    // Main body
-    pattern.fillStyle(0x2a2a2a, 1);
-    pattern.fillCircle(0, bodyY, bodyRadius);
-
-    // Body highlight (top-left shine)
-    pattern.fillStyle(0x4a4a4a, 0.6);
-    pattern.fillCircle(-5, bodyY - 5, 6);
-
-    // Handle - curved arc at top
-    pattern.lineStyle(5, 0x2a2a2a, 1);
-    pattern.beginPath();
-    pattern.arc(0, -6, 12, Math.PI * 0.15, Math.PI * 0.85, false);
-    pattern.strokePath();
-
-    // Handle highlight
-    pattern.lineStyle(2, 0x4a4a4a, 0.5);
-    pattern.beginPath();
-    pattern.arc(0, -6, 12, Math.PI * 0.2, Math.PI * 0.5, false);
-    pattern.strokePath();
-
-    // Handle inner shadow
-    pattern.lineStyle(2, 0x1a1a1a, 0.8);
-    pattern.beginPath();
-    pattern.arc(0, -6, 9, Math.PI * 0.2, Math.PI * 0.8, false);
-    pattern.strokePath();
-
-    this.add(pattern);
-    this.leadPattern = pattern;
-  }
-
-  /**
-   * Add crack overlay for damaged glass tiles
-   */
-  addCrackOverlay() {
-    if (this.crackOverlay) {
-      this.crackOverlay.destroy();
-    }
-
-    this.crackOverlay = this.scene.add.graphics();
-    this.crackOverlay.lineStyle(2, 0x000000, 0.6);
-
-    // Draw crack lines
-    this.crackOverlay.lineBetween(-15, -15, 0, 0);
-    this.crackOverlay.lineBetween(0, 0, 10, -5);
-    this.crackOverlay.lineBetween(0, 0, 5, 12);
-    this.crackOverlay.lineBetween(-8, 10, 0, 0);
-
-    this.add(this.crackOverlay);
-  }
-
-  /**
-   * Add swirl pattern for auto-swapper tiles
-   */
-  addAutoSwapperPattern() {
-    const pattern = this.scene.add.graphics();
-
-    // Circular arrows / swirl to indicate swap behavior
-    pattern.lineStyle(2, 0xffffff, 0.4);
-
-    // Draw curved arrow (left arc)
-    pattern.beginPath();
-    pattern.arc(-8, 0, 8, Math.PI * 0.3, Math.PI * 1.2, false);
-    pattern.strokePath();
-
-    // Draw curved arrow (right arc)
-    pattern.beginPath();
-    pattern.arc(8, 0, 8, Math.PI * 1.3, Math.PI * 2.2, false);
-    pattern.strokePath();
-
-    // Arrowheads
-    pattern.fillStyle(0xffffff, 0.4);
-    pattern.fillTriangle(-12, -6, -8, -10, -6, -4);
-    pattern.fillTriangle(12, 6, 8, 10, 6, 4);
-
-    // Swaps remaining indicator in bottom corner
-    if (this.specialData.swapsRemaining !== undefined) {
-      const lifeBadge = this.scene.add.graphics();
-      lifeBadge.fillStyle(0x000000, 0.5);
-      lifeBadge.fillCircle(18, 18, 9);
-      this.add(lifeBadge);
-
-      const lifeText = this.scene.add.text(18, 18, this.specialData.swapsRemaining.toString(), {
-        fontSize: '11px',
-        fontFamily: GameConfig.FONTS.NUMBERS,
-        fontStyle: 'bold',
-        color: '#ffffff'
-      }).setOrigin(0.5);
-      this.add(lifeText);
-      this.lifeText = lifeText;
-    }
-
-    this.add(pattern);
-    this.swapperPattern = pattern;
-  }
-
-  /**
-   * Add bomb icon pattern for bomb tiles
-   */
-  addBombPattern() {
-    const pattern = this.scene.add.graphics();
-
-    // Bomb body (circle) - behind the value
-    pattern.fillStyle(0x000000, 0.3);
-    pattern.fillCircle(0, 3, 14);
-
-    // Fuse
-    pattern.lineStyle(3, 0x444444, 1);
-    pattern.beginPath();
-    pattern.moveTo(0, -11);
-    pattern.lineTo(4, -18);
-    pattern.lineTo(8, -16);
-    pattern.strokePath();
-
-    // Fuse spark
-    pattern.fillStyle(0xff8800, 0.9);
-    pattern.fillCircle(8, -16, 4);
-    pattern.fillStyle(0xffff00, 1);
-    pattern.fillCircle(8, -16, 2);
-
-    // Merges remaining indicator in corner
-    if (this.specialData.mergesRemaining !== undefined) {
-      const mergesBadge = this.scene.add.graphics();
-      mergesBadge.fillStyle(0x000000, 0.6);
-      mergesBadge.fillCircle(18, 18, 10);
-      mergesBadge.lineStyle(2, 0xffe600, 0.8);
-      mergesBadge.strokeCircle(18, 18, 10);
-      this.add(mergesBadge);
-
-      const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
-        fontSize: '12px',
-        fontFamily: GameConfig.FONTS.NUMBERS,
-        fontStyle: 'bold',
-        color: '#ffe600'
-      }).setOrigin(0.5);
-      this.add(mergesText);
-      this.mergesText = mergesText;
-    }
-
-    this.add(pattern);
-    this.bombPattern = pattern;
+    const mergesText = this.scene.add.text(18, 18, this.specialData.mergesRemaining.toString(), {
+      fontSize: '12px',
+      fontFamily: GameConfig.FONTS.NUMBERS,
+      fontStyle: 'bold',
+      color: '#ffe600'
+    }).setOrigin(0.5);
+    this.add(mergesText);
+    this.mergesText = mergesText;
   }
 
   /**
@@ -414,62 +205,19 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   updateGraphics() {
-    const size = this.TILE_SIZE - 6;
-    const halfSize = size / 2;
-    const radius = 8;
-    this.bg.clear();
-
-    let color = getTileColor(this.value);
-    let strokeColor = 0x000000;
-    let strokeAlpha = 0.15;
-
-    switch (this.tileType) {
-      case 'steel':
-        color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x6a7a8a;
-        strokeAlpha = 0.4;
-        break;
-      case 'lead':
-        color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x333333;
-        strokeAlpha = 0.3;
-        break;
-      case 'glass':
-        color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x8ab4d4;
-        strokeAlpha = 0.5;
-        break;
-      case 'wildcard':
-        color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xc090d0;
-        strokeAlpha = 0.5;
-        break;
-      case 'auto_swapper':
-        color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0x8a6ca2;
-        strokeAlpha = 0.5;
-        break;
-      case 'bomb':
-        color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xc05050;
-        strokeAlpha = 0.5;
-        break;
-      default:
-        break;
+    // Swap the texture on the background image
+    const textureKey = tileRenderer.getKey(this.value, this.tileType, this.specialData);
+    if (this.bg && this.bg.texture) {
+      this.bg.setTexture(textureKey);
     }
-
-    this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
-    this.bg.lineStyle(1, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-halfSize, -halfSize, size, size, radius);
 
     // Update text based on tile type
     if (this.tileType === 'lead') {
-      this.text.setText(this.specialData.countdown?.toString() || '');
+      if (this.text) this.text.setText(this.specialData.countdown?.toString() || '');
     } else if (this.tileType === 'steel') {
-      this.text.setText(this.specialData.turnsRemaining?.toString() || '');
+      if (this.text) this.text.setText(this.specialData.turnsRemaining?.toString() || '');
     } else if (this.tileType === 'glass') {
-      this.text.setText(this.value?.toString() || '');
+      if (this.text) this.text.setText(this.value?.toString() || '');
       // Update durability indicator
       if (this.durabilityText) {
         const durability = this.specialData.durability || 2;
@@ -477,15 +225,12 @@ class Tile extends Phaser.GameObjects.Container {
         this.durabilityText.setColor(durability === 1 ? '#ff0000' : '#0066cc');
       }
     } else if (this.tileType !== 'wildcard') {
-      this.text.setText(this.value?.toString() || '');
-      if (this.tileType === 'normal') {
-        this.text.setColor(getTileTextColor(this.value));
+      if (this.text) {
+        this.text.setText(this.value?.toString() || '');
+        if (this.tileType === 'normal') {
+          this.text.setColor(getTileTextColor(this.value));
+        }
       }
-    }
-
-    // Update crack overlay for glass
-    if (this.tileType === 'glass' && this.specialData.durability === 1) {
-      this.addCrackOverlay();
     }
 
     // Update auto-swapper swaps remaining indicator

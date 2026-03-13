@@ -20,6 +20,7 @@ const LOCAL_ASSETS = [
   './js/PowerUpManager.js',
   './js/SpecialTileManager.js',
   './js/BoardLogic.js',
+  './js/TileRenderer.js',
   './js/Tile.js',
   './js/UIHelpers.js',
   './js/GameInputHandler.js',

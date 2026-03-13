@@ -32,6 +32,10 @@ class GameScene extends Phaser.Scene {
     this.GRID_OFFSET_X = this.layout.offsetX;
     this.GRID_OFFSET_Y = this.layout.offsetY;
 
+
+    // Initialize tile renderer and generate textures
+    tileRenderer = new TileRenderer(this);
+    tileRenderer.generateTextures(this.TILE_SIZE);
     // Listen for resize events
     this.scale.on('resize', this.onResize, this);
 
@@ -292,6 +296,9 @@ class GameScene extends Phaser.Scene {
     this.GRID_OFFSET_X = this.layout.offsetX;
     this.GRID_OFFSET_Y = this.layout.offsetY;
 
+    // Regenerate tile textures at new size
+    tileRenderer.generateTextures(this.TILE_SIZE);
+
     // Update tile positions
     Object.values(this.tiles).forEach(tile => {
       if (tile && tile.updateLayoutPosition) {
@@ -307,6 +314,11 @@ class GameScene extends Phaser.Scene {
     const { width } = this.cameras.main;
     UIHelpers.drawBackground(this);
 
+    // Subtle gradient overlay on background
+    const bgOverlay = this.add.graphics();
+    bgOverlay.fillStyle(0x3a4f62, 0.3);
+    bgOverlay.fillRect(0, 0, width, this.cameras.main.height * 0.3);
+
     // Title based on mode
     let titleText = 'THREES-DROP';
     if (this.gameMode === 'crazy') {
@@ -318,26 +330,27 @@ class GameScene extends Phaser.Scene {
     }
 
     this.add.text(width / 2, 30, titleText, {
-      fontSize: '32px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '32px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     // Score or objective
     if (this.gameMode === 'level' && this.levelConfig) {
       this.objectiveText = this.add.text(width / 2, 55, this.levelConfig.description, {
-        fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#f5a623'
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#f5c26b'
       }).setOrigin(0.5);
 
       this.progressText = this.add.text(width / 2, 75, '', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#7ed321'
       }).setOrigin(0.5);
 
       // Moves remaining - positioned on the right side
       this.movesText = this.add.text(width - 15, 55, `Moves: 0/${this.levelConfig.maxMoves}`, {
-        fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
       }).setOrigin(1, 0);
     } else {
       this.scoreText = this.add.text(width / 2, 60, 'SCORE: 0', {
-        fontSize: '18px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+        fontSize: '18px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b',
+        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(245,194,107,0.3)', blur: 4, fill: true }
       }).setOrigin(0.5);
     }
 
@@ -353,7 +366,7 @@ class GameScene extends Phaser.Scene {
 
     // Help button
     const helpBtn = this.add.text(width - 15, 15, '?', {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      fontSize: '24px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold',
       color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 12, y: 6 }
     }).setOrigin(1, 0).setInteractive();
     helpBtn.on('pointerdown', () => {
@@ -368,23 +381,23 @@ class GameScene extends Phaser.Scene {
       // For test levels, show option to close tab; otherwise go to level select
       if (window.isTestLevelSession) {
         this.add.text(15, 15, '< EDITOR', {
-          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5c26b'
+          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b'
         }).setInteractive().on('pointerdown', () => {
           window.isTestLevelSession = false;
           window.close();
         });
       } else {
         this.add.text(15, 15, '< BACK', {
-          fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
         }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
       }
     } else if (this.gameMode === 'daily') {
       this.add.text(15, 15, '< MENU', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
       }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     } else {
       this.add.text(15, 15, '< MENU', {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
       }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
     }
   }
@@ -540,27 +553,47 @@ class GameScene extends Phaser.Scene {
   setupGrid() {
     const gridWidth = this.GRID_COLS * this.TILE_SIZE;
     const gridHeight = this.GRID_ROWS * this.TILE_SIZE;
+    const ox = this.GRID_OFFSET_X;
+    const oy = this.GRID_OFFSET_Y;
 
+    // Grid background with shadow effect (darker inset)
     const gridBg = this.add.graphics();
-    gridBg.fillStyle(GameConfig.UI.GRID_BG, 0.5);
-    gridBg.fillRoundedRect(this.GRID_OFFSET_X - 10, this.GRID_OFFSET_Y - 10, gridWidth + 20, gridHeight + 20, 10);
 
+    // Outer shadow (slightly larger, darker rectangle behind)
+    gridBg.fillStyle(0x1a2530, 0.8);
+    gridBg.fillRoundedRect(ox - 10, oy - 8, gridWidth + 20, gridHeight + 22, 12);
+
+    // Main grid background
+    gridBg.fillStyle(0x222d38, 1);
+    gridBg.fillRoundedRect(ox - 8, oy - 8, gridWidth + 16, gridHeight + 16, 12);
+
+    // Subtle border glow
+    gridBg.lineStyle(1, 0x64a0c8, 0.15);
+    gridBg.strokeRoundedRect(ox - 8, oy - 8, gridWidth + 16, gridHeight + 16, 12);
+
+    // Individual cells with inset appearance
     for (let col = 0; col < this.GRID_COLS; col++) {
       for (let row = 0; row < this.GRID_ROWS; row++) {
-        const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
-        const y = this.GRID_OFFSET_Y + row * this.TILE_SIZE;
+        const x = ox + col * this.TILE_SIZE;
+        const y = oy + row * this.TILE_SIZE;
+        const cellSize = this.TILE_SIZE - 8;
         const cell = this.add.graphics();
-        cell.fillStyle(GameConfig.UI.CELL_BG, 0.8);
-        cell.fillRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
-        cell.lineStyle(1, 0x533483, 0.5);
-        cell.strokeRoundedRect(x + 5, y + 5, this.TILE_SIZE - 10, this.TILE_SIZE - 10, 8);
+
+        // Dark inset cell
+        cell.fillStyle(0x1a2530, 1);
+        cell.fillRoundedRect(x + 4, y + 4, cellSize, cellSize, 8);
+
+        // Thin subtle border
+        cell.lineStyle(0.5, 0x507898, 0.12);
+        cell.strokeRoundedRect(x + 4, y + 4, cellSize, cellSize, 8);
       }
     }
 
+    // Column hit zones for tap-to-drop
     this.columnZones = [];
     for (let col = 0; col < this.GRID_COLS; col++) {
-      const x = this.GRID_OFFSET_X + col * this.TILE_SIZE;
-      const zone = this.add.rectangle(x, this.GRID_OFFSET_Y, this.TILE_SIZE, gridHeight, 0x000000, 0);
+      const x = ox + col * this.TILE_SIZE;
+      const zone = this.add.rectangle(x, oy, this.TILE_SIZE, gridHeight, 0x000000, 0);
       zone.setOrigin(0, 0).setInteractive().setData('column', col);
       this.columnZones.push(zone);
     }
@@ -776,16 +809,16 @@ class GameScene extends Phaser.Scene {
     const barY = this.GRID_OFFSET_Y + this.GRID_ROWS * this.TILE_SIZE + 40;
 
     this.add.text(barX, barY - 25, 'SWIPE POWER-UP', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#ffffff'
     });
 
     this.comboBarBg = this.add.graphics();
-    this.comboBarBg.fillStyle(GameConfig.UI.GRID_BG, 1);
+    this.comboBarBg.fillStyle(0x1a2530, 1);
     this.comboBarBg.fillRoundedRect(barX, barY, barWidth, barHeight, 5);
 
     this.comboBarFill = this.add.graphics();
     this.comboText = this.add.text(barX + barWidth / 2, barY + barHeight / 2, '0/5', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.comboBarX = barX;
@@ -803,16 +836,16 @@ class GameScene extends Phaser.Scene {
     const barHalf = this.comboBarWidth / 2;
     const bw = 50, bh = 30, gap = 10;
 
-    this.leftButton = this.add.rectangle(centerX - barHalf - gap - bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 0.3);
+    this.leftButton = this.add.rectangle(centerX - barHalf - gap - bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 1);
     this.leftButton.setStrokeStyle(2, GameConfig.UI.PRIMARY).setInteractive();
     this.leftButtonText = this.add.text(centerX - barHalf - gap - bw / 2, buttonY, '←', {
-      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      fontSize: '20px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
     }).setOrigin(0.5);
 
-    this.rightButton = this.add.rectangle(centerX + barHalf + gap + bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 0.3);
+    this.rightButton = this.add.rectangle(centerX + barHalf + gap + bw / 2, buttonY, bw, bh, GameConfig.UI.PRIMARY, 1);
     this.rightButton.setStrokeStyle(2, GameConfig.UI.PRIMARY).setInteractive();
     this.rightButtonText = this.add.text(centerX + barHalf + gap + bw / 2, buttonY, '→', {
-      fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#4a90e2'
+      fontSize: '20px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
     }).setOrigin(0.5);
 
     this.leftButton.on('pointerdown', () => {
@@ -837,7 +870,7 @@ class GameScene extends Phaser.Scene {
 
     // Resource points display
     this.resourceText = this.add.text(width / 2, barY, 'POWER: 0', {
-      fontSize: '14px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#f5a623'
+      fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5a623'
     }).setOrigin(0.5);
 
     // Power-up buttons
@@ -882,17 +915,17 @@ class GameScene extends Phaser.Scene {
     const bw = 55, bh = 28;
 
     // Left swipe button
-    this.crazyLeftButton = this.add.rectangle(width / 2 - 60, y, bw, bh, GameConfig.UI.SUCCESS, 0.8);
+    this.crazyLeftButton = this.add.rectangle(width / 2 - 60, y, bw, bh, GameConfig.UI.SUCCESS, 1);
     this.crazyLeftButton.setStrokeStyle(2, GameConfig.UI.SUCCESS).setInteractive();
     this.crazyLeftText = this.add.text(width / 2 - 60, y, '← SWIPE', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     // Right swipe button
-    this.crazyRightButton = this.add.rectangle(width / 2 + 60, y, bw, bh, GameConfig.UI.SUCCESS, 0.8);
+    this.crazyRightButton = this.add.rectangle(width / 2 + 60, y, bw, bh, GameConfig.UI.SUCCESS, 1);
     this.crazyRightButton.setStrokeStyle(2, GameConfig.UI.SUCCESS).setInteractive();
     this.crazyRightText = this.add.text(width / 2 + 60, y, 'SWIPE →', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.crazyLeftButton.on('pointerdown', () => {
@@ -921,55 +954,76 @@ class GameScene extends Phaser.Scene {
   }
 
   createPowerUpButton(x, y, type, icon, cost) {
+    const bw = 56, bh = 36;
     const bg = this.add.graphics();
-    bg.fillStyle(GameConfig.UI.PRIMARY, 0.3);
-    bg.lineStyle(2, GameConfig.UI.PRIMARY, 1);
-    bg.fillRoundedRect(x - 28, y - 18, 56, 36, 6);
-    bg.strokeRoundedRect(x - 28, y - 18, 56, 36, 6);
+
+    // Button shadow
+    bg.fillStyle(0x000000, 0.2);
+    bg.fillRoundedRect(x - bw/2, y - bh/2 + 2, bw, bh, 8);
+
+    // Main button fill
+    bg.fillStyle(0x5a9fd4, 1);
+    bg.fillRoundedRect(x - bw/2, y - bh/2, bw, bh, 8);
+
+    // Highlight on top half
+    bg.fillStyle(0xffffff, 0.12);
+    bg.fillRoundedRect(x - bw/2, y - bh/2, bw, bh/2, { tl: 8, tr: 8, bl: 0, br: 0 });
+
+    // Border
+    bg.lineStyle(1, 0x7eb8e5, 0.3);
+    bg.strokeRoundedRect(x - bw/2, y - bh/2, bw, bh, 8);
 
     const label = this.add.text(x, y - 4, icon, {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800', color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 1, fill: true }
     }).setOrigin(0.5);
 
-    const costText = this.add.text(x, y + 10, cost.toString(), {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', color: '#888888'
+    // Cost badge below icon
+    const costBg = this.add.graphics();
+    costBg.fillStyle(0x000000, 0.35);
+    costBg.fillRoundedRect(x - 10, y + 7, 20, 13, 4);
+
+    const costText = this.add.text(x, y + 13, cost.toString(), {
+      fontSize: '9px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '700', color: '#dddddd'
     }).setOrigin(0.5);
 
-    const hitArea = this.add.rectangle(x, y, 56, 36, 0x000000, 0).setInteractive();
+    const hitArea = this.add.rectangle(x, y, bw, bh, 0x000000, 0).setInteractive();
     hitArea.on('pointerdown', (pointer) => {
-      // Mark that this click was handled by a button
       pointer.powerUpButtonClicked = true;
       this.activatePowerUp(type);
     });
 
-    return { bg, label, costText, hitArea, x, y, type };
+    return { bg, label, costText, costBg, hitArea, x, y, type };
   }
 
   setupFrenzyBar(y) {
     const { width } = this.cameras.main;
     const barWidth = 180;
+    const barHeight = 18;
 
-    this.add.text(width / 2 - barWidth / 2 - 5, y + 8, 'FRENZY', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ff6b6b'
+    this.add.text(width / 2 - barWidth / 2 - 5, y + 9, 'FRENZY', {
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ff6b6b'
     }).setOrigin(1, 0.5);
 
+    // Inset bar background
     this.frenzyBarBg = this.add.graphics();
-    this.frenzyBarBg.fillStyle(GameConfig.UI.GRID_BG, 1);
-    this.frenzyBarBg.fillRoundedRect(width / 2 - barWidth / 2, y, barWidth, 16, 4);
+    this.frenzyBarBg.fillStyle(0x1a2530, 1);
+    this.frenzyBarBg.fillRoundedRect(width / 2 - barWidth / 2, y, barWidth, barHeight, 6);
 
     this.frenzyBarFill = this.add.graphics();
 
-    this.frenzyBarText = this.add.text(width / 2, y + 8, '0/50', {
-      fontSize: '10px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+    this.frenzyBarText = this.add.text(width / 2, y + 9, '0/50', {
+      fontSize: '10px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#ffffff'
     }).setOrigin(0.5);
 
     this.frenzyBarX = width / 2 - barWidth / 2;
     this.frenzyBarY = y;
     this.frenzyBarWidth = barWidth;
+    this.frenzyBarHeight = barHeight;
 
     // Frenzy activate button (hidden until ready)
-    this.frenzyActivateBtn = this.add.text(width / 2, y + 28, 'ACTIVATE FRENZY!', {
-      fontSize: '12px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+    this.frenzyActivateBtn = this.add.text(width / 2, y + 30, 'ACTIVATE FRENZY!', {
+      fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800',
       color: '#ffffff', backgroundColor: '#ff6b6b', padding: { x: 8, y: 4 }
     }).setOrigin(0.5).setInteractive().setVisible(false);
 
@@ -2701,9 +2755,14 @@ class GameScene extends Phaser.Scene {
       // Cap ratio at 1 to prevent bar overflow
       const ratio = Math.min(state.frenzyMeter / state.frenzyThreshold, 1);
       this.frenzyBarFill.clear();
+      const fillWidth = this.frenzyBarWidth * ratio;
+      const fillHeight = this.frenzyBarHeight || 18;
       if (ratio > 0) {
         this.frenzyBarFill.fillStyle(GameConfig.UI.FRENZY, 1);
-        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, this.frenzyBarWidth * ratio, 16, 4);
+        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, fillWidth, fillHeight, 6);
+        // Shine on top half of fill
+        this.frenzyBarFill.fillStyle(0xffffff, 0.15);
+        this.frenzyBarFill.fillRoundedRect(this.frenzyBarX, this.frenzyBarY, fillWidth, fillHeight / 2, { tl: 6, tr: 6, bl: 0, br: 0 });
       }
       // Display actual meter value but capped display at threshold
       const displayMeter = Math.min(state.frenzyMeter, state.frenzyThreshold);

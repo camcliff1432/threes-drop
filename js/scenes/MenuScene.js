@@ -160,10 +160,17 @@ class MenuScene extends Phaser.Scene {
       const halfSize = tileSize / 2;
       const radius = 6;
 
-      // Helper to draw clean flat tile
+      // Helper to draw tile with depth effect
       const drawTileBase = (color) => {
+        // Drop shadow
+        tileBg.fillStyle(0x000000, 0.15);
+        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize + 2, tileSize, tileSize, radius);
+        // Main fill
         tileBg.fillStyle(color, 1);
         tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize, radius);
+        // Top highlight
+        tileBg.fillStyle(0xffffff, 0.12);
+        tileBg.fillRoundedRect(tileX - halfSize, tileY - halfSize, tileSize, tileSize / 2, { tl: radius, tr: radius, bl: 0, br: 0 });
       };
 
       if (typeof val === 'string') {
@@ -594,6 +601,10 @@ class MenuScene extends Phaser.Scene {
     const boxY = height / 2 - boxHeight / 2;
 
     const box = this.add.graphics();
+    // Drop shadow for popup
+    box.fillStyle(0x000000, 0.3);
+    box.fillRoundedRect(boxX + 2, boxY + 3, boxWidth, boxHeight, 12);
+    // Main popup fill
     box.fillStyle(0x1a1a2e, 1);
     box.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
     box.lineStyle(2, 0x4a90e2, 1);
@@ -602,12 +613,12 @@ class MenuScene extends Phaser.Scene {
 
     // Title
     const title = this.add.text(width / 2, boxY + 30, 'CONTINUE GAME?', {
-      fontSize: '22px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
+      fontSize: '22px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#ffffff'
     }).setOrigin(0.5).setDepth(902);
 
     // Message
     const message = this.add.text(width / 2, boxY + 60, 'You have a saved game in progress.', {
-      fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
+      fontSize: '13px', fontFamily: GameConfig.FONTS.UI, color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(902);
 
     // Button dimensions for consistent sizing
@@ -623,7 +634,7 @@ class MenuScene extends Phaser.Scene {
     resumeBtnBg.setDepth(902);
 
     const resumeBtn = this.add.text(width / 2, resumeBtnY, 'RESUME GAME', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#7ed321'
     }).setOrigin(0.5).setDepth(903);
 
     const resumeBtnZone = this.add.rectangle(width / 2, resumeBtnY, btnWidth, btnHeight, 0x000000, 0)
@@ -637,7 +648,7 @@ class MenuScene extends Phaser.Scene {
     newBtnBg.setDepth(902);
 
     const newBtn = this.add.text(width / 2, newBtnY, 'START NEW GAME', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#e24a4a'
+      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#e24a4a'
     }).setOrigin(0.5).setDepth(903);
 
     const newBtnZone = this.add.rectangle(width / 2, newBtnY, btnWidth, btnHeight, 0x000000, 0)
