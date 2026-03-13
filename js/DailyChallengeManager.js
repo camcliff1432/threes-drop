@@ -8,6 +8,7 @@ class DailyChallengeManager {
   constructor() {
     this.STORAGE_KEY = 'threes_drop_daily';
     this.history = this.loadHistory();
+    this.pruneCompletedDates();
   }
 
   // ============================================
@@ -271,7 +272,7 @@ class DailyChallengeManager {
 
   loadHistory() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -287,9 +288,19 @@ class DailyChallengeManager {
     };
   }
 
+  /**
+   * Prune completedDates to keep only the last 90 days
+   */
+  pruneCompletedDates() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    this.history.completedDates = this.history.completedDates.filter(d => d >= cutoffStr);
+  }
+
   saveHistory() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.history));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.history));
     } catch (e) {
       console.warn('Failed to save daily challenge history:', e);
     }
@@ -315,6 +326,7 @@ class DailyChallengeManager {
 
     this.history.completedDates.push(today);
     this.history.totalCompleted++;
+    this.pruneCompletedDates();
 
     // Calculate streak
     const yesterday = this.getYesterdayString();

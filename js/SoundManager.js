@@ -7,7 +7,7 @@ class SoundManager {
   constructor() {
     this.ctx = null;
     this.initialized = false;
-    this.muted = localStorage.getItem('threes_sound_muted') === 'true';
+    this.muted = storageBatcher.get('threes_sound_muted') === 'true';
     this.masterVolume = GameConfig.SOUND ? GameConfig.SOUND.MASTER_VOLUME : 0.3;
   }
 
@@ -29,7 +29,7 @@ class SoundManager {
    */
   toggleMute() {
     this.muted = !this.muted;
-    localStorage.setItem('threes_sound_muted', this.muted);
+    storageBatcher.set('threes_sound_muted', this.muted);
     return this.muted;
   }
 
@@ -95,6 +95,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.08);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -119,6 +120,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.15);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
 
     this.haptic(15);
   }
@@ -144,6 +146,7 @@ class SoundManager {
       osc.connect(gain).connect(this.ctx.destination);
       osc.start(noteTime);
       osc.stop(noteTime + 0.1);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     }
   }
 
@@ -163,6 +166,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.4);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
 
     this.haptic([20, 10, 20, 10, 40]);
   }
@@ -182,6 +186,7 @@ class SoundManager {
     osc.connect(gain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.5);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -205,6 +210,7 @@ class SoundManager {
     filter.frequency.setValueAtTime(2000, t);
     source.connect(filter).connect(gain).connect(this.ctx.destination);
     source.start(t);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -230,6 +236,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
     source.connect(filter).connect(gain).connect(this.ctx.destination);
     source.start(t);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
 
   /**
@@ -248,6 +255,7 @@ class SoundManager {
     osc1.connect(gain1).connect(this.ctx.destination);
     osc1.start(t);
     osc1.stop(t + 0.08);
+    osc1.onended = () => { osc1.disconnect(); gain1.disconnect(); };
 
     // Second tone (ascending) - offset by 90ms
     const osc2 = this.ctx.createOscillator();
@@ -261,6 +269,7 @@ class SoundManager {
     osc2.connect(gain2).connect(this.ctx.destination);
     osc2.start(t + 0.09);
     osc2.stop(t + 0.18);
+    osc2.onended = () => { osc2.disconnect(); gain2.disconnect(); };
   }
 
   /**
@@ -279,6 +288,7 @@ class SoundManager {
     osc1.connect(gain1).connect(this.ctx.destination);
     osc1.start(t);
     osc1.stop(t + 0.2);
+    osc1.onended = () => { osc1.disconnect(); gain1.disconnect(); };
 
     // High tone falling to meet it
     const osc2 = this.ctx.createOscillator();
@@ -291,6 +301,7 @@ class SoundManager {
     osc2.connect(gain2).connect(this.ctx.destination);
     osc2.start(t);
     osc2.stop(t + 0.2);
+    osc2.onended = () => { osc2.disconnect(); gain2.disconnect(); };
   }
 
   /**
@@ -310,6 +321,7 @@ class SoundManager {
       osc.connect(gain).connect(this.ctx.destination);
       osc.start(noteTime);
       osc.stop(noteTime + 0.1);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     });
   }
 
@@ -332,6 +344,7 @@ class SoundManager {
     noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
     noiseSource.connect(noiseGain).connect(this.ctx.destination);
     noiseSource.start(t);
+    noiseSource.onended = () => { noiseSource.disconnect(); noiseGain.disconnect(); };
 
     // Low thud
     const osc = this.ctx.createOscillator();
@@ -344,6 +357,7 @@ class SoundManager {
     osc.connect(oscGain).connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.2);
+    osc.onended = () => { osc.disconnect(); oscGain.disconnect(); };
 
     this.haptic([30, 20, 50]);
   }

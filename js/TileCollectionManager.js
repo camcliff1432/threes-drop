@@ -13,7 +13,7 @@ class TileCollectionManager {
    */
   loadCollection() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -32,7 +32,7 @@ class TileCollectionManager {
    */
   saveCollection() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.collection));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.collection));
     } catch (e) {
       console.warn('Failed to save tile collection:', e);
     }
@@ -54,11 +54,12 @@ class TileCollectionManager {
       this.collection.discoveredTiles.sort((a, b) => a - b);
     }
 
-    if (value > this.collection.highestTile) {
+    const isNewHighest = value > this.collection.highestTile;
+    if (isNewHighest) {
       this.collection.highestTile = value;
     }
 
-    if (isNewDiscovery || value > this.collection.highestTile) {
+    if (isNewDiscovery || isNewHighest) {
       this.saveCollection();
     }
 

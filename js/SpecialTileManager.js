@@ -530,11 +530,32 @@ class SpecialTileManager {
   }
 
   /**
-   * Get count of cleared lead tiles (for objectives)
+   * Reconcile tracking arrays with actual board state.
+   * Removes entries whose position no longer matches the board.
    */
-  getClearedLeadCount() {
-    // This could be tracked separately if needed for objectives
-    return 0;
+  syncPositions() {
+    const board = this.boardLogic.board;
+
+    this.steelPlates = this.steelPlates.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'steel';
+    });
+    this.leadTiles = this.leadTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'lead';
+    });
+    this.glassTiles = this.glassTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'glass';
+    });
+    this.autoSwapperTiles = this.autoSwapperTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'auto_swapper';
+    });
+    this.bombTiles = this.bombTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'bomb';
+    });
   }
 
   /**

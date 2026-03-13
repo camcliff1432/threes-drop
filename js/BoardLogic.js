@@ -19,6 +19,7 @@ class BoardLogic {
     this.score = 0;
     this.movesUsed = 0;
     this.tilesCreated = {}; // Track tiles created for objectives
+    this.onBoardChanged = null; // Callback for board state changes
   }
 
   createEmptyBoard() {
@@ -128,9 +129,16 @@ class BoardLogic {
       return false;
     }
 
-    // Wildcard merges with any tile value >= 3
-    if (v1 === 'wildcard' && typeof v2 === 'number' && v2 >= 3) return true;
-    if (v2 === 'wildcard' && typeof v1 === 'number' && v1 >= 3) return true;
+    // Wildcard merges with any numeric tile value >= 3,
+    // but NOT with bombs, auto_swappers, steel, or lead
+    if (v1 === 'wildcard') {
+      if (typeof value2 === 'object' && (value2.type === 'bomb' || value2.type === 'auto_swapper')) return false;
+      if (typeof v2 === 'number' && v2 >= 3) return true;
+    }
+    if (v2 === 'wildcard') {
+      if (typeof value1 === 'object' && (value1.type === 'bomb' || value1.type === 'auto_swapper')) return false;
+      if (typeof v1 === 'number' && v1 >= 3) return true;
+    }
 
     // Standard merge rules - ensure numeric comparison
     const num1 = typeof v1 === 'number' ? v1 : parseInt(v1);
@@ -238,7 +246,8 @@ class BoardLogic {
     let count = 0;
     for (let col = 0; col < this.COLS; col++) {
       for (let row = 0; row < this.ROWS; row++) {
-        if (this.board[col][row] === value) {
+        const cell = this.board[col][row];
+        if (cell === value || (cell && typeof cell === 'object' && cell.value === value)) {
           count++;
         }
       }
@@ -346,7 +355,7 @@ class BoardLogic {
 
   isBoardFull() {
     for (let col = 0; col < this.COLS; col++) {
-      if (this.board[col][0] === null) return false;
+      if (this.getLowestEmptyRow(col) !== -1) return false;
     }
     return true;
   }
@@ -458,6 +467,7 @@ class BoardLogic {
     }
 
     this.board = newBoard;
+    if (this.onBoardChanged) this.onBoardChanged();
     return operations;
   }
 
@@ -504,6 +514,7 @@ class BoardLogic {
       }
     }
 
+    if (this.onBoardChanged) this.onBoardChanged();
     return operations;
   }
 
@@ -550,10 +561,8 @@ class BoardLogic {
       return { success: false, reason: 'empty_cell' };
     }
 
-    // Check compatibility (with debug logging on failure)
+    // Check compatibility
     if (!this.canMerge(value1, value2)) {
-      console.log('forceMerge failed - incompatible tiles:', { value1, value2, col1, row1, col2, row2 });
-      this.canMerge(value1, value2, true); // Re-run with debug to see why
       return { success: false, reason: 'incompatible' };
     }
 

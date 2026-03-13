@@ -152,6 +152,9 @@ class Tile extends Phaser.GameObjects.Container {
     const durability = this.specialData.durability || 2;
     const size = this.TILE_SIZE - 8;
 
+    if (this.durabilityBadge) {
+      this.durabilityBadge.destroy();
+    }
     if (this.durabilityText) {
       this.durabilityText.destroy();
     }
@@ -411,52 +414,54 @@ class Tile extends Phaser.GameObjects.Container {
   }
 
   updateGraphics() {
-    const size = this.TILE_SIZE - 8;
+    const size = this.TILE_SIZE - 6;
+    const halfSize = size / 2;
+    const radius = 8;
     this.bg.clear();
 
     let color = getTileColor(this.value);
-    let strokeColor = 0xffffff;
-    let strokeAlpha = 0.3;
+    let strokeColor = 0x000000;
+    let strokeAlpha = 0.15;
 
     switch (this.tileType) {
       case 'steel':
         color = GameConfig.COLORS.STEEL;
-        strokeColor = 0x4a4a4a;
-        strokeAlpha = 0.8;
+        strokeColor = 0x6a7a8a;
+        strokeAlpha = 0.4;
         break;
       case 'lead':
         color = GameConfig.COLORS.LEAD;
-        strokeColor = 0x444444;
+        strokeColor = 0x333333;
         strokeAlpha = 0.3;
         break;
       case 'glass':
         color = GameConfig.COLORS.GLASS;
-        strokeColor = 0x87ceeb;
-        strokeAlpha = 0.6;
+        strokeColor = 0x8ab4d4;
+        strokeAlpha = 0.5;
         break;
       case 'wildcard':
         color = GameConfig.COLORS.WILDCARD;
-        strokeColor = 0xff66ff;
-        strokeAlpha = 0.8;
+        strokeColor = 0xc090d0;
+        strokeAlpha = 0.5;
         break;
       case 'auto_swapper':
         color = GameConfig.COLORS.AUTO_SWAPPER;
-        strokeColor = 0xb366e0;
-        strokeAlpha = 0.8;
+        strokeColor = 0x8a6ca2;
+        strokeAlpha = 0.5;
         break;
       case 'bomb':
         color = GameConfig.COLORS.BOMB;
-        strokeColor = 0xcc0000;
-        strokeAlpha = 0.9;
+        strokeColor = 0xc05050;
+        strokeAlpha = 0.5;
         break;
       default:
         break;
     }
 
     this.bg.fillStyle(color, 1);
-    this.bg.fillRoundedRect(-size / 2, -size / 2, size, size, 8);
-    this.bg.lineStyle(2, strokeColor, strokeAlpha);
-    this.bg.strokeRoundedRect(-size / 2, -size / 2, size, size, 8);
+    this.bg.fillRoundedRect(-halfSize, -halfSize, size, size, radius);
+    this.bg.lineStyle(1, strokeColor, strokeAlpha);
+    this.bg.strokeRoundedRect(-halfSize, -halfSize, size, size, radius);
 
     // Update text based on tile type
     if (this.tileType === 'lead') {

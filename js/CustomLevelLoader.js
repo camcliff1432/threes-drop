@@ -22,10 +22,9 @@ class CustomLevelLoader {
    */
   loadFromStorage() {
     try {
-      const saved = localStorage.getItem(this.storageKey);
+      const saved = storageBatcher.get(this.storageKey);
       if (saved) {
         this.customLevels = JSON.parse(saved);
-        console.log(`Loaded ${this.customLevels.length} custom levels from storage`);
       }
     } catch (e) {
       console.error('Failed to load custom levels:', e);
@@ -38,10 +37,19 @@ class CustomLevelLoader {
    */
   saveToStorage() {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.customLevels));
+      storageBatcher.set(this.storageKey, JSON.stringify(this.customLevels));
     } catch (e) {
       console.error('Failed to save custom levels:', e);
     }
+  }
+
+  /**
+   * Strip HTML tags from a string
+   * @param {string} str - Input string
+   * @returns {string} Sanitized string
+   */
+  _stripHTML(str) {
+    return typeof str === 'string' ? str.replace(/<[^>]*>/g, '') : str;
   }
 
   /**
@@ -57,16 +65,34 @@ class CustomLevelLoader {
       throw new Error('Level must have id, name, and objective');
     }
 
+    // Validate types
+    if (typeof level.id !== 'string' && typeof level.id !== 'number') {
+      throw new Error('Level id must be a string or number');
+    }
+    if (typeof level.name !== 'string') {
+      throw new Error('Level name must be a string');
+    }
+    if (typeof level.objective !== 'string' && typeof level.objective !== 'object') {
+      throw new Error('Level objective must be a string or object');
+    }
+
+    // Enforce length limits and strip HTML from string fields
+    level.name = this._stripHTML(level.name).slice(0, 50);
+    if (typeof level.description === 'string') {
+      level.description = this._stripHTML(level.description).slice(0, 200);
+    }
+    if (typeof level.objective === 'string') {
+      level.objective = this._stripHTML(level.objective).slice(0, 200);
+    }
+
     // Check for duplicate ID
     const existingIndex = this.customLevels.findIndex(l => l.id === level.id);
     if (existingIndex >= 0) {
       // Replace existing
       this.customLevels[existingIndex] = level;
-      console.log(`Updated custom level ${level.id}: ${level.name}`);
     } else {
       // Add new
       this.customLevels.push(level);
-      console.log(`Added custom level ${level.id}: ${level.name}`);
     }
 
     // Sort by ID
@@ -164,12 +190,33 @@ class CustomLevelLoader {
   /**
    * Import levels from JSON string (replaces all)
    * @param {string} json - JSON string of levels array
+   * @returns {{ success: boolean, imported: number, errors: string[] }}
    */
   importAll(json) {
-    const levels = JSON.parse(json);
-    this.customLevels = Array.isArray(levels) ? levels : [levels];
-    this.customLevels.sort((a, b) => a.id - b.id);
-    this.saveToStorage();
+    let parsed;
+    try {
+      parsed = JSON.parse(json);
+    } catch (e) {
+      return { success: false, imported: 0, errors: ['Invalid JSON: ' + e.message] };
+    }
+
+    const levels = Array.isArray(parsed) ? parsed : [parsed];
+    const errors = [];
+    let imported = 0;
+
+    // Clear existing levels before importing
+    this.customLevels = [];
+
+    levels.forEach((level, i) => {
+      try {
+        this.addLevel(level);
+        imported++;
+      } catch (e) {
+        errors.push(`Level ${i}: ${e.message}`);
+      }
+    });
+
+    return { success: errors.length === 0, imported, errors };
   }
 
   /**
@@ -240,7 +287,6 @@ function integrateCustomLevels() {
     return customLevelLoader.getAllLevels();
   };
 
-  console.log('Custom level integration complete');
 }
 
 // Auto-integrate when DOM is ready

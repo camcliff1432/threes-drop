@@ -64,7 +64,7 @@ class AchievementManager {
 
   loadStats() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -88,7 +88,7 @@ class AchievementManager {
 
   saveStats() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.stats));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.stats));
     } catch (e) {
       console.warn('Failed to save achievement stats:', e);
     }
@@ -215,92 +215,91 @@ class AchievementManager {
     this.checkLevelAchievements();
   }
 
-  // Achievement checking methods
-  checkTileAchievements(value) {
-    const tileAchievements = [
-      { id: 'first_3', value: 3 },
-      { id: 'first_6', value: 6 },
-      { id: 'first_12', value: 12 },
-      { id: 'first_24', value: 24 },
-      { id: 'first_48', value: 48 },
-      { id: 'first_96', value: 96 },
-      { id: 'first_192', value: 192 },
-      { id: 'first_384', value: 384 },
-      { id: 'first_768', value: 768 }
-    ];
+  /**
+   * Get the current stat value for a given requirement type
+   * @param {string} type - The requirement type from the ACHIEVEMENTS definition
+   * @param {*} currentValue - Optional context value (e.g. tile value, score, mode)
+   * @returns {number|string|null} The current stat value
+   */
+  getStatForRequirement(type, currentValue) {
+    switch (type) {
+      case 'tile': return currentValue;
+      case 'score': return currentValue;
+      case 'frenzy_count': return this.stats.frenzyCount;
+      case 'glass_broken': return this.stats.glassBroken;
+      case 'lead_cleared': return this.stats.leadCleared;
+      case 'bombs_exploded': return this.stats.bombsExploded;
+      case 'games_played': return this.stats.gamesPlayed;
+      case 'levels_completed': return this.stats.levelsCompleted;
+      case 'mode_played': return currentValue;
+      default: return null;
+    }
+  }
 
-    tileAchievements.forEach(a => {
-      if (value >= a.value) {
-        this.unlock(a.id);
+  /**
+   * Generic achievement checker - evaluates requirement from ACHIEVEMENTS data
+   * @param {Object} achievement - Achievement definition from ACHIEVEMENTS array
+   * @param {*} currentValue - Optional context value (e.g. tile value, score, mode)
+   */
+  checkAchievement(achievement, currentValue) {
+    if (this.isUnlocked(achievement.id)) return;
+    const req = achievement.requirement;
+    const stat = this.getStatForRequirement(req.type, currentValue);
+    if (stat === null) return;
+
+    if (req.type === 'mode_played') {
+      // Mode achievements: unlock if the current mode matches the required value
+      if (stat === req.value) {
+        this.unlock(achievement.id);
       }
-    });
+    } else {
+      // Numeric threshold achievements: unlock if stat >= required value
+      if (stat >= req.value) {
+        this.unlock(achievement.id);
+      }
+    }
+  }
+
+  /**
+   * Check all achievements matching the given requirement types
+   * @param {string|string[]} types - Requirement type(s) to check
+   * @param {*} currentValue - Optional context value
+   */
+  checkAchievementsByType(types, currentValue) {
+    const typeArr = Array.isArray(types) ? types : [types];
+    this.ACHIEVEMENTS
+      .filter(a => typeArr.includes(a.requirement.type))
+      .forEach(a => this.checkAchievement(a, currentValue));
+  }
+
+  // Achievement checking methods - delegate to generic checker
+  checkTileAchievements(value) {
+    this.checkAchievementsByType('tile', value);
   }
 
   checkScoreAchievements(score) {
-    const scoreAchievements = [
-      { id: 'score_100', value: 100 },
-      { id: 'score_500', value: 500 },
-      { id: 'score_1000', value: 1000 },
-      { id: 'score_2500', value: 2500 },
-      { id: 'score_5000', value: 5000 },
-      { id: 'score_10000', value: 10000 }
-    ];
-
-    scoreAchievements.forEach(a => {
-      if (score >= a.value) {
-        this.unlock(a.id);
-      }
-    });
+    this.checkAchievementsByType('score', score);
   }
 
   checkFrenzyAchievements() {
-    const frenzyAchievements = [
-      { id: 'frenzy_1', value: 1 },
-      { id: 'frenzy_5', value: 5 },
-      { id: 'frenzy_10', value: 10 },
-      { id: 'frenzy_25', value: 25 }
-    ];
-
-    frenzyAchievements.forEach(a => {
-      if (this.stats.frenzyCount >= a.value) {
-        this.unlock(a.id);
-      }
-    });
+    this.checkAchievementsByType('frenzy_count');
   }
 
   checkSpecialTileAchievements() {
-    // Glass achievements
-    if (this.stats.glassBroken >= 5) this.unlock('glass_5');
-    if (this.stats.glassBroken >= 25) this.unlock('glass_25');
-    if (this.stats.glassBroken >= 100) this.unlock('glass_100');
-
-    // Lead achievements
-    if (this.stats.leadCleared >= 5) this.unlock('lead_5');
-    if (this.stats.leadCleared >= 25) this.unlock('lead_25');
+    this.checkAchievementsByType(['glass_broken', 'lead_cleared']);
   }
 
   checkBombAchievements() {
-    if (this.stats.bombsExploded >= 1) this.unlock('bomb_1');
-    if (this.stats.bombsExploded >= 5) this.unlock('bomb_5');
-    if (this.stats.bombsExploded >= 25) this.unlock('bomb_25');
+    this.checkAchievementsByType('bombs_exploded');
   }
 
   checkGameAchievements(mode) {
-    // Game count achievements
-    if (this.stats.gamesPlayed >= 10) this.unlock('games_10');
-    if (this.stats.gamesPlayed >= 50) this.unlock('games_50');
-    if (this.stats.gamesPlayed >= 100) this.unlock('games_100');
-
-    // Mode achievements
-    if (mode === 'original') this.unlock('original_play');
-    if (mode === 'crazy') this.unlock('crazy_play');
-    if (mode === 'endless') this.unlock('endless_play');
+    this.checkAchievementsByType('games_played');
+    this.checkAchievementsByType('mode_played', mode);
   }
 
   checkLevelAchievements() {
-    if (this.stats.levelsCompleted >= 1) this.unlock('tutorial_1');
-    if (this.stats.levelsCompleted >= 10) this.unlock('tutorial_10');
-    if (this.stats.levelsCompleted >= 20) this.unlock('tutorial_complete');
+    this.checkAchievementsByType('levels_completed');
   }
 
   /**

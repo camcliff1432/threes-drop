@@ -28,6 +28,7 @@ const LOCAL_ASSETS = [
   './js/TileCollectionManager.js',
   './js/DailyChallengeManager.js',
   './js/AchievementManager.js',
+  './js/StorageBatcher.js',
   './js/GameStateManager.js',
   './js/scenes/MenuScene.js',
   './js/scenes/DailyChallengeScene.js',

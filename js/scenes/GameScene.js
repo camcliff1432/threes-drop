@@ -35,6 +35,9 @@ class GameScene extends Phaser.Scene {
     // Listen for resize events
     this.scale.on('resize', this.onResize, this);
 
+    // Register shutdown handler to clean up event listeners
+    this.events.on('shutdown', this.shutdown, this);
+
     // Initialize board logic with appropriate config
     const boardConfig = {
       cols: this.GRID_COLS,
@@ -80,6 +83,7 @@ class GameScene extends Phaser.Scene {
 
     if (needsSpecialTiles) {
       this.specialTileManager = new SpecialTileManager(this.boardLogic);
+      this.boardLogic.onBoardChanged = () => this.specialTileManager.syncPositions();
     }
 
     // Set starting board if defined
@@ -1236,9 +1240,11 @@ class GameScene extends Phaser.Scene {
     this.tiles[`${col1},${row1}`] = tile2;
 
     // Update special tile position tracking for both tiles
+    // Use temp coordinates to avoid collision: first move to sentinel, then swap
     if (this.specialTileManager) {
-      this.specialTileManager.updateTilePosition(col1, row1, col2, row2);
+      this.specialTileManager.updateTilePosition(col1, row1, -1, -1);
       this.specialTileManager.updateTilePosition(col2, row2, col1, row1);
+      this.specialTileManager.updateTilePosition(-1, -1, col2, row2);
     }
 
     this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
@@ -1255,40 +1261,17 @@ class GameScene extends Phaser.Scene {
     this.isAnimating = true;
 
     // Check if either tile is a bomb BEFORE removing them
-    let bombMergeResult = null;
-    if (this.specialTileManager) {
-      const specialTile1 = this.specialTileManager.getSpecialTileAt(col1, row1);
-      const specialTile2 = this.specialTileManager.getSpecialTileAt(col2, row2);
-
-      // Two bombs merging = immediate explosion
-      if (specialTile1 && specialTile1.type === 'bomb' && specialTile2 && specialTile2.type === 'bomb') {
-        bombMergeResult = this.specialTileManager.onBombBombMerge(col1, row1, col2, row2);
-      } else if (specialTile1 && specialTile1.type === 'bomb') {
-        // First tile is bomb - move it to merge position and check explosion
-        this.specialTileManager.updateTilePosition(col1, row1, mergedCol, mergedRow);
-        bombMergeResult = this.specialTileManager.onBombMerge(mergedCol, mergedRow, mergedValue);
-      } else if (specialTile2 && specialTile2.type === 'bomb') {
-        // Second tile is bomb - it's already at merge position
-        bombMergeResult = this.specialTileManager.onBombMerge(col2, row2, mergedValue);
-      }
-    }
+    const bombMergeResult = this.handleBombMergeCheck(col1, row1, col2, row2, mergedValue);
 
     // Remove both tiles from the map immediately
     delete this.tiles[`${col1},${row1}`];
     delete this.tiles[`${col2},${row2}`];
 
     // Remove non-bomb special tiles at both positions
-    if (this.specialTileManager) {
-      const specialTile1 = this.specialTileManager.getSpecialTileAt(col1, row1);
-      if (!specialTile1 || specialTile1.type !== 'bomb') {
-        this.specialTileManager.removeTileAt(col1, row1);
-      }
-      const specialTile2 = this.specialTileManager.getSpecialTileAt(col2, row2);
-      if (!specialTile2 || specialTile2.type !== 'bomb') {
-        this.specialTileManager.removeTileAt(col2, row2);
-      }
-      // If bomb exploded, remove it too
-      if (bombMergeResult && bombMergeResult.exploded) {
+    this.cleanupSpecialTilesAfterMerge(col1, row1, col2, row2, bombMergeResult);
+    // If bomb exploded, also remove at merged position
+    if (bombMergeResult && bombMergeResult.exploded) {
+      if (this.specialTileManager) {
         this.specialTileManager.removeTileAt(mergedCol, mergedRow);
       }
     }
@@ -1315,13 +1298,7 @@ class GameScene extends Phaser.Scene {
       // Now destroy both tiles and create merged tile
       tile1.mergeAnimation();
       tile2.mergeAnimation(() => {
-        let merged;
-        if (bombMergeResult && !bombMergeResult.exploded) {
-          // Bomb didn't explode yet - create new bomb tile with updated merge count
-          merged = new Tile(this, mergedCol, mergedRow, mergedValue, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: mergedValue });
-        } else {
-          merged = new Tile(this, mergedCol, mergedRow, mergedValue, this.boardLogic.nextTileId++);
-        }
+        const merged = this.createMergedTile(mergedCol, mergedRow, mergedValue, bombMergeResult);
         merged.updatePosition(mergedCol, mergedRow, false);
         merged.setScale(0.5).setAlpha(0.5);
 
@@ -1442,7 +1419,7 @@ class GameScene extends Phaser.Scene {
     this.frenzyOverlay.setDepth(50);
 
     // Pulsing effect
-    this.tweens.add({
+    this.frenzyOverlayTween = this.tweens.add({
       targets: this.frenzyOverlay,
       alpha: 0.2,
       duration: 300,
@@ -1486,6 +1463,11 @@ class GameScene extends Phaser.Scene {
     if (this.frenzyTimerEvent) {
       this.frenzyTimerEvent.remove();
       this.frenzyTimerEvent = null;
+    }
+
+    if (this.frenzyOverlayTween) {
+      this.frenzyOverlayTween.stop();
+      this.frenzyOverlayTween = null;
     }
 
     if (this.frenzyOverlay) {
@@ -1593,31 +1575,10 @@ class GameScene extends Phaser.Scene {
         tile.updatePosition(op.toCol, op.toRow, true, GameConfig.ANIM.SHIFT);
 
         // Check if either tile is a bomb BEFORE removing
-        let bombMergeResult = null;
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.fromRow);
-          const specialTileTo = this.specialTileManager.getSpecialTileAt(op.toCol, op.toRow);
-          // Two bombs merging = immediate explosion
-          if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombBombMerge(op.fromCol, op.fromRow, op.toCol, op.toRow);
-          } else if (specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.toRow, op.value);
-          } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-            this.specialTileManager.updateTilePosition(op.fromCol, op.fromRow, op.toCol, op.toRow);
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.toRow, op.value);
-          }
-        }
+        const bombMergeResult = this.handleBombMergeCheck(op.fromCol, op.fromRow, op.toCol, op.toRow, op.value);
 
         // Remove non-bomb special tiles at both positions
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.fromRow);
-          if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-            this.specialTileManager.removeTileAt(op.fromCol, op.fromRow);
-          }
-          if (!bombMergeResult || bombMergeResult.exploded) {
-            this.specialTileManager.removeTileAt(op.toCol, op.toRow);
-          }
-        }
+        this.cleanupSpecialTilesAfterMerge(op.fromCol, op.fromRow, op.toCol, op.toRow, bombMergeResult);
 
         this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
           if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -1639,12 +1600,7 @@ class GameScene extends Phaser.Scene {
           }
 
           tile.mergeAnimation(() => {
-            let merged;
-            if (bombMergeResult && !bombMergeResult.exploded) {
-              merged = new Tile(this, op.toCol, op.toRow, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-            } else {
-              merged = new Tile(this, op.toCol, op.toRow, op.value, this.boardLogic.nextTileId++);
-            }
+            const merged = this.createMergedTile(op.toCol, op.toRow, op.value, bombMergeResult);
             merged.updatePosition(op.toCol, op.toRow, false);
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
@@ -2433,32 +2389,10 @@ class GameScene extends Phaser.Scene {
         tile.updatePosition(op.toCol, op.row, true, GameConfig.ANIM.SHIFT);
 
         // Check if either tile is a bomb BEFORE removing
-        let bombMergeResult = null;
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.row);
-          const specialTileTo = this.specialTileManager.getSpecialTileAt(op.toCol, op.row);
-          // Two bombs merging = immediate explosion
-          if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombBombMerge(op.fromCol, op.row, op.toCol, op.row);
-          } else if (specialTileTo && specialTileTo.type === 'bomb') {
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.row, op.value);
-          } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-            // Moving bomb merges with target - update bomb position first
-            this.specialTileManager.updateTilePosition(op.fromCol, op.row, op.toCol, op.row);
-            bombMergeResult = this.specialTileManager.onBombMerge(op.toCol, op.row, op.value);
-          }
-        }
+        const bombMergeResult = this.handleBombMergeCheck(op.fromCol, op.row, op.toCol, op.row, op.value);
 
         // Remove non-bomb special tiles at both positions
-        if (this.specialTileManager) {
-          const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.fromCol, op.row);
-          if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-            this.specialTileManager.removeTileAt(op.fromCol, op.row);
-          }
-          if (!bombMergeResult || bombMergeResult.exploded) {
-            this.specialTileManager.removeTileAt(op.toCol, op.row);
-          }
-        }
+        this.cleanupSpecialTilesAfterMerge(op.fromCol, op.row, op.toCol, op.row, bombMergeResult);
 
         this.time.delayedCall(GameConfig.ANIM.SHIFT, () => {
           if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -2480,12 +2414,7 @@ class GameScene extends Phaser.Scene {
           }
 
           tile.mergeAnimation(() => {
-            let merged;
-            if (bombMergeResult && !bombMergeResult.exploded) {
-              merged = new Tile(this, op.toCol, op.row, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-            } else {
-              merged = new Tile(this, op.toCol, op.row, op.value, this.boardLogic.nextTileId++);
-            }
+            const merged = this.createMergedTile(op.toCol, op.row, op.value, bombMergeResult);
             merged.updatePosition(op.toCol, op.row, false);
             merged.setScale(0.5).setAlpha(0.5);
             this.boardLogic.addScore(op.value);
@@ -2583,32 +2512,10 @@ class GameScene extends Phaser.Scene {
           tile.updatePosition(op.col, op.toRow, true, GameConfig.ANIM.FALL);
 
           // Check if either tile is a bomb BEFORE removing
-          let bombMergeResult = null;
-          if (this.specialTileManager) {
-            const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.col, op.fromRow);
-            const specialTileTo = this.specialTileManager.getSpecialTileAt(op.col, op.toRow);
-            // Two bombs merging = immediate explosion
-            if (specialTileFrom && specialTileFrom.type === 'bomb' && specialTileTo && specialTileTo.type === 'bomb') {
-              bombMergeResult = this.specialTileManager.onBombBombMerge(op.col, op.fromRow, op.col, op.toRow);
-            } else if (specialTileTo && specialTileTo.type === 'bomb') {
-              bombMergeResult = this.specialTileManager.onBombMerge(op.col, op.toRow, op.value);
-            } else if (specialTileFrom && specialTileFrom.type === 'bomb') {
-              // Falling bomb merges with target - update bomb position first
-              this.specialTileManager.updateTilePosition(op.col, op.fromRow, op.col, op.toRow);
-              bombMergeResult = this.specialTileManager.onBombMerge(op.col, op.toRow, op.value);
-            }
-          }
+          const bombMergeResult = this.handleBombMergeCheck(op.col, op.fromRow, op.col, op.toRow, op.value);
 
           // Remove non-bomb special tiles at both positions
-          if (this.specialTileManager) {
-            const specialTileFrom = this.specialTileManager.getSpecialTileAt(op.col, op.fromRow);
-            if (!specialTileFrom || specialTileFrom.type !== 'bomb') {
-              this.specialTileManager.removeTileAt(op.col, op.fromRow);
-            }
-            if (!bombMergeResult || bombMergeResult.exploded) {
-              this.specialTileManager.removeTileAt(op.col, op.toRow);
-            }
-          }
+          this.cleanupSpecialTilesAfterMerge(op.col, op.fromRow, op.col, op.toRow, bombMergeResult);
 
           this.time.delayedCall(GameConfig.ANIM.FALL, () => {
             if (mergeWith) { delete this.tiles[toKey]; mergeWith.mergeAnimation(); }
@@ -2629,12 +2536,7 @@ class GameScene extends Phaser.Scene {
             }
 
             tile.mergeAnimation(() => {
-              let merged;
-              if (bombMergeResult && !bombMergeResult.exploded) {
-                merged = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++, 'bomb', { mergesRemaining: bombMergeResult.mergesRemaining, value: op.value });
-              } else {
-                merged = new Tile(this, op.col, op.toRow, op.value, this.boardLogic.nextTileId++);
-              }
+              const merged = this.createMergedTile(op.col, op.toRow, op.value, bombMergeResult);
               merged.updatePosition(op.col, op.toRow, false);
               merged.setScale(0.3).setAlpha(0.5);
 
@@ -3427,6 +3329,28 @@ class GameScene extends Phaser.Scene {
   shutdown() {
     // Remove resize listener
     this.scale.off('resize', this.onResize, this);
+
+    // Remove input listeners registered in setupInput()
+    this.input.off('pointerdown');
+    this.input.off('pointerup');
+    this.input.keyboard.off('keydown-LEFT');
+    this.input.keyboard.off('keydown-RIGHT');
+    this.input.keyboard.off('keydown-UP');
+    this.input.keyboard.off('keydown-DOWN');
+    this.input.keyboard.off('keydown-ONE');
+    this.input.keyboard.off('keydown-TWO');
+    this.input.keyboard.off('keydown-THREE');
+    this.input.keyboard.off('keydown-FOUR');
+    this.input.keyboard.off('keydown-Q');
+    this.input.keyboard.off('keydown-W');
+    this.input.keyboard.off('keydown-E');
+    this.input.keyboard.off('keydown-R');
+    this.input.keyboard.off('keydown-T');
+
+    // Clean up animation controller
+    if (this.animationController) {
+      this.animationController.cleanup();
+    }
 
     // Clean up frenzy timer if active
     if (this.frenzyTimerEvent) {

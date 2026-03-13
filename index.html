@@ -64,6 +64,7 @@
   <!-- Game modules (order matters - dependencies first) -->
   <script src="js/types.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/StorageBatcher.js"></script>
   <script src="js/SoundManager.js"></script>
   <script src="js/HighScoreManager.js"></script>
   <script src="js/LevelManager.js"></script>
@@ -94,7 +95,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration failed:', err));
       });
     }
   </script>
