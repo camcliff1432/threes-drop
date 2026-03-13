@@ -13,6 +13,7 @@ class GameAnimationController {
    */
   constructor(scene) {
     this.scene = scene;
+    this.infiniteTweens = [];
   }
 
   /**
@@ -81,13 +82,15 @@ class GameAnimationController {
    * @returns {Phaser.Tweens.Tween} The tween object (for stopping)
    */
   animatePulse(target, minAlpha = 0.5, duration = 500) {
-    return this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: target,
       alpha: minAlpha,
       duration: duration,
       yoyo: true,
       repeat: -1
     });
+    this.infiniteTweens.push(tween);
+    return tween;
   }
 
   /**
@@ -286,14 +289,27 @@ class GameAnimationController {
     border.strokeRect(2, 2, width - 4, height - 4);
     border.setDepth(51);
 
-    this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: border,
       alpha: 0.15,
       duration: 400,
       yoyo: true,
       repeat: -1
     });
+    this.infiniteTweens.push(tween);
 
     return border;
+  }
+
+  /**
+   * Stop all tracked infinite tweens and clear the list
+   */
+  cleanup() {
+    for (const tween of this.infiniteTweens) {
+      if (tween && tween.isPlaying && tween.isPlaying()) {
+        tween.stop();
+      }
+    }
+    this.infiniteTweens.length = 0;
   }
 }

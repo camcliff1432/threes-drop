@@ -64,9 +64,16 @@ class LevelManager {
 
       const data = await response.json();
       if (data.levels && Array.isArray(data.levels)) {
-        this.levels = data.levels;
+        // Merge JSON levels into existing array (replace by ID, add new ones)
+        for (const jsonLevel of data.levels) {
+          const idx = this.levels.findIndex(l => l.id === jsonLevel.id);
+          if (idx >= 0) {
+            this.levels[idx] = jsonLevel;
+          } else {
+            this.levels.push(jsonLevel);
+          }
+        }
         this.levelsLoaded = true;
-        console.log(`Loaded ${this.levels.length} levels from JSON`);
       }
     } catch (e) {
       // Silently fall back to inline definitions (already loaded in constructor)

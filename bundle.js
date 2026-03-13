@@ -572,6 +572,85 @@ function getTileTextColor(value) {
 }
 
 
+// === js/StorageBatcher.js ===
+/**
+ * StorageBatcher - Batches localStorage writes to reduce I/O
+ *
+ * Queues set/remove operations and flushes them on a 500ms debounce,
+ * on page hide, and on beforeunload.
+ */
+class StorageBatcher {
+  constructor() {
+    this.pending = new Map(); // key -> { action: 'set'|'remove', value? }
+    this.flushTimer = null;
+    this.DEBOUNCE_MS = 500;
+
+    // Flush on page hide / unload
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.flush();
+    });
+    window.addEventListener('beforeunload', () => this.flush());
+  }
+
+  /**
+   * Queue a value to be written
+   */
+  set(key, value) {
+    this.pending.set(key, { action: 'set', value });
+    this._scheduleFlush();
+  }
+
+  /**
+   * Read a value — checks pending writes first, then localStorage
+   */
+  get(key) {
+    const entry = this.pending.get(key);
+    if (entry) {
+      return entry.action === 'set' ? entry.value : null;
+    }
+    return localStorage.getItem(key);
+  }
+
+  /**
+   * Queue a key for removal
+   */
+  remove(key) {
+    this.pending.set(key, { action: 'remove' });
+    this._scheduleFlush();
+  }
+
+  /**
+   * Write all pending changes to localStorage immediately
+   */
+  flush() {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    for (const [key, entry] of this.pending) {
+      try {
+        if (entry.action === 'set') {
+          localStorage.setItem(key, entry.value);
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (e) {
+        console.warn('StorageBatcher flush error:', key, e);
+      }
+    }
+    this.pending.clear();
+  }
+
+  _scheduleFlush() {
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => this.flush(), this.DEBOUNCE_MS);
+  }
+}
+
+// Global instance
+const storageBatcher = new StorageBatcher();
+
+
 // === js/SoundManager.js ===
 /**
  * SoundManager - Procedural sound effects using Web Audio API
@@ -582,7 +661,7 @@ class SoundManager {
   constructor() {
     this.ctx = null;
     this.initialized = false;
-    this.muted = localStorage.getItem('threes_sound_muted') === 'true';
+    this.muted = storageBatcher.get('threes_sound_muted') === 'true';
     this.masterVolume = GameConfig.SOUND ? GameConfig.SOUND.MASTER_VOLUME : 0.3;
   }
 
@@ -604,7 +683,7 @@ class SoundManager {
    */
   toggleMute() {
     this.muted = !this.muted;
-    localStorage.setItem('threes_sound_muted', this.muted);
+    storageBatcher.set('threes_sound_muted', this.muted);
     return this.muted;
   }
 
@@ -943,7 +1022,7 @@ class HighScoreManager {
    */
   loadScores() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -962,7 +1041,7 @@ class HighScoreManager {
    */
   saveScores() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.scores));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.scores));
     } catch (e) {
       console.warn('Failed to save high scores:', e);
     }
@@ -1080,9 +1159,16 @@ class LevelManager {
 
       const data = await response.json();
       if (data.levels && Array.isArray(data.levels)) {
-        this.levels = data.levels;
+        // Merge JSON levels into existing array (replace by ID, add new ones)
+        for (const jsonLevel of data.levels) {
+          const idx = this.levels.findIndex(l => l.id === jsonLevel.id);
+          if (idx >= 0) {
+            this.levels[idx] = jsonLevel;
+          } else {
+            this.levels.push(jsonLevel);
+          }
+        }
         this.levelsLoaded = true;
-        console.log(`Loaded ${this.levels.length} levels from JSON`);
       }
     } catch (e) {
       // Silently fall back to inline definitions (already loaded in constructor)
@@ -1787,10 +1873,9 @@ class CustomLevelLoader {
    */
   loadFromStorage() {
     try {
-      const saved = localStorage.getItem(this.storageKey);
+      const saved = storageBatcher.get(this.storageKey);
       if (saved) {
         this.customLevels = JSON.parse(saved);
-        console.log(`Loaded ${this.customLevels.length} custom levels from storage`);
       }
     } catch (e) {
       console.error('Failed to load custom levels:', e);
@@ -1803,7 +1888,7 @@ class CustomLevelLoader {
    */
   saveToStorage() {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.customLevels));
+      storageBatcher.set(this.storageKey, JSON.stringify(this.customLevels));
     } catch (e) {
       console.error('Failed to save custom levels:', e);
     }
@@ -1827,11 +1912,9 @@ class CustomLevelLoader {
     if (existingIndex >= 0) {
       // Replace existing
       this.customLevels[existingIndex] = level;
-      console.log(`Updated custom level ${level.id}: ${level.name}`);
     } else {
       // Add new
       this.customLevels.push(level);
-      console.log(`Added custom level ${level.id}: ${level.name}`);
     }
 
     // Sort by ID
@@ -2005,7 +2088,6 @@ function integrateCustomLevels() {
     return customLevelLoader.getAllLevels();
   };
 
-  console.log('Custom level integration complete');
 }
 
 // Auto-integrate when DOM is ready
@@ -2694,6 +2776,35 @@ class SpecialTileManager {
   }
 
   /**
+   * Reconcile tracking arrays with actual board state.
+   * Removes entries whose position no longer matches the board.
+   */
+  syncPositions() {
+    const board = this.boardLogic.board;
+
+    this.steelPlates = this.steelPlates.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'steel';
+    });
+    this.leadTiles = this.leadTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'lead';
+    });
+    this.glassTiles = this.glassTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'glass';
+    });
+    this.autoSwapperTiles = this.autoSwapperTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'auto_swapper';
+    });
+    this.bombTiles = this.bombTiles.filter(t => {
+      const cell = board[t.col]?.[t.row];
+      return cell !== null && typeof cell === 'object' && cell.type === 'bomb';
+    });
+  }
+
+  /**
    * Reset manager state
    */
   reset() {
@@ -2728,6 +2839,7 @@ class BoardLogic {
     this.score = 0;
     this.movesUsed = 0;
     this.tilesCreated = {}; // Track tiles created for objectives
+    this.onBoardChanged = null; // Callback for board state changes
   }
 
   createEmptyBoard() {
@@ -2837,9 +2949,16 @@ class BoardLogic {
       return false;
     }
 
-    // Wildcard merges with any tile value >= 3
-    if (v1 === 'wildcard' && typeof v2 === 'number' && v2 >= 3) return true;
-    if (v2 === 'wildcard' && typeof v1 === 'number' && v1 >= 3) return true;
+    // Wildcard merges with any numeric tile value >= 3,
+    // but NOT with bombs, auto_swappers, steel, or lead
+    if (v1 === 'wildcard') {
+      if (typeof value2 === 'object' && (value2.type === 'bomb' || value2.type === 'auto_swapper')) return false;
+      if (typeof v2 === 'number' && v2 >= 3) return true;
+    }
+    if (v2 === 'wildcard') {
+      if (typeof value1 === 'object' && (value1.type === 'bomb' || value1.type === 'auto_swapper')) return false;
+      if (typeof v1 === 'number' && v1 >= 3) return true;
+    }
 
     // Standard merge rules - ensure numeric comparison
     const num1 = typeof v1 === 'number' ? v1 : parseInt(v1);
@@ -3167,6 +3286,7 @@ class BoardLogic {
     }
 
     this.board = newBoard;
+    if (this.onBoardChanged) this.onBoardChanged();
     return operations;
   }
 
@@ -3213,6 +3333,7 @@ class BoardLogic {
       }
     }
 
+    if (this.onBoardChanged) this.onBoardChanged();
     return operations;
   }
 
@@ -3259,10 +3380,8 @@ class BoardLogic {
       return { success: false, reason: 'empty_cell' };
     }
 
-    // Check compatibility (with debug logging on failure)
+    // Check compatibility
     if (!this.canMerge(value1, value2)) {
-      console.log('forceMerge failed - incompatible tiles:', { value1, value2, col1, row1, col2, row2 });
-      this.canMerge(value1, value2, true); // Re-run with debug to see why
       return { success: false, reason: 'incompatible' };
     }
 
@@ -3523,6 +3642,9 @@ class Tile extends Phaser.GameObjects.Container {
     const durability = this.specialData.durability || 2;
     const size = this.TILE_SIZE - 8;
 
+    if (this.durabilityBadge) {
+      this.durabilityBadge.destroy();
+    }
     if (this.durabilityText) {
       this.durabilityText.destroy();
     }
@@ -5142,6 +5264,7 @@ class GameAnimationController {
    */
   constructor(scene) {
     this.scene = scene;
+    this.infiniteTweens = [];
   }
 
   /**
@@ -5210,13 +5333,15 @@ class GameAnimationController {
    * @returns {Phaser.Tweens.Tween} The tween object (for stopping)
    */
   animatePulse(target, minAlpha = 0.5, duration = 500) {
-    return this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: target,
       alpha: minAlpha,
       duration: duration,
       yoyo: true,
       repeat: -1
     });
+    this.infiniteTweens.push(tween);
+    return tween;
   }
 
   /**
@@ -5415,15 +5540,28 @@ class GameAnimationController {
     border.strokeRect(2, 2, width - 4, height - 4);
     border.setDepth(51);
 
-    this.scene.tweens.add({
+    const tween = this.scene.tweens.add({
       targets: border,
       alpha: 0.15,
       duration: 400,
       yoyo: true,
       repeat: -1
     });
+    this.infiniteTweens.push(tween);
 
     return border;
+  }
+
+  /**
+   * Stop all tracked infinite tweens and clear the list
+   */
+  cleanup() {
+    for (const tween of this.infiniteTweens) {
+      if (tween && tween.isPlaying && tween.isPlaying()) {
+        tween.stop();
+      }
+    }
+    this.infiniteTweens.length = 0;
   }
 }
 
@@ -5444,7 +5582,7 @@ class TileCollectionManager {
    */
   loadCollection() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -5463,7 +5601,7 @@ class TileCollectionManager {
    */
   saveCollection() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.collection));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.collection));
     } catch (e) {
       console.warn('Failed to save tile collection:', e);
     }
@@ -5819,7 +5957,7 @@ class DailyChallengeManager {
 
   loadHistory() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -5837,7 +5975,7 @@ class DailyChallengeManager {
 
   saveHistory() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.history));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.history));
     } catch (e) {
       console.warn('Failed to save daily challenge history:', e);
     }
@@ -5990,7 +6128,7 @@ class AchievementManager {
 
   loadStats() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -6014,7 +6152,7 @@ class AchievementManager {
 
   saveStats() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.stats));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.stats));
     } catch (e) {
       console.warn('Failed to save achievement stats:', e);
     }
@@ -6297,7 +6435,6 @@ class GameStateManager {
 
     // Migration from version 0 (no version field) to version 1
     if (stateVersion < 1) {
-      console.log('Migrating save state from v0 to v1');
       state.version = 1;
       // v1 added version field - no structural changes needed
       stateVersion = 1;
@@ -6367,7 +6504,7 @@ class GameStateManager {
         savedAt: Date.now()
       };
 
-      localStorage.setItem(this.getStorageKey(gameScene.gameMode), JSON.stringify(state));
+      storageBatcher.set(this.getStorageKey(gameScene.gameMode), JSON.stringify(state));
       return true;
     } catch (e) {
       console.warn('Failed to save game state:', e);
@@ -6403,7 +6540,7 @@ class GameStateManager {
    */
   hasSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.getStorageKey(mode));
+      const stored = storageBatcher.get(this.getStorageKey(mode));
       if (!stored) return false;
 
       // Optional: expire saved games after 24 hours
@@ -6427,7 +6564,7 @@ class GameStateManager {
    */
   getSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.getStorageKey(mode));
+      const stored = storageBatcher.get(this.getStorageKey(mode));
       if (!stored) return null;
 
       let state = JSON.parse(stored);
@@ -6448,7 +6585,7 @@ class GameStateManager {
    */
   clearSavedGame(mode) {
     try {
-      localStorage.removeItem(this.getStorageKey(mode));
+      storageBatcher.remove(this.getStorageKey(mode));
     } catch (e) {
       console.warn('Failed to clear saved game:', e);
     }
@@ -8641,6 +8778,7 @@ class GameScene extends Phaser.Scene {
 
     if (needsSpecialTiles) {
       this.specialTileManager = new SpecialTileManager(this.boardLogic);
+      this.boardLogic.onBoardChanged = () => this.specialTileManager.syncPositions();
     }
 
     // Set starting board if defined
@@ -11988,6 +12126,28 @@ class GameScene extends Phaser.Scene {
   shutdown() {
     // Remove resize listener
     this.scale.off('resize', this.onResize, this);
+
+    // Remove input listeners registered in setupInput()
+    this.input.off('pointerdown');
+    this.input.off('pointerup');
+    this.input.keyboard.off('keydown-LEFT');
+    this.input.keyboard.off('keydown-RIGHT');
+    this.input.keyboard.off('keydown-UP');
+    this.input.keyboard.off('keydown-DOWN');
+    this.input.keyboard.off('keydown-ONE');
+    this.input.keyboard.off('keydown-TWO');
+    this.input.keyboard.off('keydown-THREE');
+    this.input.keyboard.off('keydown-FOUR');
+    this.input.keyboard.off('keydown-Q');
+    this.input.keyboard.off('keydown-W');
+    this.input.keyboard.off('keydown-E');
+    this.input.keyboard.off('keydown-R');
+    this.input.keyboard.off('keydown-T');
+
+    // Clean up animation controller
+    if (this.animationController) {
+      this.animationController.cleanup();
+    }
 
     // Clean up frenzy timer if active
     if (this.frenzyTimerEvent) {

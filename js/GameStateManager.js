@@ -41,7 +41,6 @@ class GameStateManager {
 
     // Migration from version 0 (no version field) to version 1
     if (stateVersion < 1) {
-      console.log('Migrating save state from v0 to v1');
       state.version = 1;
       // v1 added version field - no structural changes needed
       stateVersion = 1;
@@ -111,7 +110,7 @@ class GameStateManager {
         savedAt: Date.now()
       };
 
-      localStorage.setItem(this.getStorageKey(gameScene.gameMode), JSON.stringify(state));
+      storageBatcher.set(this.getStorageKey(gameScene.gameMode), JSON.stringify(state));
       return true;
     } catch (e) {
       console.warn('Failed to save game state:', e);
@@ -147,7 +146,7 @@ class GameStateManager {
    */
   hasSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.getStorageKey(mode));
+      const stored = storageBatcher.get(this.getStorageKey(mode));
       if (!stored) return false;
 
       // Optional: expire saved games after 24 hours
@@ -171,7 +170,7 @@ class GameStateManager {
    */
   getSavedGame(mode) {
     try {
-      const stored = localStorage.getItem(this.getStorageKey(mode));
+      const stored = storageBatcher.get(this.getStorageKey(mode));
       if (!stored) return null;
 
       let state = JSON.parse(stored);
@@ -192,7 +191,7 @@ class GameStateManager {
    */
   clearSavedGame(mode) {
     try {
-      localStorage.removeItem(this.getStorageKey(mode));
+      storageBatcher.remove(this.getStorageKey(mode));
     } catch (e) {
       console.warn('Failed to clear saved game:', e);
     }

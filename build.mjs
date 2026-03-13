@@ -48,11 +48,18 @@ let bundleFileName = 'bundle.js';
 if (shouldMinify) {
   try {
     const { transformSync } = await import('esbuild');
-    const result = transformSync(bundle, { minify: true });
+    const result = transformSync(bundle, {
+      minify: true,
+      sourcemap: true,
+      sourcefile: 'bundle.js'
+    });
     const minPath = resolve(__dirname, 'bundle.min.js');
-    writeFileSync(minPath, result.code, 'utf-8');
+    const mapPath = resolve(__dirname, 'bundle.min.js.map');
+    writeFileSync(minPath, result.code + '\n//# sourceMappingURL=bundle.min.js.map\n', 'utf-8');
+    writeFileSync(mapPath, result.map, 'utf-8');
     bundleFileName = 'bundle.min.js';
     console.log(`Written bundle.min.js (${(result.code.length / 1024).toFixed(1)} KB)`);
+    console.log(`Written bundle.min.js.map`);
   } catch (e) {
     console.warn('\nesbuild not found. Install it to enable minification:');
     console.warn('  npm install --save-dev esbuild');

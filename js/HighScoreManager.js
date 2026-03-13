@@ -12,7 +12,7 @@ class HighScoreManager {
    */
   loadScores() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = storageBatcher.get(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -31,7 +31,7 @@ class HighScoreManager {
    */
   saveScores() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.scores));
+      storageBatcher.set(this.STORAGE_KEY, JSON.stringify(this.scores));
     } catch (e) {
       console.warn('Failed to save high scores:', e);
     }
