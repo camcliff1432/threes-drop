@@ -212,6 +212,109 @@ All game logic, tile rendering, animations, board logic, managers, scoring, achi
 - **iOS:** Requires Mac with Xcode 15+. Can use cloud Mac (GitHub Actions, MacStadium) if no physical Mac available.
 - **Android:** Can build on any OS with Android Studio or Gradle CLI.
 
+## Custom Art Assets & Sprite-Based Rendering
+
+### Overview
+
+Replace the programmatic TileRenderer (canvas-drawn gradients/shadows) with designer-created PNG sprites. The user designs assets in Figma, exports as PNG, and the game loads them as Phaser textures via a spritesheet or individual images.
+
+### Asset Pipeline
+
+All assets designed in Figma, exported as 32-bit PNG with transparency. Tiles designed at 256x256px (scaled down at runtime for crisp rendering on all screen densities). Particles designed at 32x32px in white/light gray (tinted at runtime by Phaser).
+
+### Tile Assets (21 PNGs, 256x256px each)
+
+**Normal tiles (13) — include the number baked in:**
+
+| File | Value | Base Color |
+|------|-------|------------|
+| `tile_1.png` | 1 | `#66c3d5` sky blue |
+| `tile_2.png` | 2 | `#e88a8a` coral pink |
+| `tile_3.png` | 3 | `#f5f5f5` off-white (dark text) |
+| `tile_6.png` | 6 | `#f5c26b` honey |
+| `tile_12.png` | 12 | `#7cc576` sage green |
+| `tile_24.png` | 24 | `#5fb3d4` ocean blue |
+| `tile_48.png` | 48 | `#c49cde` lavender |
+| `tile_96.png` | 96 | `#f2a477` peach |
+| `tile_192.png` | 192 | `#7dd3c0` mint |
+| `tile_384.png` | 384 | `#e8b4cb` rose |
+| `tile_768.png` | 768 | `#a8c5e2` periwinkle |
+| `tile_1536.png` | 1536 | `#f0d264` gold |
+| `tile_3072.png` | 3072 | `#d4a5a5` dusty rose |
+
+**Special tiles (7) — no numbers (added dynamically), except wildcard star:**
+
+| File | Type | Base Color | Design Notes |
+|------|------|------------|--------------|
+| `tile_steel.png` | Steel | `#8899a6` | Metallic, crosshatch/rivets |
+| `tile_lead.png` | Lead | `#4a4a4a` | Heavy/dense feel |
+| `tile_glass_2.png` | Glass (full) | `#b8d4e8` | Translucent/shiny |
+| `tile_glass_1.png` | Glass (cracked) | `#b8d4e8` | Cracked version |
+| `tile_wildcard.png` | Wildcard | `#dba4eb` | Star/sparkle, include star symbol |
+| `tile_auto_swapper.png` | Auto-swapper | `#a78dc2` | Swap arrows in top portion |
+| `tile_bomb.png` | Bomb | `#e07676` | Bomb with fuse/spark |
+
+**Default tile (1):**
+
+| File | Notes |
+|------|-------|
+| `tile_default.png` | Gray `#9e9e9e` fallback |
+
+### Grid Assets
+
+Use the single-cell approach (more flexible for responsive sizing):
+
+| File | Size | Notes |
+|------|------|-------|
+| `cell_empty.png` | 256x256 | Empty cell slot, dark inset look. Tiled across grid. |
+| `badge_circle.png` | 64x64 | Badge for durability/merges counters on special tiles |
+
+### Particle & Effect Assets (32x32px, white/light gray, tinted at runtime)
+
+| File | Use |
+|------|-----|
+| `particle_star.png` | Merge celebrations — spray 6-10 outward from merge point |
+| `particle_glow.png` | Soft circular glow — frenzy activation rain effect |
+| `particle_shard.png` | Glass break fragments — scatter with rotation and gravity |
+| `particle_spark.png` | Bomb explosion — radial burst with orange-to-red tint |
+
+### Effect Overlays (256x256px)
+
+| File | Use |
+|------|-----|
+| `overlay_glow.png` | Placed behind wildcards/bombs, slow pulse animation |
+| `overlay_shimmer.png` | Diagonal light streak, animated across glass tiles |
+
+### UI Assets (optional, 9-slice stretched in code)
+
+| File | Size | Notes |
+|------|------|-------|
+| `btn_primary.png` | 256x64 | Main button |
+| `btn_success.png` | 256x64 | Green action button |
+| `bar_bg.png` | 256x32 | Progress bar background |
+| `bar_fill.png` | 256x32 | Progress bar fill |
+
+### Implementation Changes
+
+TileRenderer.js will be replaced with a sprite-based loader:
+- Load all tile PNGs on scene preload
+- Tile.js creates `Phaser.GameObjects.Image` from loaded texture (same as current approach, but textures come from files instead of canvas)
+- For normal tiles: no text overlay needed (number baked into PNG)
+- For special tiles with dynamic text (steel countdown, lead countdown, glass value, auto-swapper value, bomb value): text overlay remains as Phaser text object
+- Particle effects use `Phaser.GameObjects.Particles.ParticleEmitter` with the sprite assets instead of code-drawn circles
+- Effect overlays are sprites layered behind/on top of tiles with tween animations
+
+### Effect Enhancements
+
+With sprite-based particles, effects become richer:
+- **Merges**: spray `particle_star` outward with randomized scale, rotation, and fade
+- **Glass breaks**: scatter `particle_shard` with gravity and spin
+- **Bomb explosions**: radial `particle_spark` burst, screen shake, flash overlay
+- **Frenzy activation**: rain `particle_glow` down the screen
+- **High-value merges (48+)**: larger burst, more particles, stronger screen shake
+- **Wildcard/bomb ambient**: `overlay_glow` pulsing behind the tile
+- **Glass ambient**: `overlay_shimmer` slowly drifting diagonally across the tile
+
 ## Testing Plan
 
 - Test on physical iPhone (user has one)
