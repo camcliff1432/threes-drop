@@ -9,6 +9,7 @@
  *   node build.mjs --minify  - concatenate + minify (bundle.min.js, requires esbuild)
  */
 import { readFileSync, writeFileSync } from 'fs';
+import { createHash } from 'crypto';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -88,4 +89,44 @@ if (insertPoint !== -1) {
 const prodPath = resolve(__dirname, 'index.prod.html');
 writeFileSync(prodPath, prodHtml, 'utf-8');
 console.log(`Written index.prod.html`);
-console.log('\nDone!');
+
+// Stamp the service worker so installed PWAs pick up this build: a
+// content-derived cache version, plus an asset list matching what production
+// actually loads (the bundle, not the individual js/ files).
+const NL = `
+`;
+const swPath = resolve(__dirname, 'sw.js');
+let sw = readFileSync(swPath, 'utf-8');
+
+const buildHash = createHash('sha256').update(bundle).update(prodHtml).digest('hex').slice(0, 12);
+
+function replaceBetween(text, startMarker, endMarker, replacement) {
+  const start = text.indexOf(startMarker);
+  const end = text.indexOf(endMarker);
+  if (start === -1 || end === -1) {
+    throw new Error(`sw.js is missing marker ${startMarker} / ${endMarker}`);
+  }
+  return text.slice(0, start + startMarker.length) + replacement + text.slice(end);
+}
+
+sw = replaceBetween(sw, '/* BUILD:VERSION_START */', '/* BUILD:VERSION_END */',
+  `const CACHE_VERSION = 'threes-drop-${buildHash}';`);
+
+const shellAssets = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
+  './levels.json',
+  `./${bundleFileName}`
+];
+const assetBlock = NL + shellAssets.map((a) => `  '${a}'`).join(',' + NL) + NL + '  ';
+
+sw = replaceBetween(sw, '// BUILD:ASSETS_START', '// BUILD:ASSETS_END', assetBlock);
+
+writeFileSync(swPath, sw, 'utf-8');
+console.log(`Written sw.js (cache threes-drop-${buildHash}, ${shellAssets.length} shell assets)`);
+
+console.log('');
+console.log('Done!');

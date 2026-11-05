@@ -65,7 +65,7 @@ const GameConfig = {
     COMBO_MAX: 5,
     COMBO_COST: 5,
     SWIPE_THRESHOLD: 50,
-    IMBALANCE_THRESHOLD: 6
+    IMBALANCE_THRESHOLD: 4
   },
 
   // Power-up costs and settings
@@ -287,6 +287,8 @@ function getTileColor(value) {
 /**
  * Get text color for a tile (black for white tiles, white otherwise)
  */
+const LIGHT_TILE_VALUES = [3, 96, 1536, 3072];
+
 function getTileTextColor(value) {
-  return value === 3 ? '#000000' : '#ffffff';
+  return LIGHT_TILE_VALUES.includes(value) ? '#2c3e50' : '#ffffff';
 }

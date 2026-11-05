@@ -1,48 +1,28 @@
 /**
  * Service Worker for Threes-Drop PWA
- * Cache-first for local assets, network-first for CDN with cache fallback.
+ *
+ * Navigations are network-first (so a new deploy is picked up immediately),
+ * other local assets are cache-first, CDN assets are network-first with a
+ * cache fallback.
+ *
+ * CACHE_VERSION and LOCAL_ASSETS below are rewritten by build.mjs — edit the
+ * markers, not the generated values.
  */
-const CACHE_VERSION = 'threes-drop-v1';
+/* BUILD:VERSION_START */const CACHE_VERSION = 'threes-drop-36d9a651facd';/* BUILD:VERSION_END */
 
 const LOCAL_ASSETS = [
+  // BUILD:ASSETS_START
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.svg',
   './icons/icon-512.svg',
   './levels.json',
-  './js/types.js',
-  './js/config.js',
-  './js/SoundManager.js',
-  './js/HighScoreManager.js',
-  './js/LevelManager.js',
-  './js/CustomLevelLoader.js',
-  './js/PowerUpManager.js',
-  './js/SpecialTileManager.js',
-  './js/BoardLogic.js',
-  './js/TileRenderer.js',
-  './js/Tile.js',
-  './js/UIHelpers.js',
-  './js/GameInputHandler.js',
-  './js/GameUIManager.js',
-  './js/GameAnimationController.js',
-  './js/TileCollectionManager.js',
-  './js/DailyChallengeManager.js',
-  './js/AchievementManager.js',
-  './js/StorageBatcher.js',
-  './js/GameStateManager.js',
-  './js/scenes/MenuScene.js',
-  './js/scenes/DailyChallengeScene.js',
-  './js/scenes/TileCollectionScene.js',
-  './js/scenes/TutorialSelectScene.js',
-  './js/scenes/LeaderboardScene.js',
-  './js/scenes/AchievementScene.js',
-  './js/scenes/StatsScene.js',
-  './js/scenes/GameScene.js',
-  './js/main.js'
+  './bundle.js'
+  // BUILD:ASSETS_END
 ];
 
-// Install: pre-cache local assets
+// Install: pre-cache the app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => {
@@ -63,36 +43,46 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: cache-first for local, network-first for CDN
+function cachePut(request, response) {
+  if (!response.ok) return;
+  const clone = response.clone();
+  caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+}
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Same-origin (local assets): cache-first
+  // Navigations: network-first so a fresh deploy is never pinned by the cache
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        cachePut(event.request, response);
+        return response;
+      }).catch(() => {
+        return caches.match(event.request).then((cached) => cached || caches.match('./index.html'));
+      })
+    );
+    return;
+  }
+
+  // Same-origin assets: cache-first (cache is dropped wholesale on version bump)
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         return cached || fetch(event.request).then((response) => {
-          // Cache new local resources dynamically
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
-          }
+          cachePut(event.request, response);
           return response;
         });
       })
     );
-  } else {
-    // CDN resources (Phaser, Google Fonts): network-first with cache fallback
-    event.respondWith(
-      fetch(event.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        return caches.match(event.request);
-      })
-    );
+    return;
   }
+
+  // CDN resources (Phaser, Google Fonts): network-first with cache fallback
+  event.respondWith(
+    fetch(event.request).then((response) => {
+      cachePut(event.request, response);
+      return response;
+    }).catch(() => caches.match(event.request))
+  );
 });

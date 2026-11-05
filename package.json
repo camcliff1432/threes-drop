@@ -4,7 +4,7 @@
   "private": true,
   "description": "A tile-merging puzzle game inspired by Threes",
   "scripts": {
-    "test": "node tests/BoardLogic.test.js",
+    "test": "node tests/BoardLogic.test.js && node tests/DailyChallengeManager.test.js && node tests/GameStateManager.test.js && node tests/StorageBatcher.test.js",
     "build": "node build.mjs",
     "build:min": "node build.mjs --minify"
   },

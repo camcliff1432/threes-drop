@@ -52,6 +52,7 @@ class StorageBatcher {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
+    const failed = new Map();
     for (const [key, entry] of this.pending) {
       try {
         if (entry.action === 'set') {
@@ -60,10 +61,13 @@ class StorageBatcher {
           localStorage.removeItem(key);
         }
       } catch (e) {
+        // Keep the write queued so a later flush can retry it rather than
+        // silently losing the player's progress.
         console.warn('StorageBatcher flush error:', key, e);
+        failed.set(key, entry);
       }
     }
-    this.pending.clear();
+    this.pending = failed;
   }
 
   _scheduleFlush() {

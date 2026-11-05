@@ -230,6 +230,7 @@ class BoardLogic {
 
     this.board[col][finalRow] = finalValue;
     this.movesUsed++;
+    if (this.onBoardChanged) this.onBoardChanged();
 
     return {
       success: true,
@@ -283,7 +284,7 @@ class BoardLogic {
     } else {
       // Gentle balance adjustment - only kicks in when difference is 3+
       // This allows natural randomness while preventing extreme imbalance
-      const balanceThreshold = 4;
+      const balanceThreshold = (GameConfig.GAMEPLAY && GameConfig.GAMEPLAY.IMBALANCE_THRESHOLD) || 4;
       if (Math.abs(difference) >= balanceThreshold) {
         const excess = Math.abs(difference) - balanceThreshold + 1;
         const adjustment = Math.min(excess * 8, 25); // Gentler: 8 per tile, cap at 25
@@ -327,8 +328,9 @@ class BoardLogic {
       }
       // Reduce base tile weights as higher tiles unlock
       const reduction = Math.max(0.7, 1 - (totalHigherWeight / 100));
-      if (availableTiles[0]) availableTiles[0].weight *= reduction;
-      if (availableTiles[1]) availableTiles[1].weight *= reduction;
+      for (const tile of availableTiles) {
+        if (tile.value === 1 || tile.value === 2) tile.weight *= reduction;
+      }
     } else {
       // Level mode: add higher allowed tiles with fixed small weights
       for (const value of this.allowedTiles) {
@@ -375,7 +377,7 @@ class BoardLogic {
     let highestTile = 0;
     for (let col = 0; col < this.COLS; col++) {
       for (let row = 0; row < this.ROWS; row++) {
-        const val = this.board[col][row];
+        const val = this.getCellValue(col, row);
         if (typeof val === 'number' && val > highestTile) {
           highestTile = val;
         }
@@ -544,6 +546,7 @@ class BoardLogic {
     const temp = this.board[col1][row1];
     this.board[col1][row1] = this.board[col2][row2];
     this.board[col2][row2] = temp;
+    if (this.onBoardChanged) this.onBoardChanged();
 
     return { success: true };
   }
@@ -572,6 +575,7 @@ class BoardLogic {
     this.board[col2][row2] = mergedValue;
     this.mergeCount++;
     this.trackTileCreated(mergedValue);
+    if (this.onBoardChanged) this.onBoardChanged();
 
     return {
       success: true,
@@ -663,6 +667,7 @@ class BoardLogic {
     }
 
     this.board = newBoard;
+    if (this.onBoardChanged) this.onBoardChanged();
     return operations;
   }
 }

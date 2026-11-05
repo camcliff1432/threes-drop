@@ -7,6 +7,7 @@ const { resolve } = require('path');
 // Provide a minimal GameConfig stub so BoardLogic can load
 globalThis.GameConfig = {
   GRID: { COLS: 4, ROWS: 6 },
+  GAMEPLAY: { IMBALANCE_THRESHOLD: 4 },
   UNLOCK_THRESHOLDS: {}
 };
 
