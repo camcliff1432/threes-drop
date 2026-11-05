@@ -319,42 +319,9 @@ class GameScene extends Phaser.Scene {
     bgOverlay.fillStyle(0x3a4f62, 0.3);
     bgOverlay.fillRect(0, 0, width, this.cameras.main.height * 0.3);
 
-    // Title based on mode
-    let titleText = 'THREES-DROP';
-    if (this.gameMode === 'crazy') {
-      titleText = 'CRAZY MODE';
-    } else if (this.gameMode === 'endless') {
-      titleText = 'POINTS MAX';
-    } else if (this.gameMode === 'level' && this.levelConfig) {
-      titleText = `LEVEL ${this.levelConfig.id}`;
-    }
-
-    this.add.text(width / 2, 30, titleText, {
-      fontSize: '32px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: 'bold', color: '#ffffff'
-    }).setOrigin(0.5);
-
-    // Score or objective
-    if (this.gameMode === 'level' && this.levelConfig) {
-      this.objectiveText = this.add.text(width / 2, 55, this.levelConfig.description, {
-        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#f5c26b'
-      }).setOrigin(0.5);
-
-      this.progressText = this.add.text(width / 2, 75, '', {
-        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#7ed321'
-      }).setOrigin(0.5);
-
-      // Moves remaining - positioned on the right side
-      this.movesText = this.add.text(width - 15, 55, `Moves: 0/${this.levelConfig.maxMoves}`, {
-        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
-      }).setOrigin(1, 0);
-    } else {
-      this.scoreText = this.add.text(width / 2, 60, 'SCORE: 0', {
-        fontSize: '18px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b',
-        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(245,194,107,0.3)', blur: 4, fill: true }
-      }).setOrigin(0.5);
-    }
-
-    // Mute button
+    // Header is built outside-in: the buttons claim their gutters first, then
+    // the title is centred in what is left and shrunk until it fits. At 375px
+    // a fixed 32px title ran straight through "< MENU" and the mute icon.
     this.muteBtn = this.add.text(width - 60, 15, soundManager.muted ? '🔇' : '🔊', {
       fontSize: '22px', padding: { x: 6, y: 6 }
     }).setOrigin(1, 0).setInteractive();
@@ -364,7 +331,6 @@ class GameScene extends Phaser.Scene {
       this.muteBtn.setText(muted ? '🔇' : '🔊');
     });
 
-    // Help button
     const helpBtn = this.add.text(width - 15, 15, '?', {
       fontSize: '24px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold',
       color: '#ffffff', backgroundColor: '#4a90e2', padding: { x: 12, y: 6 }
@@ -376,29 +342,64 @@ class GameScene extends Phaser.Scene {
       });
     });
 
-    // Back button
-    if (this.gameMode === 'level') {
-      // For test levels, show option to close tab; otherwise go to level select
-      if (window.isTestLevelSession) {
-        this.add.text(15, 15, '< EDITOR', {
-          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b'
-        }).setInteractive().on('pointerdown', () => {
-          window.isTestLevelSession = false;
-          window.close();
-        });
-      } else {
-        this.add.text(15, 15, '< BACK', {
-          fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
-        }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
-      }
-    } else if (this.gameMode === 'daily') {
-      this.add.text(15, 15, '< MENU', {
+    let backBtn;
+    if (this.gameMode === 'level' && window.isTestLevelSession) {
+      backBtn = this.add.text(15, 15, '< EDITOR', {
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b'
+      }).setInteractive().on('pointerdown', () => {
+        window.isTestLevelSession = false;
+        window.close();
+      });
+    } else if (this.gameMode === 'level') {
+      backBtn = this.add.text(15, 15, '< BACK', {
         fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
-      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
+      }).setInteractive().on('pointerdown', () => this.showExitConfirmation('TutorialSelectScene'));
     } else {
-      this.add.text(15, 15, '< MENU', {
+      backBtn = this.add.text(15, 15, '< MENU', {
         fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#4a90e2'
       }).setInteractive().on('pointerdown', () => this.showExitConfirmation('MenuScene'));
+    }
+
+    let titleText = 'THREES-DROP';
+    if (this.gameMode === 'crazy') {
+      titleText = 'CRAZY MODE';
+    } else if (this.gameMode === 'endless') {
+      titleText = 'POINTS MAX';
+    } else if (this.gameMode === 'level' && this.levelConfig) {
+      titleText = `LEVEL ${this.levelConfig.id}`;
+    }
+
+    const titleLeft = backBtn.x + backBtn.width + 10;
+    const titleRight = (width - 60) - this.muteBtn.width - 10;
+    const titleSpace = Math.max(80, titleRight - titleLeft);
+
+    const title = this.add.text(0, 30, titleText, {
+      fontSize: '32px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: 'bold', color: '#ffffff'
+    }).setOrigin(0.5);
+    for (let size = 32; size > 16 && title.width > titleSpace; size -= 1) {
+      title.setFontSize(size);
+    }
+    title.setPosition((titleLeft + titleRight) / 2, 30);
+
+    // Score or objective
+    if (this.gameMode === 'level' && this.levelConfig) {
+      this.objectiveText = this.add.text(width / 2, 58, this.levelConfig.description, {
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#f5c26b'
+      }).setOrigin(0.5);
+
+      this.progressText = this.add.text(width / 2, 78, '', {
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#7ed321'
+      }).setOrigin(0.5);
+
+      // Below the help button rather than tucked under its corner.
+      this.movesText = this.add.text(width - 15, 62, `Moves: 0/${this.levelConfig.maxMoves}`, {
+        fontSize: '13px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#ffffff'
+      }).setOrigin(1, 0);
+    } else {
+      this.scoreText = this.add.text(width / 2, 62, 'SCORE: 0', {
+        fontSize: '18px', fontFamily: GameConfig.FONTS.UI, fontStyle: 'bold', color: '#f5c26b',
+        shadow: { offsetX: 0, offsetY: 1, color: 'rgba(245,194,107,0.3)', blur: 4, fill: true }
+      }).setOrigin(0.5);
     }
   }
 
@@ -866,7 +867,7 @@ class GameScene extends Phaser.Scene {
    */
   setupPowerUpBar() {
     const { width } = this.cameras.main;
-    const barY = this.GRID_OFFSET_Y + this.GRID_ROWS * this.TILE_SIZE + 10;
+    const barY = this.GRID_OFFSET_Y + this.GRID_ROWS * this.TILE_SIZE + 24;
 
     // Resource points display
     this.resourceText = this.add.text(width / 2, barY, 'POWER: 0', {
@@ -876,10 +877,10 @@ class GameScene extends Phaser.Scene {
     // Power-up buttons
     const buttonY = barY + 28;
     const buttons = [
-      { type: 'swipe', icon: '↔', cost: GameConfig.POWERUPS.SWIPE_COST },
-      { type: 'swapper', icon: 'S', cost: GameConfig.POWERUPS.SWAPPER_COST },
-      { type: 'merger', icon: 'M', cost: GameConfig.POWERUPS.MERGER_COST },
-      { type: 'wildcard', icon: 'W', cost: GameConfig.POWERUPS.WILDCARD_COST }
+      { type: 'swipe', icon: 'SWIPE', cost: GameConfig.POWERUPS.SWIPE_COST },
+      { type: 'swapper', icon: 'SWAP', cost: GameConfig.POWERUPS.SWAPPER_COST },
+      { type: 'merger', icon: 'MERGE', cost: GameConfig.POWERUPS.MERGER_COST },
+      { type: 'wildcard', icon: 'WILD', cost: GameConfig.POWERUPS.WILDCARD_COST }
     ];
 
     const buttonWidth = 60;
@@ -973,8 +974,8 @@ class GameScene extends Phaser.Scene {
     bg.lineStyle(1, 0x7eb8e5, 0.3);
     bg.strokeRoundedRect(x - bw/2, y - bh/2, bw, bh, 8);
 
-    const label = this.add.text(x, y - 4, icon, {
-      fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800', color: '#ffffff',
+    const label = this.add.text(x, y - 5, icon, {
+      fontSize: '11px', fontFamily: GameConfig.FONTS.UI, fontStyle: '800', color: '#ffffff',
       shadow: { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,0.3)', blur: 1, fill: true }
     }).setOrigin(0.5);
 
@@ -2736,18 +2737,22 @@ class GameScene extends Phaser.Scene {
       const canAfford = this.powerUpManager.canAfford(btn.type);
 
       btn.bg.clear();
+      btn.bg.fillStyle(0x000000, 0.25);
+      btn.bg.fillRoundedRect(btn.x - 28, btn.y - 16, 56, 36, 8);
       if (canAfford) {
-        btn.bg.fillStyle(GameConfig.UI.SUCCESS, 0.4);
-        btn.bg.lineStyle(2, GameConfig.UI.SUCCESS, 1);
+        btn.bg.fillStyle(GameConfig.UI.SUCCESS, 1);
+        btn.bg.fillRoundedRect(btn.x - 28, btn.y - 18, 56, 36, 8);
+        btn.bg.fillStyle(0xffffff, 0.14);
+        btn.bg.fillRoundedRect(btn.x - 28, btn.y - 18, 56, 18, { tl: 8, tr: 8, bl: 0, br: 0 });
       } else {
-        btn.bg.fillStyle(GameConfig.UI.PRIMARY, 0.2);
-        btn.bg.lineStyle(2, GameConfig.UI.DISABLED, 0.5);
+        btn.bg.fillStyle(GameConfig.UI.GRID_BG, 1);
+        btn.bg.fillRoundedRect(btn.x - 28, btn.y - 18, 56, 36, 8);
+        btn.bg.lineStyle(1, GameConfig.UI.DISABLED, 0.6);
+        btn.bg.strokeRoundedRect(btn.x - 28, btn.y - 18, 56, 36, 8);
       }
-      btn.bg.fillRoundedRect(btn.x - 28, btn.y - 18, 56, 36, 6);
-      btn.bg.strokeRoundedRect(btn.x - 28, btn.y - 18, 56, 36, 6);
 
-      btn.label.setColor(canAfford ? '#ffffff' : '#666666');
-      btn.costText.setColor(canAfford ? '#7ed321' : '#666666');
+      btn.label.setColor(canAfford ? '#ffffff' : '#9aa7b4');
+      btn.costText.setColor(canAfford ? '#ffffff' : '#f5c26b');
     });
 
     // Update frenzy bar
@@ -3006,7 +3011,7 @@ class GameScene extends Phaser.Scene {
 
     nextBtn.on('pointerdown', () => {
       const nextId = this.levelId + 1;
-      if (nextId <= levelManager.getTotalLevels()) {
+      if (nextId <= levelManager.getLastCampaignLevelId()) {
         this.scene.start('GameScene', { mode: 'level', levelId: nextId });
       } else {
         this.scene.start('TutorialSelectScene');
@@ -3084,77 +3089,95 @@ class GameScene extends Phaser.Scene {
     // Clear any saved game state since game is over
     gameStateManager.clearSavedGame(this.gameMode);
 
-    // Track achievements
     achievementManager.recordScore(finalScore);
     achievementManager.recordGamePlayed(this.gameMode);
 
-    // Save high score for original and crazy modes
     const isNewHighScore = highScoreManager.submitScore(this.gameMode, finalScore);
 
     // Store game over UI elements so we can remove them if continuing
     this.gameOverElements = [];
+    const keep = (...objects) => {
+      for (const o of objects) this.gameOverElements.push(o);
+    };
 
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, width, height);
-    overlay.setDepth(1000);
-    this.gameOverElements.push(overlay);
+    // Scrim. Interactive so stray taps cannot reach the board underneath.
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.78)
+      .setDepth(1000)
+      .setInteractive();
+    keep(overlay);
 
-    const gameOverText = this.add.text(width / 2, height / 2 - 90, 'GAME OVER', {
-      fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-    }).setOrigin(0.5).setDepth(1001);
-    this.gameOverElements.push(gameOverText);
+    // Card, so the dialog sits on its own surface instead of floating over
+    // the tiles. Height follows the number of buttons.
+    const cardW = Math.min(320, width - 40);
+    const cardH = canContinue ? 302 : 246;
+    const cardX = (width - cardW) / 2;
+    const cardY = (height - cardH) / 2;
 
-    const scoreText = this.add.text(width / 2, height / 2 - 40, `Final Score: ${finalScore}`, {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', color: '#f5a623'
-    }).setOrigin(0.5).setDepth(1001);
-    this.gameOverElements.push(scoreText);
+    const card = this.add.graphics().setDepth(1001);
+    card.fillStyle(0x000000, 0.25);
+    card.fillRoundedRect(cardX, cardY + 4, cardW, cardH, 18);
+    card.fillStyle(GameConfig.UI.BACKGROUND_LIGHT, 1);
+    card.fillRoundedRect(cardX, cardY, cardW, cardH, 18);
+    card.lineStyle(2, GameConfig.UI.PRIMARY, 0.35);
+    card.strokeRoundedRect(cardX, cardY, cardW, cardH, 18);
+    keep(card);
 
-    // Show new high score message if achieved
+    const centerX = width / 2;
+    let y = cardY + 46;
+
+    keep(this.add.text(centerX, y, 'GAME OVER', {
+      fontSize: '34px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(1002));
+
+    y += 46;
+    keep(this.add.text(centerX, y, String(finalScore), {
+      fontSize: '40px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800', color: '#f5c26b'
+    }).setOrigin(0.5).setDepth(1002));
+
+    y += 32;
     if (isNewHighScore) {
-      const newRecordText = this.add.text(width / 2, height / 2 - 5, 'NEW HIGH SCORE!', {
-        fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
-      }).setOrigin(0.5).setDepth(1001);
-      this.tweens.add({ targets: newRecordText, scale: 1.1, duration: 500, yoyo: true, repeat: -1 });
-      this.gameOverElements.push(newRecordText);
+      const newRecordText = this.add.text(centerX, y, 'NEW HIGH SCORE!', {
+        fontSize: '16px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#7cc576'
+      }).setOrigin(0.5).setDepth(1002);
+      this.tweens.add({ targets: newRecordText, scale: 1.08, duration: 500, yoyo: true, repeat: -1 });
+      keep(newRecordText);
     } else {
-      const highScore = highScoreManager.getHighScore(this.gameMode);
-      const bestText = this.add.text(width / 2, height / 2 - 5, `Best: ${highScore}`, {
-        fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#888888'
-      }).setOrigin(0.5).setDepth(1001);
-      this.gameOverElements.push(bestText);
+      keep(this.add.text(centerX, y, `Best: ${highScoreManager.getHighScore(this.gameMode)}`, {
+        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, color: '#b8c4d0'
+      }).setOrigin(0.5).setDepth(1002));
     }
 
-    let buttonY = height / 2 + 35;
+    const btnW = cardW - 56;
+    y += 46;
 
-    // Second chance button (endless mode only, once per game)
     if (canContinue) {
-      const adBtn = this.add.text(width / 2, buttonY, 'CONTINUE', {
-        fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
-      }).setOrigin(0.5).setDepth(1001).setInteractive();
-      this.gameOverElements.push(adBtn);
-
-      adBtn.on('pointerdown', () => this.showAdAndContinue());
-      this.tweens.add({ targets: adBtn, alpha: 0.6, duration: 600, yoyo: true, repeat: -1 });
-
-      buttonY += 45;
+      const cont = UIHelpers.createButton(this, centerX, y, 'SECOND CHANCE', () => {
+        this.showAdAndContinue();
+      }, {
+        width: btnW, height: 44, fontSize: '16px',
+        fillColor: GameConfig.UI.SUCCESS, hoverColor: 0x8fd489
+      });
+      cont.bg.setDepth(1002);
+      cont.label.setDepth(1003);
+      cont.hitArea.setDepth(1003);
+      keep(cont.bg, cont.label, cont.hitArea);
+      y += 56;
     }
 
-    const restartBtn = this.add.text(width / 2, buttonY, 'TAP TO RESTART', {
-      fontSize: '24px', fontFamily: 'Arial, sans-serif', color: '#4a90e2'
-    }).setOrigin(0.5).setDepth(1001).setInteractive();
-    this.gameOverElements.push(restartBtn);
+    const again = UIHelpers.createButton(this, centerX, y, 'PLAY AGAIN', () => {
+      this.scene.restart();
+    }, { width: btnW, height: 46, fontSize: '18px' });
+    again.bg.setDepth(1002);
+    again.label.setDepth(1003);
+    again.hitArea.setDepth(1003);
+    keep(again.bg, again.label, again.hitArea);
 
-    restartBtn.on('pointerdown', () => this.scene.restart());
-    this.tweens.add({ targets: restartBtn, alpha: 0.5, duration: 800, yoyo: true, repeat: -1 });
-
-    // Menu button
-    const menuBtn = this.add.text(width / 2, buttonY + 40, 'MAIN MENU', {
-      fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#aaaaaa'
-    }).setOrigin(0.5).setDepth(1001).setInteractive();
-    this.gameOverElements.push(menuBtn);
-
+    y += 50;
+    const menuBtn = this.add.text(centerX, y, 'Main menu', {
+      fontSize: '15px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#b8c4d0'
+    }).setOrigin(0.5).setDepth(1002).setInteractive();
     menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    keep(menuBtn);
   }
 
   /**

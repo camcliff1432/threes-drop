@@ -74,7 +74,7 @@ const GameConfig = {
     SWAPPER_COST: 10,
     MERGER_COST: 10,
     WILDCARD_COST: 20,
-    FRENZY_THRESHOLD: 50,
+    FRENZY_THRESHOLD: 35,
     FRENZY_DURATION: 10000  // 10 seconds in ms
   },
 
@@ -209,9 +209,9 @@ const GameConfig = {
   UNLOCK_THRESHOLDS: {
     6: 50,
     12: 150,
-    24: 400,
-    48: 1000,
-    96: 2500
+    24: 350,
+    48: 700,
+    96: 1400
   },
 
   // UI Colors - Clean, warm aesthetic

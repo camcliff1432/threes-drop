@@ -137,7 +137,7 @@ class LevelManager {
         description: 'Reach 30 points',
         objective: { type: 'score', target: 30 },
         allowedTiles: [1, 2, 3],
-        maxMoves: 15,
+        maxMoves: 25,
         startingBoard: null,
         powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
         frenzyEnabled: false,
@@ -150,8 +150,8 @@ class LevelManager {
         name: 'Dozen',
         description: 'Create a 12 tile',
         objective: { type: 'create_tile', value: 12, count: 1 },
-        allowedTiles: [1, 2, 3],
-        maxMoves: 20,
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 30,
         startingBoard: null,
         powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
         frenzyEnabled: false,
@@ -653,6 +653,25 @@ class LevelManager {
 
   getLevel(id) {
     return this.levels.find(l => l.id === id) || null;
+  }
+
+  /**
+   * Levels meant for players. Developer fixtures are named "TEST: ..." and
+   * live alongside the campaign in levels.json; they are kept loadable by id
+   * (the level editor and balance runs use them) but hidden from level
+   * select and from next-level progression.
+   */
+  isTestLevel(level) {
+    return !!level && typeof level.name === 'string' && level.name.startsWith('TEST:');
+  }
+
+  getCampaignLevels() {
+    return this.levels.filter((l) => !this.isTestLevel(l)).sort((a, b) => a.id - b.id);
+  }
+
+  getLastCampaignLevelId() {
+    const campaign = this.getCampaignLevels();
+    return campaign.length ? campaign[campaign.length - 1].id : 0;
   }
 
   getAllLevels() {

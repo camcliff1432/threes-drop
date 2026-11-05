@@ -28,9 +28,13 @@ const UIHelpers = {
     const height = options.height || 50;
     const disabled = options.disabled || false;
     const fontSize = options.fontSize || '18px';
+    // Callers can override the accent so two buttons in one dialog do not
+    // both read as the primary action.
+    const baseColor = options.fillColor || GameConfig.UI.PRIMARY;
+    const hoverColor = options.hoverColor || GameConfig.UI.PRIMARY_LIGHT;
 
     const bg = scene.add.graphics();
-    const fillColor = disabled ? GameConfig.UI.DISABLED : GameConfig.UI.PRIMARY;
+    const fillColor = disabled ? GameConfig.UI.DISABLED : baseColor;
 
     // Button shadow
     bg.fillStyle(0x000000, 0.2);
@@ -63,7 +67,7 @@ const UIHelpers = {
         bg.fillStyle(0x000000, 0.2);
         bg.fillRoundedRect(x - width / 2, y - height / 2 + 2, width, height, 8);
         // Hover color
-        bg.fillStyle(GameConfig.UI.PRIMARY_LIGHT, 1);
+        bg.fillStyle(hoverColor, 1);
         bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, 8);
         // Highlight
         bg.fillStyle(0xffffff, 0.12);

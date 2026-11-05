@@ -7,18 +7,17 @@ node sim/balance.js --runs 100 --endless 200
 ```
 
 The bot does **not** model special tiles, the swapper, merger, wildcard or frenzy. Treat every number here as a floor for a competent human, and as a baseline for "is this player struggling more than expected" rather than as a target.
-
 ## Original mode
 
 `200 games, played to board-full. Swipe used when affordable; no other power-ups.`
 
 | metric | median | p10 | p90 | max |
 | --- | --- | --- | --- | --- |
-| score | 342 | 96 | 747 | 2217 |
-| moves | 78 | 46 | 122 | 247 |
+| score | 344 | 120 | 819 | 2037 |
+| moves | 81 | 50 | 128 | 228 |
 | highest tile | 24 | 12 | 96 | 192 |
-| merges earned | 33 | 15 | 57 | 125 |
-| swipes used | 10 | 4 | 19 | 44 |
+| merges earned | 34 | 17 | 65 | 110 |
+| swipes used | 11 | 5 | 20 | 40 |
 
 ### Tile unlocks reached
 
@@ -26,11 +25,11 @@ The bot does **not** model special tiles, the swapper, merger, wildcard or frenz
 
 | tile | needs score | games reaching it |
 | --- | --- | --- |
-| 6 | 50 | 98% |
-| 12 | 150 | 83% |
-| 24 | 400 | 43% |
-| 48 | 1000 | 4% |
-| 96 | 2500 | 0% |
+| 6 | 50 | 99% |
+| 12 | 150 | 85% |
+| 24 | 350 | 49% |
+| 48 | 700 | 16% |
+| 96 | 1400 | 3% |
 
 ### Power-up affordability
 
@@ -39,11 +38,11 @@ game, so these are ceilings - a player spending on swipes has less.
 
 | power-up | cost | games that could ever afford it |
 | --- | --- | --- |
-| Swipe | 5 | 99% |
+| Swipe | 5 | 100% |
 | Swapper | 10 | 98% |
 | Merger | 10 | 98% |
-| Wildcard | 20 | 81% |
-| Frenzy | 50 | 20% |
+| Wildcard | 20 | 82% |
+| Frenzy | 35 | 50% |
 
 ## Levels
 
@@ -51,26 +50,26 @@ game, so these are ceilings - a player spending on swipes has less.
 
 | # | name | objective | moves | win | med moves | median score |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | First Steps | make 1x 3 | 10 | 99% | 3 | 3 |
-| 2 | Double Trouble | make 2x 3 | 12 | 99% | 5 | 6 |
-| 3 | Level Up | make 1x 6 | 15 | 89% | 6 | 12 |
-| 4 | Score Hunter | score 30 | 15 | 23% | 15 | 21 |
-| 5 | Dozen | make 1x 12 | 20 | 22% | 20 | 27 |
+| 1 | First Steps | make 1x 3 | 10 | 99% | 2 | 3 |
+| 2 | Double Trouble | make 2x 3 | 12 | 96% | 5 | 6 |
+| 3 | Level Up | make 1x 6 | 15 | 87% | 7 | 12 |
+| 4 | Score Hunter | score 30 | 25 | 77% | 21 | 30 |
+| 5 | Dozen | make 1x 12 | 30 | 53% | 27 | 33 |
 | 6 | Swipe Right | make 1x 12 | 15 | 100% | 3 | 33 |
-| 7 | Swap Meet + | make 1x 6 | 10 | 89% | 4 | 12 |
-| 8 | Force Merge + | make 1x 12 | 12 | 61% | 9 | 21 |
-| 9 | Wild Thing + | make 1x 24 | 15 | 7% | 15 | 38 |
+| 7 | Swap Meet + | make 1x 6 | 10 | 92% | 4 | 12 |
+| 8 | Force Merge + | make 1x 12 | 12 | 54% | 12 | 21 |
+| 9 | Wild Thing + | make 1x 24 | 15 | 9% | 15 | 36 |
 | 10 | Power Play + | score 100 | 20 | 1% | 20 | 51 |
-| 16 | Frenzy Time + | make 1x 48 | 40 | 7% | 40 | 137 |
-| 17 | Frenzy Score + | score 250 | 45 | 6% | 45 | 159 |
-| 21 | TEST: Score Target + | score 50 | 20 | 54% | 20 | 51 |
-| 22 | TEST: Tile Target + | make 1x 24 | 25 | 17% | 25 | 69 |
-| 23 | TEST: Limited Moves + | score 30 | 10 | 10% | 10 | 14 |
-| 24 | TEST: No Power-Ups | score 40 | 25 | 37% | 25 | 36 |
-| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 32 |
-| 26 | TEST: Heavy 1s + | score 50 | 25 | 89% | 19 | 51 |
-| 27 | TEST: Heavy 2s + | score 50 | 25 | 85% | 20 | 51 |
-| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 2% | 35 | 99 |
+| 16 | Frenzy Time + | make 1x 48 | 40 | 3% | 40 | 135 |
+| 17 | Frenzy Score + | score 250 | 45 | 5% | 45 | 156 |
+| 21 | TEST: Score Target + | score 50 | 20 | 55% | 20 | 51 |
+| 22 | TEST: Tile Target + | make 1x 24 | 25 | 19% | 25 | 66 |
+| 23 | TEST: Limited Moves + | score 30 | 10 | 13% | 10 | 15 |
+| 24 | TEST: No Power-Ups | score 40 | 25 | 41% | 25 | 36 |
+| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 30 |
+| 26 | TEST: Heavy 1s + | score 50 | 25 | 86% | 19 | 51 |
+| 27 | TEST: Heavy 2s + | score 50 | 25 | 94% | 20 | 51 |
+| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 3% | 35 | 105 |
 
 `+ offers swapper / merger / wildcard, which the bot never uses, so its win rate is a floor.`
 
@@ -94,7 +93,7 @@ These depend on special tiles, which the bot does not model:
 ## Flags
 
 - 4 places where a level is much easier than the one before it.
-- Tiles 48, 96 unlock at a score under 5% of games reach.
-- 12 levels named "TEST:" ship in levels.json and are playable.
+- Tiles 96 unlock at a score under 5% of games reach.
+- 12 "TEST:" fixture levels are measured here but hidden from level select.
 
 `seed 1 · 0.3s`

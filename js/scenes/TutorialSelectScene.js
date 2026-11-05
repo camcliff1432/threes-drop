@@ -29,7 +29,7 @@ class TutorialSelectScene extends Phaser.Scene {
     this.scrollContainer = this.add.container(0, 0);
 
     // Get all levels and sort by ID
-    const levels = levelManager.getAllLevels().slice().sort((a, b) => a.id - b.id);
+    const levels = levelManager.getCampaignLevels();
     const total = levels.length;
 
     // Level grid settings - responsive to screen width

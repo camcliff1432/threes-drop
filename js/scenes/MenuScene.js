@@ -262,7 +262,7 @@ class MenuScene extends Phaser.Scene {
         fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#888888'
       }).setOrigin(0.5));
     } else if (modeData.mode === 'levels') {
-      const totalLevels = levelManager.getTotalLevels();
+      const totalLevels = levelManager.getCampaignLevels().length;
       container.add(this.add.text(0, this.cardHeight / 2 - 28, `${totalLevels} levels available`, {
         fontSize: '12px', fontFamily: GameConfig.FONTS.UI, fontStyle: '600', color: '#7cc576'
       }).setOrigin(0.5));

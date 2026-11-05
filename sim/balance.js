@@ -196,7 +196,7 @@ if (deadUnlocks.length) {
 }
 const testLevels = levels.filter((l) => l.name.startsWith('TEST:'));
 if (testLevels.length) {
-  notes.push(`${testLevels.length} levels named "TEST:" ship in levels.json and are playable.`);
+  notes.push(`${testLevels.length} "TEST:" fixture levels are measured here but hidden from level select.`);
 }
 if (notes.length === 0) notes.push('Nothing stood out.');
 for (const n of notes) say('- ' + n);
