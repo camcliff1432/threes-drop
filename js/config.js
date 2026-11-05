@@ -65,7 +65,10 @@ const GameConfig = {
     COMBO_MAX: 5,
     COMBO_COST: 5,
     SWIPE_THRESHOLD: 50,
-    IMBALANCE_THRESHOLD: 4
+    IMBALANCE_THRESHOLD: 4,
+    // Each merge in a single cascade scores one step higher, capped here.
+    // Without this, a four-step chain scored the same as four loose merges.
+    CHAIN_MAX: 5
   },
 
   // Power-up costs and settings

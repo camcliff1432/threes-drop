@@ -1854,6 +1854,27 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Score a merge that is part of a cascade.
+   *
+   * The Nth merge resolved from a single drop scores N times its value,
+   * capped at GAMEPLAY.CHAIN_MAX. cascadeMergeCount is already incremented
+   * by the caller for the combo banner, so it is the step number here.
+   */
+  awardChainMerge(value, col, row) {
+    const step = Math.max(1, this.cascadeMergeCount || 1);
+    const multiplier = Math.min(step, GameConfig.GAMEPLAY.CHAIN_MAX);
+    this.boardLogic.addScore(value * multiplier);
+
+    if (multiplier > 1 && this.animationController && typeof col === 'number') {
+      const l = GameConfig.getLayout(this.cameras.main.width, this.cameras.main.height);
+      const x = l.offsetX + col * l.tileSize + l.tileSize / 2;
+      const y = l.offsetY + row * l.tileSize + l.tileSize / 2;
+      this.animationController.showFloatingText(x, y, `+${value * multiplier}`, '#ffdd44');
+    }
+    return multiplier;
+  }
+
   onDropComplete() {
     // Update special tiles
     let hasSwapEvents = false;
@@ -2621,7 +2642,7 @@ class GameScene extends Phaser.Scene {
                 this.cameras.main.shake(150, 0.005 * intensity);
               }
 
-              this.boardLogic.addScore(op.value);
+              this.awardChainMerge(op.value, op.col, op.toRow);
               this.powerUpManager.addMergePoint();
               tileCollectionManager.recordTile(op.value);
               achievementManager.recordTile(op.value);

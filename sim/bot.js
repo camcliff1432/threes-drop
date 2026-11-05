@@ -28,7 +28,7 @@ const ROOT = resolve(__dirname, '..');
 function loadGame() {
   // These files declare top-level consts/classes; running them in this
   // context puts them in the shared global lexical scope.
-  for (const file of ['js/config.js', 'js/BoardLogic.js', 'js/LevelManager.js']) {
+  for (const file of ['js/config.js', 'js/BoardLogic.js', 'js/PowerUpManager.js', 'js/LevelManager.js']) {
     vm.runInThisContext(readFileSync(resolve(ROOT, file), 'utf-8'), { filename: file });
   }
 
@@ -43,7 +43,7 @@ function loadGame() {
     }
   }
 
-  return { BoardLogic, GameConfig, levelManager };
+  return { BoardLogic, GameConfig, levelManager, PowerUpManager };
 }
 
 /** mulberry32 - small deterministic PRNG so a run is reproducible. */
@@ -95,16 +95,22 @@ function evaluate(board, logic, mergeGain) {
   return (mergeGain * 4) + (potential * 6) - (tiles * 2) - (highestStack * 3);
 }
 
-/** Resolve gravity chains the way GameScene does: repeat until nothing moves. */
+/**
+ * Resolve gravity chains the way GameScene does: repeat until nothing moves,
+ * scoring each cascade step one multiple higher (see awardChainMerge).
+ */
 function settle(logic) {
   let gained = 0;
+  let step = 0;
   for (;;) {
     const ops = logic.applyGravity();
     if (ops.length === 0) break;
     for (const op of ops) {
       if (op.type === 'fall-merge') {
-        logic.addScore(op.value);
-        gained += op.value;
+        step += 1;
+        const multiplier = Math.min(step, GameConfig.GAMEPLAY.CHAIN_MAX);
+        logic.addScore(op.value * multiplier);
+        gained += op.value * multiplier;
       }
     }
   }
@@ -154,9 +160,7 @@ function chooseColumn(logic, value, BoardLogic) {
  * the whole board one column, and COMBO_COST is deducted afterwards.
  * Returns true when a swipe was used.
  */
-function maybeSwipe(logic, BoardLogic) {
-  if (logic.getMergeCount() < GameConfig.GAMEPLAY.COMBO_MAX) return false;
-
+function bestShift(logic, BoardLogic) {
   const current = evaluate(logic.board, logic, 0);
   let bestDir = null;
   let bestScore = current;
@@ -188,12 +192,27 @@ function maybeSwipe(logic, BoardLogic) {
     }
   }
 
-  if (bestDir === null) return false;
+  return bestDir;
+}
 
-  for (const op of logic.shiftBoard(bestDir)) {
+/** Apply the best shift if one helps. Returns true when a shift happened. */
+function maybeShift(logic, BoardLogic) {
+  const dir = bestShift(logic, BoardLogic);
+  if (dir === null) return false;
+  for (const op of logic.shiftBoard(dir)) {
     if (op.type === 'merge') logic.addScore(op.value);
   }
   settle(logic);
+  return true;
+}
+
+/**
+ * Original mode's swipe: the bar fills to COMBO_MAX merges, a swipe shifts
+ * the whole board one column, and COMBO_COST is deducted afterwards.
+ */
+function maybeSwipe(logic, BoardLogic) {
+  if (logic.getMergeCount() < GameConfig.GAMEPLAY.COMBO_MAX) return false;
+  if (!maybeShift(logic, BoardLogic)) return false;
   logic.subtractMergeCount(GameConfig.GAMEPLAY.COMBO_COST);
   return true;
 }
@@ -261,19 +280,110 @@ function settleStartingBoard(logic) {
   }
 }
 
+/** Every adjacent pair on the board that could be force-merged. */
+function mergeablePairs(logic) {
+  const pairs = [];
+  for (let col = 0; col < logic.COLS; col++) {
+    for (let row = 0; row < logic.ROWS; row++) {
+      const a = logic.board[col][row];
+      if (a === null) continue;
+      for (const [dc, dr] of [[1, 0], [0, 1]]) {
+        const c2 = col + dc;
+        const r2 = row + dr;
+        if (c2 >= logic.COLS || r2 >= logic.ROWS) continue;
+        const b = logic.board[c2][r2];
+        if (b === null) continue;
+        if (logic.canMerge(a, b)) {
+          pairs.push({ col, row, col2: c2, row2: r2, value: logic.getMergedValue(a, b) });
+        }
+      }
+    }
+  }
+  return pairs;
+}
+
+/** Highest numeric tile currently on the board. */
+function highestOnBoard(logic) {
+  let best = 0;
+  for (let col = 0; col < logic.COLS; col++) {
+    for (let row = 0; row < logic.ROWS; row++) {
+      const v = logic.getCellValue(col, row);
+      if (typeof v === 'number' && v > best) best = v;
+    }
+  }
+  return best;
+}
+
+/**
+ * Spend power-ups the way an engaged player would: take a free merge when
+ * one is on offer, reach for the wildcard when the objective is a big tile,
+ * and swipe to buy space. Greedy and one-ply, like the drop policy.
+ *
+ * Returns the tile value to drop next (the wildcard replaces it when used).
+ */
+function spendPowerUps(logic, pum, level, next, BoardLogic) {
+  const objective = level.objective || {};
+
+  // Wildcard doubles whatever it lands on, so it is the cheapest route to a
+  // big-tile objective once something half the target is on the board.
+  if (objective.type === 'create_tile' && pum.canAfford('wildcard')) {
+    if (highestOnBoard(logic) >= objective.value / 2 && next !== 'wildcard') {
+      pum.spend('wildcard');
+      return 'wildcard';
+    }
+  }
+
+  // Merger turns an adjacent pair into one tile without spending a move.
+  if (pum.canAfford('merger')) {
+    const pairs = mergeablePairs(logic);
+    if (pairs.length) {
+      pairs.sort((a, b) => b.value - a.value);
+      const best = pairs[0];
+      const result = logic.forceMerge(best.col, best.row, best.col2, best.row2);
+      if (result.success) {
+        pum.spend('merger');
+        logic.addScore(result.mergedValue);
+        pum.addMergePoint();
+        settle(logic);
+      }
+    }
+  }
+
+  // Swipe buys space when the board is getting tall.
+  if (pum.canAfford('swipe')) {
+    const before = logic.getMergeCount();
+    if (maybeShift(logic, BoardLogic)) {
+      pum.spend('swipe');
+      const gained = logic.getMergeCount() - before;
+      for (let i = 0; i < gained; i++) pum.addMergePoint();
+    }
+  }
+
+  return next;
+}
+
 /** One attempt at a level. */
-function playLevel(level, { BoardLogic, levelManager } = {}) {
+function playLevel(level, { BoardLogic, levelManager, PowerUpManager } = {}) {
   const logic = new BoardLogic({
     allowedTiles: level.allowedTiles || [1, 2, 3],
-    useScoreUnlocks: false,
-    startingCombo: level.startingPoints || 0
+    useScoreUnlocks: false
   });
   if (level.startingBoard) {
     logic.setBoard(level.startingBoard);
     settleStartingBoard(logic);
   }
 
-  const swipeAllowed = !!(level.powerUps && level.powerUps.swipe);
+  // Levels use the PowerUpManager economy (points per merge), not the
+  // Original-mode combo bar.
+  const enabled = Object.entries(level.powerUps || {})
+    .filter(([, on]) => on)
+    .map(([name]) => name);
+  const pum = new PowerUpManager({
+    startingPoints: level.startingPoints || 0,
+    enabledPowerUps: enabled,
+    frenzyEnabled: !!level.frenzyEnabled
+  });
+
   const maxMoves = level.maxMoves || 100;
   let next = logic.getRandomTileValue();
 
@@ -285,26 +395,29 @@ function playLevel(level, { BoardLogic, levelManager } = {}) {
     if (state.movesUsed >= maxMoves) {
       return { won: false, moves: state.movesUsed, score: state.score, reason: 'out of moves' };
     }
+
+    next = spendPowerUps(logic, pum, level, next, BoardLogic);
+
     if (logic.isBoardFull()) {
-      // A real player can still swipe their way out of a full board.
-      if (!(swipeAllowed && maybeSwipe(logic, BoardLogic))) {
-        return { won: false, moves: state.movesUsed, score: state.score, reason: 'board full' };
-      }
-      continue;
+      return { won: false, moves: state.movesUsed, score: state.score, reason: 'board full' };
     }
 
-    const col = chooseColumn(logic, next, BoardLogic);
+    const dropValue = next === 'wildcard' ? 'wildcard' : next;
+    const col = chooseColumn(logic, dropValue, BoardLogic);
     if (col === null) {
       return { won: false, moves: state.movesUsed, score: state.score, reason: 'board full' };
     }
 
-    const result = logic.dropTile(col, next);
+    const before = logic.getMergeCount();
+    const result = logic.dropTile(col, dropValue);
     if (!result.success) {
       return { won: false, moves: state.movesUsed, score: state.score, reason: 'blocked' };
     }
     if (result.merged) logic.addScore(result.finalValue);
     settle(logic);
-    if (swipeAllowed) maybeSwipe(logic, BoardLogic);
+
+    const gained = logic.getMergeCount() - before;
+    for (let i = 0; i < gained; i++) pum.addMergePoint();
 
     next = logic.getRandomTileValue();
   }

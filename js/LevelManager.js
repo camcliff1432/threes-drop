@@ -133,40 +133,6 @@ class LevelManager {
       // Level 4: Score challenge
       {
         id: 4,
-        name: 'Score Hunter',
-        description: 'Reach 30 points',
-        objective: { type: 'score', target: 30 },
-        allowedTiles: [1, 2, 3],
-        maxMoves: 25,
-        startingBoard: null,
-        powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
-        frenzyEnabled: false,
-        startingPoints: 0,
-        specialTiles: { steel: false, lead: false, glass: false }
-      },
-      // Level 5: Create a 12
-      {
-        id: 5,
-        name: 'Dozen',
-        description: 'Create a 12 tile',
-        objective: { type: 'create_tile', value: 12, count: 1 },
-        allowedTiles: [1, 2, 3, 6],
-        maxMoves: 30,
-        startingBoard: null,
-        powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
-        frenzyEnabled: false,
-        startingPoints: 0,
-        specialTiles: { steel: false, lead: false, glass: false }
-      },
-
-      // ===========================================
-      // CHAPTER 2: POWER-UPS (Levels 6-10)
-      // Introduces each power-up one at a time
-      // ===========================================
-
-      // Level 6: Introduction to Swipe
-      {
-        id: 6,
         name: 'Swipe Right',
         description: 'Use SWIPE to create a 12',
         objective: { type: 'create_tile', value: 12, count: 1 },
@@ -184,6 +150,40 @@ class LevelManager {
         specialTiles: { steel: false, lead: false, glass: false }
       },
       // Level 7: Introduction to Swap
+      {
+        id: 5,
+        name: 'Score Hunter',
+        description: 'Reach 30 points',
+        objective: { type: 'score', target: 30 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 20,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: false, merger: false, wildcard: false },
+        frenzyEnabled: false,
+        startingPoints: 5,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+      // Level 5: Create a 12
+      {
+        id: 6,
+        name: 'Dozen',
+        description: 'Create a 12 tile',
+        objective: { type: 'create_tile', value: 12, count: 1 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 22,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: false, merger: false, wildcard: false },
+        frenzyEnabled: false,
+        startingPoints: 5,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // ===========================================
+      // CHAPTER 2: POWER-UPS (Levels 6-10)
+      // Introduces each power-up one at a time
+      // ===========================================
+
+      // Level 6: Introduction to Swipe
       {
         id: 7,
         name: 'Swap Meet',
@@ -247,7 +247,7 @@ class LevelManager {
         description: 'Reach 100 points',
         objective: { type: 'score', target: 100 },
         allowedTiles: [1, 2, 3, 6],
-        maxMoves: 20,
+        maxMoves: 30,
         startingBoard: null,
         powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
         frenzyEnabled: false,

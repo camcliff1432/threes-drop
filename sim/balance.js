@@ -25,7 +25,7 @@ const SEED = flag('seed', 1);
 const MARKDOWN = args.includes('--markdown');
 
 const started = Date.now();
-const { BoardLogic, GameConfig, levelManager } = loadGame();
+const { BoardLogic, GameConfig, levelManager, PowerUpManager } = loadGame();
 seedRandom(SEED);
 
 function median(values) {
@@ -128,15 +128,14 @@ say('| --- | --- | --- | --- | --- | --- | --- |');
 
 // The bot only knows the swipe power-up. Levels built around the others are
 // marked, because their win rate is a floor rather than a measurement.
-const unmodelled = (l) => {
-  const p = l.powerUps || {};
-  return !!(p.swapper || p.merger || p.wildcard);
-};
+// The bot now spends swipe, merger and wildcard. Swapper is still unused,
+// so levels built around it remain a floor rather than a measurement.
+const unmodelled = (l) => !!((l.powerUps || {}).swapper);
 
 const levelRows = [];
 for (const level of plain) {
   const results = [];
-  for (let i = 0; i < RUNS; i++) results.push(playLevel(level, { BoardLogic, levelManager }));
+  for (let i = 0; i < RUNS; i++) results.push(playLevel(level, { BoardLogic, levelManager, PowerUpManager }));
   const wins = results.filter((r) => r.won);
   const winRate = Math.round((wins.length / results.length) * 100);
   levelRows.push({ level, winRate });
@@ -151,7 +150,7 @@ for (const level of plain) {
 }
 say();
 if (plain.some(unmodelled)) {
-  say('`+ offers swapper / merger / wildcard, which the bot never uses, so its win rate is a floor.`');
+  say('`+ offers the swapper, which the bot never uses, so its win rate is a floor.`');
   say();
 }
 

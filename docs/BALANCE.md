@@ -13,11 +13,11 @@ The bot does **not** model special tiles, the swapper, merger, wildcard or frenz
 
 | metric | median | p10 | p90 | max |
 | --- | --- | --- | --- | --- |
-| score | 344 | 120 | 819 | 2037 |
-| moves | 81 | 50 | 128 | 228 |
-| highest tile | 24 | 12 | 96 | 192 |
-| merges earned | 34 | 17 | 65 | 110 |
-| swipes used | 11 | 5 | 20 | 40 |
+| score | 381 | 99 | 1074 | 1824 |
+| moves | 77 | 43 | 132 | 178 |
+| highest tile | 24 | 12 | 96 | 96 |
+| merges earned | 31 | 14 | 64 | 85 |
+| swipes used | 10 | 3 | 21 | 30 |
 
 ### Tile unlocks reached
 
@@ -25,11 +25,11 @@ The bot does **not** model special tiles, the swapper, merger, wildcard or frenz
 
 | tile | needs score | games reaching it |
 | --- | --- | --- |
-| 6 | 50 | 99% |
+| 6 | 50 | 97% |
 | 12 | 150 | 85% |
-| 24 | 350 | 49% |
-| 48 | 700 | 16% |
-| 96 | 1400 | 3% |
+| 24 | 350 | 54% |
+| 48 | 700 | 23% |
+| 96 | 1400 | 6% |
 
 ### Power-up affordability
 
@@ -39,10 +39,10 @@ game, so these are ceilings - a player spending on swipes has less.
 | power-up | cost | games that could ever afford it |
 | --- | --- | --- |
 | Swipe | 5 | 100% |
-| Swapper | 10 | 98% |
-| Merger | 10 | 98% |
-| Wildcard | 20 | 82% |
-| Frenzy | 35 | 50% |
+| Swapper | 10 | 97% |
+| Merger | 10 | 97% |
+| Wildcard | 20 | 78% |
+| Frenzy | 35 | 43% |
 
 ## Levels
 
@@ -50,28 +50,28 @@ game, so these are ceilings - a player spending on swipes has less.
 
 | # | name | objective | moves | win | med moves | median score |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | First Steps | make 1x 3 | 10 | 99% | 2 | 3 |
-| 2 | Double Trouble | make 2x 3 | 12 | 96% | 5 | 6 |
-| 3 | Level Up | make 1x 6 | 15 | 87% | 7 | 12 |
-| 4 | Score Hunter | score 30 | 25 | 77% | 21 | 30 |
-| 5 | Dozen | make 1x 12 | 30 | 53% | 27 | 33 |
-| 6 | Swipe Right | make 1x 12 | 15 | 100% | 3 | 33 |
-| 7 | Swap Meet + | make 1x 6 | 10 | 92% | 4 | 12 |
-| 8 | Force Merge + | make 1x 12 | 12 | 54% | 12 | 21 |
-| 9 | Wild Thing + | make 1x 24 | 15 | 9% | 15 | 36 |
-| 10 | Power Play + | score 100 | 20 | 1% | 20 | 51 |
-| 16 | Frenzy Time + | make 1x 48 | 40 | 3% | 40 | 135 |
-| 17 | Frenzy Score + | score 250 | 45 | 5% | 45 | 156 |
-| 21 | TEST: Score Target + | score 50 | 20 | 55% | 20 | 51 |
-| 22 | TEST: Tile Target + | make 1x 24 | 25 | 19% | 25 | 66 |
-| 23 | TEST: Limited Moves + | score 30 | 10 | 13% | 10 | 15 |
+| 1 | First Steps | make 1x 3 | 10 | 100% | 3 | 3 |
+| 2 | Double Trouble | make 2x 3 | 12 | 97% | 5 | 12 |
+| 3 | Level Up | make 1x 6 | 15 | 90% | 6 | 12 |
+| 4 | Swipe Right | make 1x 12 | 15 | 100% | 4 | 33 |
+| 5 | Score Hunter | score 30 | 20 | 86% | 16 | 35 |
+| 6 | Dozen | make 1x 12 | 22 | 82% | 16 | 45 |
+| 7 | Swap Meet + | make 1x 6 | 10 | 88% | 4 | 12 |
+| 8 | Force Merge | make 1x 12 | 12 | 49% | 12 | 21 |
+| 9 | Wild Thing | make 1x 24 | 15 | 100% | 1 | 24 |
+| 10 | Power Play + | score 100 | 30 | 44% | 30 | 95 |
+| 16 | Frenzy Time + | make 1x 48 | 40 | 2% | 40 | 129 |
+| 17 | Frenzy Score + | score 250 | 45 | 19% | 45 | 183 |
+| 21 | TEST: Score Target + | score 50 | 20 | 53% | 20 | 51 |
+| 22 | TEST: Tile Target + | make 1x 24 | 25 | 7% | 25 | 63 |
+| 23 | TEST: Limited Moves + | score 30 | 10 | 12% | 10 | 12 |
 | 24 | TEST: No Power-Ups | score 40 | 25 | 41% | 25 | 36 |
-| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 30 |
-| 26 | TEST: Heavy 1s + | score 50 | 25 | 86% | 19 | 51 |
-| 27 | TEST: Heavy 2s + | score 50 | 25 | 94% | 20 | 51 |
-| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 3% | 35 | 105 |
+| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 27 |
+| 26 | TEST: Heavy 1s + | score 50 | 25 | 71% | 21 | 51 |
+| 27 | TEST: Heavy 2s + | score 50 | 25 | 75% | 21 | 54 |
+| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 1% | 35 | 114 |
 
-`+ offers swapper / merger / wildcard, which the bot never uses, so its win rate is a floor.`
+`+ offers the swapper, which the bot never uses, so its win rate is a floor.`
 
 ### Not simulated
 
@@ -93,7 +93,6 @@ These depend on special tiles, which the bot does not model:
 ## Flags
 
 - 4 places where a level is much easier than the one before it.
-- Tiles 96 unlock at a score under 5% of games reach.
 - 12 "TEST:" fixture levels are measured here but hidden from level select.
 
 `seed 1 · 0.3s`

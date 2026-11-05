@@ -345,7 +345,10 @@ const GameConfig = {
     COMBO_MAX: 5,
     COMBO_COST: 5,
     SWIPE_THRESHOLD: 50,
-    IMBALANCE_THRESHOLD: 4
+    IMBALANCE_THRESHOLD: 4,
+    // Each merge in a single cascade scores one step higher, capped here.
+    // Without this, a four-step chain scored the same as four loose merges.
+    CHAIN_MAX: 5
   },
 
   // Power-up costs and settings
@@ -1248,40 +1251,6 @@ class LevelManager {
       // Level 4: Score challenge
       {
         id: 4,
-        name: 'Score Hunter',
-        description: 'Reach 30 points',
-        objective: { type: 'score', target: 30 },
-        allowedTiles: [1, 2, 3],
-        maxMoves: 25,
-        startingBoard: null,
-        powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
-        frenzyEnabled: false,
-        startingPoints: 0,
-        specialTiles: { steel: false, lead: false, glass: false }
-      },
-      // Level 5: Create a 12
-      {
-        id: 5,
-        name: 'Dozen',
-        description: 'Create a 12 tile',
-        objective: { type: 'create_tile', value: 12, count: 1 },
-        allowedTiles: [1, 2, 3, 6],
-        maxMoves: 30,
-        startingBoard: null,
-        powerUps: { swipe: false, swapper: false, merger: false, wildcard: false },
-        frenzyEnabled: false,
-        startingPoints: 0,
-        specialTiles: { steel: false, lead: false, glass: false }
-      },
-
-      // ===========================================
-      // CHAPTER 2: POWER-UPS (Levels 6-10)
-      // Introduces each power-up one at a time
-      // ===========================================
-
-      // Level 6: Introduction to Swipe
-      {
-        id: 6,
         name: 'Swipe Right',
         description: 'Use SWIPE to create a 12',
         objective: { type: 'create_tile', value: 12, count: 1 },
@@ -1299,6 +1268,40 @@ class LevelManager {
         specialTiles: { steel: false, lead: false, glass: false }
       },
       // Level 7: Introduction to Swap
+      {
+        id: 5,
+        name: 'Score Hunter',
+        description: 'Reach 30 points',
+        objective: { type: 'score', target: 30 },
+        allowedTiles: [1, 2, 3],
+        maxMoves: 20,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: false, merger: false, wildcard: false },
+        frenzyEnabled: false,
+        startingPoints: 5,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+      // Level 5: Create a 12
+      {
+        id: 6,
+        name: 'Dozen',
+        description: 'Create a 12 tile',
+        objective: { type: 'create_tile', value: 12, count: 1 },
+        allowedTiles: [1, 2, 3, 6],
+        maxMoves: 22,
+        startingBoard: null,
+        powerUps: { swipe: true, swapper: false, merger: false, wildcard: false },
+        frenzyEnabled: false,
+        startingPoints: 5,
+        specialTiles: { steel: false, lead: false, glass: false }
+      },
+
+      // ===========================================
+      // CHAPTER 2: POWER-UPS (Levels 6-10)
+      // Introduces each power-up one at a time
+      // ===========================================
+
+      // Level 6: Introduction to Swipe
       {
         id: 7,
         name: 'Swap Meet',
@@ -1362,7 +1365,7 @@ class LevelManager {
         description: 'Reach 100 points',
         objective: { type: 'score', target: 100 },
         allowedTiles: [1, 2, 3, 6],
-        maxMoves: 20,
+        maxMoves: 30,
         startingBoard: null,
         powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
         frenzyEnabled: false,
@@ -10251,6 +10254,27 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Score a merge that is part of a cascade.
+   *
+   * The Nth merge resolved from a single drop scores N times its value,
+   * capped at GAMEPLAY.CHAIN_MAX. cascadeMergeCount is already incremented
+   * by the caller for the combo banner, so it is the step number here.
+   */
+  awardChainMerge(value, col, row) {
+    const step = Math.max(1, this.cascadeMergeCount || 1);
+    const multiplier = Math.min(step, GameConfig.GAMEPLAY.CHAIN_MAX);
+    this.boardLogic.addScore(value * multiplier);
+
+    if (multiplier > 1 && this.animationController && typeof col === 'number') {
+      const l = GameConfig.getLayout(this.cameras.main.width, this.cameras.main.height);
+      const x = l.offsetX + col * l.tileSize + l.tileSize / 2;
+      const y = l.offsetY + row * l.tileSize + l.tileSize / 2;
+      this.animationController.showFloatingText(x, y, `+${value * multiplier}`, '#ffdd44');
+    }
+    return multiplier;
+  }
+
   onDropComplete() {
     // Update special tiles
     let hasSwapEvents = false;
@@ -11018,7 +11042,7 @@ class GameScene extends Phaser.Scene {
                 this.cameras.main.shake(150, 0.005 * intensity);
               }
 
-              this.boardLogic.addScore(op.value);
+              this.awardChainMerge(op.value, op.col, op.toRow);
               this.powerUpManager.addMergePoint();
               tileCollectionManager.recordTile(op.value);
               achievementManager.recordTile(op.value);
