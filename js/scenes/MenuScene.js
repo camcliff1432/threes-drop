@@ -7,6 +7,11 @@ class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    // First launch ever: teach the game instead of dropping the player into
+    // unbounded Original mode. Level 1 ("First Steps") exists for exactly
+    // this and nothing routed anyone to it.
+    if (this.routeFirstRunToTutorial()) return;
+
     const { width, height } = this.cameras.main;
     UIHelpers.drawBackground(this);
 
@@ -322,6 +327,25 @@ class MenuScene extends Phaser.Scene {
     }, { width: 180, height: 50, fontSize: '24px' });
   }
 
+  /**
+   * Send a brand-new player straight into the tutorial's first level.
+   * Returns true when the scene has been handed off, so create() stops.
+   */
+  routeFirstRunToTutorial() {
+    if (storageBatcher.get(MenuScene.HAS_PLAYED_KEY)) return false;
+
+    // Set the flag first: if the level fails to start for any reason we land
+    // on the normal menu next time rather than looping back into this branch.
+    storageBatcher.set(MenuScene.HAS_PLAYED_KEY, '1');
+    storageBatcher.flush();
+
+    const firstLevel = levelManager.getLevel(1);
+    if (!firstLevel) return false;
+
+    this.scene.start('GameScene', { mode: 'level', levelId: 1 });
+    return true;
+  }
+
   createMenuButtons() {
     const { width, height } = this.cameras.main;
     // Start below the PLAY button (which is at carouselY + cardHeight/2 + 60)
@@ -577,3 +601,5 @@ class MenuScene extends Phaser.Scene {
     });
   }
 }
+
+MenuScene.HAS_PLAYED_KEY = 'threes_has_played';

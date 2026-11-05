@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/BoardLogic.test.js && node tests/DailyChallengeManager.test.js && node tests/GameStateManager.test.js && node tests/StorageBatcher.test.js",
     "build": "node build.mjs",
-    "build:min": "node build.mjs --minify"
+    "build:min": "node build.mjs --minify",
+    "balance": "node sim/balance.js --runs 100 --endless 200"
   },
   "devDependencies": {
     "esbuild": "^0.27.3"
