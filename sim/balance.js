@@ -128,9 +128,9 @@ say('| --- | --- | --- | --- | --- | --- | --- |');
 
 // The bot only knows the swipe power-up. Levels built around the others are
 // marked, because their win rate is a floor rather than a measurement.
-// The bot now spends swipe, merger and wildcard. Swapper is still unused,
-// so levels built around it remain a floor rather than a measurement.
-const unmodelled = (l) => !!((l.powerUps || {}).swapper);
+// The bot spends every power-up except frenzy, which is a timed mode rather
+// than a purchase. Levels built around frenzy remain a floor.
+const unmodelled = (l) => !!l.frenzyEnabled;
 
 const levelRows = [];
 for (const level of plain) {
@@ -150,7 +150,7 @@ for (const level of plain) {
 }
 say();
 if (plain.some(unmodelled)) {
-  say('`+ offers the swapper, which the bot never uses, so its win rate is a floor.`');
+  say('`+ relies on frenzy, which the bot never triggers, so its win rate is a floor.`');
   say();
 }
 

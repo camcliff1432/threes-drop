@@ -55,23 +55,23 @@ game, so these are ceilings - a player spending on swipes has less.
 | 3 | Level Up | make 1x 6 | 15 | 90% | 6 | 12 |
 | 4 | Swipe Right | make 1x 12 | 15 | 100% | 4 | 33 |
 | 5 | Score Hunter | score 30 | 20 | 86% | 16 | 35 |
-| 6 | Dozen | make 1x 12 | 22 | 82% | 16 | 45 |
-| 7 | Swap Meet + | make 1x 6 | 10 | 88% | 4 | 12 |
-| 8 | Force Merge | make 1x 12 | 12 | 49% | 12 | 21 |
-| 9 | Wild Thing | make 1x 24 | 15 | 100% | 1 | 24 |
-| 10 | Power Play + | score 100 | 30 | 44% | 30 | 95 |
-| 16 | Frenzy Time + | make 1x 48 | 40 | 2% | 40 | 129 |
-| 17 | Frenzy Score + | score 250 | 45 | 19% | 45 | 183 |
-| 21 | TEST: Score Target + | score 50 | 20 | 53% | 20 | 51 |
-| 22 | TEST: Tile Target + | make 1x 24 | 25 | 7% | 25 | 63 |
-| 23 | TEST: Limited Moves + | score 30 | 10 | 12% | 10 | 12 |
-| 24 | TEST: No Power-Ups | score 40 | 25 | 41% | 25 | 36 |
-| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 27 |
-| 26 | TEST: Heavy 1s + | score 50 | 25 | 71% | 21 | 51 |
-| 27 | TEST: Heavy 2s + | score 50 | 25 | 75% | 21 | 54 |
-| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 1% | 35 | 114 |
+| 6 | Dozen | make 1x 12 | 26 | 86% | 17 | 48 |
+| 7 | Swap Meet | make 1x 6 | 10 | 100% | 3 | 12 |
+| 8 | Force Merge | make 1x 12 | 24 | 84% | 12 | 39 |
+| 9 | Wild Thing | make 1x 24 | 20 | 63% | 13 | 45 |
+| 10 | Power Play | score 100 | 30 | 42% | 30 | 95 |
+| 16 | Frenzy Time + | make 1x 48 | 60 | 28% | 53 | 251 |
+| 17 | Frenzy Score + | score 250 | 50 | 36% | 47 | 218 |
+| 21 | TEST: Score Target + | score 50 | 20 | 59% | 19 | 51 |
+| 22 | TEST: Tile Target + | make 1x 24 | 25 | 23% | 25 | 77 |
+| 23 | TEST: Limited Moves | score 30 | 10 | 20% | 10 | 15 |
+| 24 | TEST: No Power-Ups | score 40 | 25 | 36% | 25 | 36 |
+| 25 | TEST: Survival + | survive 15 | 15 | 100% | 15 | 42 |
+| 26 | TEST: Heavy 1s + | score 50 | 25 | 86% | 19 | 54 |
+| 27 | TEST: Heavy 2s + | score 50 | 25 | 82% | 19 | 54 |
+| 30 | TEST: Frenzy Boost + | make 1x 48 | 35 | 4% | 35 | 120 |
 
-`+ offers the swapper, which the bot never uses, so its win rate is a floor.`
+`+ relies on frenzy, which the bot never triggers, so its win rate is a floor.`
 
 ### Not simulated
 
@@ -92,7 +92,7 @@ These depend on special tiles, which the bot does not model:
 
 ## Flags
 
-- 4 places where a level is much easier than the one before it.
+- 2 places where a level is much easier than the one before it.
 - 12 "TEST:" fixture levels are measured here but hidden from level select.
 
-`seed 1 · 0.3s`
+`seed 1 · 0.4s`

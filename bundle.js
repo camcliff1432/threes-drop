@@ -522,17 +522,21 @@ const GameConfig = {
     // Reserve space for header (title, score, buttons) and footer (power-ups, controls)
     const headerHeight = 140;
     const footerHeight = 140;
-    const horizontalMargin = 30;
 
-    // Calculate available space for the grid
-    const availableWidth = width - (horizontalMargin * 2);
+    // The grid takes as much room as it can rather than leaving the slack at
+    // the bottom of tall phones. It grows until it either runs out of height
+    // or reaches the minimum side margin, whichever comes first, so the board
+    // reads big like the original Threes.
+    const minHorizontalMargin = 10;
+    const maxTileSize = 110;
+
+    const availableWidth = width - (minHorizontalMargin * 2);
     const availableHeight = height - headerHeight - footerHeight;
 
-    // Calculate tile size to fit grid in available space
     // Grid is 4 columns x 6 rows
     const tileSizeByWidth = availableWidth / 4;
     const tileSizeByHeight = availableHeight / 6;
-    const tileSize = Math.min(tileSizeByWidth, tileSizeByHeight, 90);
+    const tileSize = Math.min(tileSizeByWidth, tileSizeByHeight, maxTileSize);
 
     // Calculate grid dimensions
     const gridWidth = tileSize * 4;
@@ -1288,7 +1292,7 @@ class LevelManager {
         description: 'Create a 12 tile',
         objective: { type: 'create_tile', value: 12, count: 1 },
         allowedTiles: [1, 2, 3, 6],
-        maxMoves: 22,
+        maxMoves: 26,
         startingBoard: null,
         powerUps: { swipe: true, swapper: false, merger: false, wildcard: false },
         frenzyEnabled: false,
@@ -1327,7 +1331,7 @@ class LevelManager {
         description: 'Use MERGE to create a 12',
         objective: { type: 'create_tile', value: 12, count: 1 },
         allowedTiles: [1, 2, 3, 6],
-        maxMoves: 12,
+        maxMoves: 24,
         startingBoard: [
           [6, null, null, null, null, null],
           [3, null, null, null, null, null],
@@ -1346,12 +1350,12 @@ class LevelManager {
         description: 'Use WILDCARD to create a 24',
         objective: { type: 'create_tile', value: 24, count: 1 },
         allowedTiles: [1, 2, 3, 6],
-        maxMoves: 15,
+        maxMoves: 20,
         startingBoard: [
-          [12, null, null, null, null, null],
-          [6, 3, null, null, null, null],
-          [3, 6, null, null, null, null],
-          [12, null, null, null, null, null]
+          [6, null, null, null, null, null],
+          [3, null, null, null, null, null],
+          [3, null, null, null, null, null],
+          [6, null, null, null, null, null]
         ],
         powerUps: { swipe: false, swapper: false, merger: false, wildcard: true },
         frenzyEnabled: false,
@@ -1482,7 +1486,7 @@ class LevelManager {
         description: 'Create a 48 tile',
         objective: { type: 'create_tile', value: 48, count: 1 },
         allowedTiles: [1, 2, 3, 6, 12],
-        maxMoves: 40,
+        maxMoves: 60,
         startingBoard: null,
         powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
         frenzyEnabled: true,
@@ -1496,7 +1500,7 @@ class LevelManager {
         description: 'Reach 250 points',
         objective: { type: 'score', target: 250 },
         allowedTiles: [1, 2, 3, 6, 12],
-        maxMoves: 45,
+        maxMoves: 50,
         startingBoard: null,
         powerUps: { swipe: true, swapper: true, merger: true, wildcard: true },
         frenzyEnabled: true,

@@ -315,6 +315,54 @@ function highestOnBoard(logic) {
 }
 
 /**
+ * Swapper: exchange two tiles to set up a merge. Swapping two occupied cells
+ * cannot open a hole, so no gravity follows - the gain is purely in the
+ * adjacency it creates, which evaluate() scores as merge potential.
+ */
+function maybeSwap(logic, pum, BoardLogic) {
+  if (!pum.canAfford('swapper')) return false;
+
+  const cells = [];
+  for (let col = 0; col < logic.COLS; col++) {
+    for (let row = 0; row < logic.ROWS; row++) {
+      if (logic.board[col][row] === null) continue;
+      if (logic.isCellBlocked(col, row)) continue;
+      cells.push({ col, row });
+    }
+  }
+
+  let best = null;
+  let bestScore = evaluate(logic.board, logic, 0);
+
+  for (let i = 0; i < cells.length; i++) {
+    for (let j = i + 1; j < cells.length; j++) {
+      const a = cells[i];
+      const b = cells[j];
+
+      const scratch = new BoardLogic({
+        cols: logic.COLS,
+        rows: logic.ROWS,
+        allowedTiles: logic.allowedTiles,
+        useScoreUnlocks: false
+      });
+      scratch.board = cloneBoard(logic.board);
+      if (!scratch.swapTiles(a.col, a.row, b.col, b.row).success) continue;
+
+      const score = evaluate(scratch.board, scratch, 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = { a, b };
+      }
+    }
+  }
+
+  if (!best) return false;
+  if (!logic.swapTiles(best.a.col, best.a.row, best.b.col, best.b.row).success) return false;
+  pum.spend('swapper');
+  return true;
+}
+
+/**
  * Spend power-ups the way an engaged player would: take a free merge when
  * one is on offer, reach for the wildcard when the objective is a big tile,
  * and swipe to buy space. Greedy and one-ply, like the drop policy.
@@ -348,6 +396,9 @@ function spendPowerUps(logic, pum, level, next, BoardLogic) {
       }
     }
   }
+
+  // Swapper sets up a merge the drop policy can then take.
+  maybeSwap(logic, pum, BoardLogic);
 
   // Swipe buys space when the board is getting tall.
   if (pum.canAfford('swipe')) {

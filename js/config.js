@@ -242,17 +242,21 @@ const GameConfig = {
     // Reserve space for header (title, score, buttons) and footer (power-ups, controls)
     const headerHeight = 140;
     const footerHeight = 140;
-    const horizontalMargin = 30;
 
-    // Calculate available space for the grid
-    const availableWidth = width - (horizontalMargin * 2);
+    // The grid takes as much room as it can rather than leaving the slack at
+    // the bottom of tall phones. It grows until it either runs out of height
+    // or reaches the minimum side margin, whichever comes first, so the board
+    // reads big like the original Threes.
+    const minHorizontalMargin = 10;
+    const maxTileSize = 110;
+
+    const availableWidth = width - (minHorizontalMargin * 2);
     const availableHeight = height - headerHeight - footerHeight;
 
-    // Calculate tile size to fit grid in available space
     // Grid is 4 columns x 6 rows
     const tileSizeByWidth = availableWidth / 4;
     const tileSizeByHeight = availableHeight / 6;
-    const tileSize = Math.min(tileSizeByWidth, tileSizeByHeight, 90);
+    const tileSize = Math.min(tileSizeByWidth, tileSizeByHeight, maxTileSize);
 
     // Calculate grid dimensions
     const gridWidth = tileSize * 4;
