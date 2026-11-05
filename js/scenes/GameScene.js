@@ -3127,9 +3127,9 @@ class GameScene extends Phaser.Scene {
 
     let buttonY = height / 2 + 35;
 
-    // Watch Ad to Continue button (endless mode only)
+    // Second chance button (endless mode only, once per game)
     if (canContinue) {
-      const adBtn = this.add.text(width / 2, buttonY, 'WATCH AD TO CONTINUE', {
+      const adBtn = this.add.text(width / 2, buttonY, 'CONTINUE', {
         fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
       }).setOrigin(0.5).setDepth(1001).setInteractive();
       this.gameOverElements.push(adBtn);
@@ -3158,145 +3158,45 @@ class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Show an ad video and continue the game after watching
+   * Grant the one-per-game second chance.
+   *
+   * The web build simply counts down. The native app build gates this behind
+   * a rewarded ad instead (see docs/superpowers/specs).
    */
   showAdAndContinue() {
     const { width, height } = this.cameras.main;
 
-    // Mark that we've used the continue option
     this.hasUsedAdContinue = true;
 
-    // Create full-screen ad container
-    const adOverlay = this.add.graphics();
-    adOverlay.fillStyle(0x000000, 1);
-    adOverlay.fillRect(0, 0, width, height);
-    adOverlay.setDepth(2000);
+    // Interactive so it swallows taps meant for the game-over buttons beneath.
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
+      .setDepth(2000)
+      .setInteractive();
 
-    // Create HTML video element for the ad
-    const videoContainer = document.createElement('div');
-    videoContainer.id = 'ad-container';
-    videoContainer.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-      z-index: 10000;
-    `;
+    const title = this.add.text(width / 2, height / 2 - 40, 'SECOND CHANCE', {
+      fontSize: '24px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#7ed321'
+    }).setOrigin(0.5).setDepth(2001);
 
-    const video = document.createElement('video');
-    video.style.cssText = 'max-width: 100%; max-height: 100%;';
-    video.autoplay = true;
-    video.playsInline = true;
+    const countdownText = this.add.text(width / 2, height / 2 + 30, '3', {
+      fontSize: '48px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(2001);
 
-    // Get ad URL
-    const adUrl = this.loadRandomAd();
-
-    if (adUrl) {
-      // Play the video ad
-      video.src = adUrl;
-      videoContainer.appendChild(video);
-      document.body.appendChild(videoContainer);
-
-      // Skip button (appears after 3 seconds)
-      const skipBtn = document.createElement('button');
-      skipBtn.textContent = 'Skip';
-      skipBtn.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        padding: 10px 20px;
-        font-size: 16px;
-        background: rgba(255,255,255,0.2);
-        color: white;
-        border: 2px solid white;
-        border-radius: 5px;
-        cursor: pointer;
-        z-index: 10001;
-        display: none;
-      `;
-
-      skipBtn.onclick = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-
-      videoContainer.appendChild(skipBtn);
-
-      // Show skip button after 3 seconds
-      setTimeout(() => {
-        skipBtn.style.display = 'block';
-      }, 3000);
-
-      // Auto-continue when video ends
-      video.onended = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-
-      // Handle video errors
-      video.onerror = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-    } else {
-      // No ads available - show placeholder for 3 seconds
-      const placeholderText = this.add.text(width / 2, height / 2, 'Ad Placeholder\n(Add .mp4 files to /ads folder)', {
-        fontSize: '20px', fontFamily: 'Arial, sans-serif', color: '#888888', align: 'center'
-      }).setOrigin(0.5).setDepth(2001);
-
-      const countdownText = this.add.text(width / 2, height / 2 + 60, '3', {
-        fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-      }).setOrigin(0.5).setDepth(2001);
-
-      let countdown = 3;
-      this.time.addEvent({
-        delay: 1000,
-        callback: () => {
-          countdown--;
-          if (countdown > 0) {
-            countdownText.setText(countdown.toString());
-          } else {
-            placeholderText.destroy();
-            countdownText.destroy();
-            adOverlay.destroy();
-            this.continueAfterAd();
-          }
-        },
-        repeat: 2
-      });
-    }
-  }
-
-  /**
-   * Load a random ad video from the ads folder
-   * Add your .mp4 filenames to the array below
-   */
-  loadRandomAd() {
-    // List your ad video filenames here
-    const adVideos = [
-      'cat.mp4'
-      // Add more: 'ad2.mp4', 'ad3.mp4', etc.
-    ];
-
-    if (adVideos.length === 0) return null;
-
-    const randomAd = adVideos[Math.floor(Math.random() * adVideos.length)];
-    return 'ads/' + randomAd;
-  }
-
-  /**
-   * Clean up video container and continue the game
-   */
-  finishAdAndContinue(videoContainer, adOverlay) {
-    if (videoContainer && videoContainer.parentNode) {
-      videoContainer.parentNode.removeChild(videoContainer);
-    }
-    if (adOverlay) {
-      adOverlay.destroy();
-    }
-    this.continueAfterAd();
+    let countdown = 3;
+    this.time.addEvent({
+      delay: 1000,
+      repeat: 2,
+      callback: () => {
+        countdown--;
+        if (countdown > 0) {
+          countdownText.setText(countdown.toString());
+          return;
+        }
+        title.destroy();
+        countdownText.destroy();
+        overlay.destroy();
+        this.continueAfterAd();
+      }
+    });
   }
 
   /**

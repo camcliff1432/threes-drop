@@ -6,10 +6,6 @@ class MenuScene extends Phaser.Scene {
     super({ key: 'MenuScene' });
   }
 
-  preload() {
-    // Video is loaded directly via HTML element in showUltraVideo
-  }
-
   create() {
     const { width, height } = this.cameras.main;
     UIHelpers.drawBackground(this);
@@ -70,14 +66,6 @@ class MenuScene extends Phaser.Scene {
         description: 'Learn the mechanics\nProgress through challenges',
         color: 0x7ed321,
         tiles: [6, 12, 24]
-      },
-      {
-        mode: 'ultra',
-        title: 'ULTRA',
-        subtitle: '??? MODE ???',
-        description: 'Only for the brave\nAre you ready?',
-        color: 0xff00ff,
-        tiles: ['ultra', 'ultra', 'ultra']
       }
     ];
 
@@ -213,14 +201,6 @@ class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5));
             break;
 
-          case 'ultra':
-            drawTileBase(GameConfig.COLORS.WILDCARD);
-            container.add(tileBg);
-            container.add(this.add.text(tileX, tileY, '☠', {
-              fontSize: '22px', color: '#ffffff'
-            }).setOrigin(0.5));
-            break;
-
           case 'daily':
             const dailyColor = modeData.dailyStats?.todayCompleted ? GameConfig.UI.SUCCESS : GameConfig.UI.WARNING;
             drawTileBase(dailyColor);
@@ -253,9 +233,7 @@ class MenuScene extends Phaser.Scene {
     // Goal highlight
     const goalY = 80;
     let goalLabel;
-    if (modeData.mode === 'ultra') {
-      goalLabel = 'Goal: Survive';
-    } else if (modeData.mode === 'endless') {
+    if (modeData.mode === 'endless') {
       goalLabel = 'Goal: Highest Score';
     } else if (modeData.mode === 'daily') {
       goalLabel = modeData.dailyStats?.todayCompleted ? 'Completed Today' : 'Goal: Complete Challenge';
@@ -271,11 +249,7 @@ class MenuScene extends Phaser.Scene {
     container.add(goalText);
 
     // High score / stats - mode-specific
-    if (modeData.mode === 'ultra') {
-      container.add(this.add.text(0, this.cardHeight / 2 - 28, '⚠ Danger Zone', {
-        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#c49cde'
-      }).setOrigin(0.5));
-    } else if (modeData.mode === 'daily') {
+    if (modeData.mode === 'daily') {
       const streak = modeData.dailyStats?.currentStreak || 0;
       const total = modeData.dailyStats?.totalCompleted || 0;
       const statsText = streak > 0 ? `🔥 ${streak} day streak` : `${total} completed`;
@@ -346,85 +320,6 @@ class MenuScene extends Phaser.Scene {
     this.playButton = UIHelpers.createButton(this, width / 2, buttonY, 'PLAY', () => {
       this.playCurrentMode();
     }, { width: 180, height: 50, fontSize: '24px' });
-  }
-
-  showUltraVideo() {
-    const { width, height } = this.cameras.main;
-
-    // Create dark overlay in Phaser
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.95);
-    overlay.setDepth(1000);
-
-    // Create HTML video element directly to avoid CORS issues
-    const video = document.createElement('video');
-    video.src = 'cat.mp4';
-    video.loop = true;
-    video.muted = false;
-    video.playsInline = true;
-    video.style.position = 'absolute';
-    video.style.zIndex = '1000';
-    video.style.maxWidth = '90%';
-    video.style.maxHeight = '80%';
-    video.style.top = '50%';
-    video.style.left = '50%';
-    video.style.transform = 'translate(-50%, -50%)';
-    video.style.borderRadius = '10px';
-    video.style.boxShadow = '0 0 30px rgba(255, 0, 255, 0.5)';
-    video.style.pointerEvents = 'none'; // Let clicks pass through to the click zone
-
-    // Add to game container
-    const container = document.getElementById('game-container');
-    container.appendChild(video);
-    video.play();
-
-    // Close button (HTML)
-    const closeBtn = document.createElement('div');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.position = 'absolute';
-    closeBtn.style.zIndex = '1001';
-    closeBtn.style.top = '20px';
-    closeBtn.style.right = '20px';
-    closeBtn.style.fontSize = '32px';
-    closeBtn.style.fontWeight = 'bold';
-    closeBtn.style.color = '#ffffff';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.textShadow = '0 0 10px #ff00ff';
-    container.appendChild(closeBtn);
-
-    // Tap hint
-    const tapHint = document.createElement('div');
-    tapHint.innerHTML = 'Tap anywhere to close';
-    tapHint.style.position = 'absolute';
-    tapHint.style.zIndex = '1001';
-    tapHint.style.bottom = '30px';
-    tapHint.style.left = '50%';
-    tapHint.style.transform = 'translateX(-50%)';
-    tapHint.style.fontSize = '14px';
-    tapHint.style.color = '#888888';
-    container.appendChild(tapHint);
-
-    // Overlay click zone (HTML) - z-index above video so clicks register
-    const clickZone = document.createElement('div');
-    clickZone.style.position = 'absolute';
-    clickZone.style.zIndex = '1002';
-    clickZone.style.top = '0';
-    clickZone.style.left = '0';
-    clickZone.style.width = '100%';
-    clickZone.style.height = '100%';
-    clickZone.style.cursor = 'pointer';
-    container.appendChild(clickZone);
-
-    const cleanup = () => {
-      video.pause();
-      video.remove();
-      closeBtn.remove();
-      tapHint.remove();
-      clickZone.remove();
-      overlay.destroy();
-    };
-
-    closeBtn.onclick = cleanup;
-    clickZone.onclick = cleanup;
   }
 
   createMenuButtons() {
@@ -568,9 +463,7 @@ class MenuScene extends Phaser.Scene {
 
   playCurrentMode() {
     const mode = this.gameModes[this.currentIndex].mode;
-    if (mode === 'ultra') {
-      this.showUltraVideo();
-    } else if (mode === 'daily') {
+    if (mode === 'daily') {
       this.scene.start('DailyChallengeScene');
     } else if (mode === 'levels') {
       this.scene.start('TutorialSelectScene');

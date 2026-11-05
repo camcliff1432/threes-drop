@@ -8,7 +8,7 @@
  * CACHE_VERSION and LOCAL_ASSETS below are rewritten by build.mjs — edit the
  * markers, not the generated values.
  */
-/* BUILD:VERSION_START */const CACHE_VERSION = 'threes-drop-36d9a651facd';/* BUILD:VERSION_END */
+/* BUILD:VERSION_START */const CACHE_VERSION = 'threes-drop-1c485c973256';/* BUILD:VERSION_END */
 
 const LOCAL_ASSETS = [
   // BUILD:ASSETS_START

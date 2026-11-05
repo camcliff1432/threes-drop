@@ -6405,10 +6405,6 @@ class MenuScene extends Phaser.Scene {
     super({ key: 'MenuScene' });
   }
 
-  preload() {
-    // Video is loaded directly via HTML element in showUltraVideo
-  }
-
   create() {
     const { width, height } = this.cameras.main;
     UIHelpers.drawBackground(this);
@@ -6469,14 +6465,6 @@ class MenuScene extends Phaser.Scene {
         description: 'Learn the mechanics\nProgress through challenges',
         color: 0x7ed321,
         tiles: [6, 12, 24]
-      },
-      {
-        mode: 'ultra',
-        title: 'ULTRA',
-        subtitle: '??? MODE ???',
-        description: 'Only for the brave\nAre you ready?',
-        color: 0xff00ff,
-        tiles: ['ultra', 'ultra', 'ultra']
       }
     ];
 
@@ -6612,14 +6600,6 @@ class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5));
             break;
 
-          case 'ultra':
-            drawTileBase(GameConfig.COLORS.WILDCARD);
-            container.add(tileBg);
-            container.add(this.add.text(tileX, tileY, '☠', {
-              fontSize: '22px', color: '#ffffff'
-            }).setOrigin(0.5));
-            break;
-
           case 'daily':
             const dailyColor = modeData.dailyStats?.todayCompleted ? GameConfig.UI.SUCCESS : GameConfig.UI.WARNING;
             drawTileBase(dailyColor);
@@ -6652,9 +6632,7 @@ class MenuScene extends Phaser.Scene {
     // Goal highlight
     const goalY = 80;
     let goalLabel;
-    if (modeData.mode === 'ultra') {
-      goalLabel = 'Goal: Survive';
-    } else if (modeData.mode === 'endless') {
+    if (modeData.mode === 'endless') {
       goalLabel = 'Goal: Highest Score';
     } else if (modeData.mode === 'daily') {
       goalLabel = modeData.dailyStats?.todayCompleted ? 'Completed Today' : 'Goal: Complete Challenge';
@@ -6670,11 +6648,7 @@ class MenuScene extends Phaser.Scene {
     container.add(goalText);
 
     // High score / stats - mode-specific
-    if (modeData.mode === 'ultra') {
-      container.add(this.add.text(0, this.cardHeight / 2 - 28, '⚠ Danger Zone', {
-        fontSize: '14px', fontFamily: GameConfig.FONTS.UI, fontStyle: '700', color: '#c49cde'
-      }).setOrigin(0.5));
-    } else if (modeData.mode === 'daily') {
+    if (modeData.mode === 'daily') {
       const streak = modeData.dailyStats?.currentStreak || 0;
       const total = modeData.dailyStats?.totalCompleted || 0;
       const statsText = streak > 0 ? `🔥 ${streak} day streak` : `${total} completed`;
@@ -6745,85 +6719,6 @@ class MenuScene extends Phaser.Scene {
     this.playButton = UIHelpers.createButton(this, width / 2, buttonY, 'PLAY', () => {
       this.playCurrentMode();
     }, { width: 180, height: 50, fontSize: '24px' });
-  }
-
-  showUltraVideo() {
-    const { width, height } = this.cameras.main;
-
-    // Create dark overlay in Phaser
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.95);
-    overlay.setDepth(1000);
-
-    // Create HTML video element directly to avoid CORS issues
-    const video = document.createElement('video');
-    video.src = 'cat.mp4';
-    video.loop = true;
-    video.muted = false;
-    video.playsInline = true;
-    video.style.position = 'absolute';
-    video.style.zIndex = '1000';
-    video.style.maxWidth = '90%';
-    video.style.maxHeight = '80%';
-    video.style.top = '50%';
-    video.style.left = '50%';
-    video.style.transform = 'translate(-50%, -50%)';
-    video.style.borderRadius = '10px';
-    video.style.boxShadow = '0 0 30px rgba(255, 0, 255, 0.5)';
-    video.style.pointerEvents = 'none'; // Let clicks pass through to the click zone
-
-    // Add to game container
-    const container = document.getElementById('game-container');
-    container.appendChild(video);
-    video.play();
-
-    // Close button (HTML)
-    const closeBtn = document.createElement('div');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.position = 'absolute';
-    closeBtn.style.zIndex = '1001';
-    closeBtn.style.top = '20px';
-    closeBtn.style.right = '20px';
-    closeBtn.style.fontSize = '32px';
-    closeBtn.style.fontWeight = 'bold';
-    closeBtn.style.color = '#ffffff';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.textShadow = '0 0 10px #ff00ff';
-    container.appendChild(closeBtn);
-
-    // Tap hint
-    const tapHint = document.createElement('div');
-    tapHint.innerHTML = 'Tap anywhere to close';
-    tapHint.style.position = 'absolute';
-    tapHint.style.zIndex = '1001';
-    tapHint.style.bottom = '30px';
-    tapHint.style.left = '50%';
-    tapHint.style.transform = 'translateX(-50%)';
-    tapHint.style.fontSize = '14px';
-    tapHint.style.color = '#888888';
-    container.appendChild(tapHint);
-
-    // Overlay click zone (HTML) - z-index above video so clicks register
-    const clickZone = document.createElement('div');
-    clickZone.style.position = 'absolute';
-    clickZone.style.zIndex = '1002';
-    clickZone.style.top = '0';
-    clickZone.style.left = '0';
-    clickZone.style.width = '100%';
-    clickZone.style.height = '100%';
-    clickZone.style.cursor = 'pointer';
-    container.appendChild(clickZone);
-
-    const cleanup = () => {
-      video.pause();
-      video.remove();
-      closeBtn.remove();
-      tapHint.remove();
-      clickZone.remove();
-      overlay.destroy();
-    };
-
-    closeBtn.onclick = cleanup;
-    clickZone.onclick = cleanup;
   }
 
   createMenuButtons() {
@@ -6967,9 +6862,7 @@ class MenuScene extends Phaser.Scene {
 
   playCurrentMode() {
     const mode = this.gameModes[this.currentIndex].mode;
-    if (mode === 'ultra') {
-      this.showUltraVideo();
-    } else if (mode === 'daily') {
+    if (mode === 'daily') {
       this.scene.start('DailyChallengeScene');
     } else if (mode === 'levels') {
       this.scene.start('TutorialSelectScene');
@@ -11582,9 +11475,9 @@ class GameScene extends Phaser.Scene {
 
     let buttonY = height / 2 + 35;
 
-    // Watch Ad to Continue button (endless mode only)
+    // Second chance button (endless mode only, once per game)
     if (canContinue) {
-      const adBtn = this.add.text(width / 2, buttonY, 'WATCH AD TO CONTINUE', {
+      const adBtn = this.add.text(width / 2, buttonY, 'CONTINUE', {
         fontSize: '20px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#7ed321'
       }).setOrigin(0.5).setDepth(1001).setInteractive();
       this.gameOverElements.push(adBtn);
@@ -11613,145 +11506,45 @@ class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Show an ad video and continue the game after watching
+   * Grant the one-per-game second chance.
+   *
+   * The web build simply counts down. The native app build gates this behind
+   * a rewarded ad instead (see docs/superpowers/specs).
    */
   showAdAndContinue() {
     const { width, height } = this.cameras.main;
 
-    // Mark that we've used the continue option
     this.hasUsedAdContinue = true;
 
-    // Create full-screen ad container
-    const adOverlay = this.add.graphics();
-    adOverlay.fillStyle(0x000000, 1);
-    adOverlay.fillRect(0, 0, width, height);
-    adOverlay.setDepth(2000);
+    // Interactive so it swallows taps meant for the game-over buttons beneath.
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
+      .setDepth(2000)
+      .setInteractive();
 
-    // Create HTML video element for the ad
-    const videoContainer = document.createElement('div');
-    videoContainer.id = 'ad-container';
-    videoContainer.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-      z-index: 10000;
-    `;
+    const title = this.add.text(width / 2, height / 2 - 40, 'SECOND CHANCE', {
+      fontSize: '24px', fontFamily: GameConfig.FONTS.DISPLAY, fontStyle: '800', color: '#7ed321'
+    }).setOrigin(0.5).setDepth(2001);
 
-    const video = document.createElement('video');
-    video.style.cssText = 'max-width: 100%; max-height: 100%;';
-    video.autoplay = true;
-    video.playsInline = true;
+    const countdownText = this.add.text(width / 2, height / 2 + 30, '3', {
+      fontSize: '48px', fontFamily: GameConfig.FONTS.NUMBERS, fontStyle: '800', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(2001);
 
-    // Get ad URL
-    const adUrl = this.loadRandomAd();
-
-    if (adUrl) {
-      // Play the video ad
-      video.src = adUrl;
-      videoContainer.appendChild(video);
-      document.body.appendChild(videoContainer);
-
-      // Skip button (appears after 3 seconds)
-      const skipBtn = document.createElement('button');
-      skipBtn.textContent = 'Skip';
-      skipBtn.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        padding: 10px 20px;
-        font-size: 16px;
-        background: rgba(255,255,255,0.2);
-        color: white;
-        border: 2px solid white;
-        border-radius: 5px;
-        cursor: pointer;
-        z-index: 10001;
-        display: none;
-      `;
-
-      skipBtn.onclick = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-
-      videoContainer.appendChild(skipBtn);
-
-      // Show skip button after 3 seconds
-      setTimeout(() => {
-        skipBtn.style.display = 'block';
-      }, 3000);
-
-      // Auto-continue when video ends
-      video.onended = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-
-      // Handle video errors
-      video.onerror = () => {
-        this.finishAdAndContinue(videoContainer, adOverlay);
-      };
-    } else {
-      // No ads available - show placeholder for 3 seconds
-      const placeholderText = this.add.text(width / 2, height / 2, 'Ad Placeholder\n(Add .mp4 files to /ads folder)', {
-        fontSize: '20px', fontFamily: 'Arial, sans-serif', color: '#888888', align: 'center'
-      }).setOrigin(0.5).setDepth(2001);
-
-      const countdownText = this.add.text(width / 2, height / 2 + 60, '3', {
-        fontSize: '48px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff'
-      }).setOrigin(0.5).setDepth(2001);
-
-      let countdown = 3;
-      this.time.addEvent({
-        delay: 1000,
-        callback: () => {
-          countdown--;
-          if (countdown > 0) {
-            countdownText.setText(countdown.toString());
-          } else {
-            placeholderText.destroy();
-            countdownText.destroy();
-            adOverlay.destroy();
-            this.continueAfterAd();
-          }
-        },
-        repeat: 2
-      });
-    }
-  }
-
-  /**
-   * Load a random ad video from the ads folder
-   * Add your .mp4 filenames to the array below
-   */
-  loadRandomAd() {
-    // List your ad video filenames here
-    const adVideos = [
-      'cat.mp4'
-      // Add more: 'ad2.mp4', 'ad3.mp4', etc.
-    ];
-
-    if (adVideos.length === 0) return null;
-
-    const randomAd = adVideos[Math.floor(Math.random() * adVideos.length)];
-    return 'ads/' + randomAd;
-  }
-
-  /**
-   * Clean up video container and continue the game
-   */
-  finishAdAndContinue(videoContainer, adOverlay) {
-    if (videoContainer && videoContainer.parentNode) {
-      videoContainer.parentNode.removeChild(videoContainer);
-    }
-    if (adOverlay) {
-      adOverlay.destroy();
-    }
-    this.continueAfterAd();
+    let countdown = 3;
+    this.time.addEvent({
+      delay: 1000,
+      repeat: 2,
+      callback: () => {
+        countdown--;
+        if (countdown > 0) {
+          countdownText.setText(countdown.toString());
+          return;
+        }
+        title.destroy();
+        countdownText.destroy();
+        overlay.destroy();
+        this.continueAfterAd();
+      }
+    });
   }
 
   /**
